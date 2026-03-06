@@ -210,6 +210,47 @@ select.fi option{background:var(--dark);}
   .bul-grid{grid-template-columns:1fr;}
 }
 
+
+
+.home-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+@media(max-width:700px){.home-grid{grid-template-columns:1fr;}}
+
+/* HABITS */
+.habit-check{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  background:rgba(7,17,30,.6);border-radius:6px;border:1px solid rgba(0,180,216,.08);
+  cursor:pointer;font-size:13px;transition:all .2s;}
+.habit-check:hover{border-color:rgba(0,180,216,.3);}
+.habit-check input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
+.habit-check input:checked ~ *{color:var(--accent);}
+
+/* WINNER BANNER */
+.winner-banner{border-radius:8px;padding:16px 20px;margin-bottom:10px;
+  display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;}
+.winner-banner::before{content:'';position:absolute;inset:0;opacity:.06;
+  background:repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%);
+  background-size:8px 8px;}
+.winner-week{background:linear-gradient(135deg,rgba(255,209,102,.15),rgba(255,209,102,.05));
+  border:1px solid rgba(255,209,102,.3);}
+.winner-month{background:linear-gradient(135deg,rgba(0,180,216,.15),rgba(0,180,216,.05));
+  border:1px solid rgba(0,180,216,.3);}
+.winner-emoji{font-size:36px;}
+.winner-info{flex:1;}
+.winner-label{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
+.winner-name{font-family:'Black Ops One',cursive;font-size:20px;line-height:1.2;}
+.winner-score{font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--muted);}
+.winner-crown{font-size:28px;}
+
+/* HABIT LB */
+.hrow{display:flex;align-items:center;gap:14px;padding:12px 16px;
+  background:rgba(7,17,30,.6);border-radius:6px;margin-bottom:8px;
+  border:1px solid rgba(0,180,216,.07);}
+.hrow-rank{font-family:'Black Ops One',cursive;font-size:20px;color:var(--muted);width:28px;text-align:center;}
+.hrow-animal{font-size:20px;}
+.hrow-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;
+  text-transform:uppercase;flex:1;}
+.hrow-score{font-family:'Black Ops One',cursive;font-size:22px;color:var(--accent);}
+.hrow-days{font-size:10px;color:var(--muted);text-align:right;}
+
 /* PRINT */
 @media print{
   .bg,.bg-grid,.snow,.nav,header .brand-tag,.det-tabs,.pdf-btn,.wcard-stripe{display:none!important;}
@@ -236,8 +277,11 @@ select.fi option{background:var(--dark);}
     <h1>TRACKER</h1>
     <p class="sub">Optimise · Résiste · Domine</p>
     <div class="nav">
-      <button class="nav-btn active" onclick="nav('leaderboard')">🏆 Classement</button>
-      <button class="nav-btn" onclick="nav('add')">➕ Nouveau résultat</button>
+      <button class="nav-btn active" onclick="nav('leaderboard')">🏆 Fitness</button>
+      <button class="nav-btn" onclick="nav('habits-week')">🔥 Habitudes — Semaine</button>
+      <button class="nav-btn" onclick="nav('habits-month')">📆 Habitudes — Mois</button>
+      <button class="nav-btn" onclick="nav('add')">➕ Résultat</button>
+      <button class="nav-btn" onclick="nav('encode-habits')">✏️ Habitudes</button>
       <button class="nav-btn" onclick="nav('warriors')">⚔ Guerriers</button>
       <button class="nav-btn" onclick="nav('criteres')">📖 Critères</button>
       <button class="nav-btn" onclick="nav('levels')">🐉 Niveaux</button>
@@ -245,11 +289,88 @@ select.fi option{background:var(--dark);}
     </div>
   </header>
 
-  <!-- LEADERBOARD -->
+  <!-- LEADERBOARD HOME -->
   <div class="section active" id="s-leaderboard">
-    <div class="lb" id="lb"></div>
-    <div id="lb-empty" style="display:none;text-align:center;padding:60px;color:var(--muted);font-size:14px;">
-      Aucun guerrier encore. Commence par en ajouter un ! ❄
+
+    <!-- WINNERS BANNERS -->
+    <div id="home-winners" style="margin-bottom:20px;"></div>
+
+    <!-- TWO COLUMNS -->
+    <div class="home-grid">
+      <!-- FITNESS -->
+      <div>
+        <div class="stitle">🏋 Classement Fitness</div>
+        <div class="lb" id="lb"></div>
+        <div id="lb-empty" style="display:none;text-align:center;padding:40px;color:var(--muted);font-size:13px;">
+          Aucun guerrier encore ❄
+        </div>
+      </div>
+      <!-- HABITS -->
+      <div>
+        <div class="stitle" id="home-habits-title">🔥 Habitudes — Semaine</div>
+        <div id="home-habits-lb"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HABITS WEEK -->
+  <div class="section" id="s-habits-week">
+    <div class="card">
+      <div class="stitle" id="hw-title">Classement Habitudes — Semaine</div>
+      <div id="hw-lb"></div>
+    </div>
+  </div>
+
+  <!-- HABITS MONTH -->
+  <div class="section" id="s-habits-month">
+    <div class="card">
+      <div class="stitle" id="hm-title">Classement Habitudes — Mois</div>
+      <div id="hm-lb"></div>
+    </div>
+  </div>
+
+  <!-- ENCODE HABITS -->
+  <div class="section" id="s-encode-habits">
+    <div class="card">
+      <div class="stitle">✏️ Encoder mes habitudes</div>
+      <div class="form-grid">
+        <div class="fg full">
+          <label class="fl">Guerrier</label>
+          <select class="fi" id="h-warrior2"></select>
+        </div>
+        <div class="fg">
+          <label class="fl">Date</label>
+          <input class="fi" id="h-date2" type="date">
+        </div>
+      </div>
+      <div style="margin-top:20px;">
+        <div class="stitle">Activités du jour (+1 pt chacune)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px;">
+          <label class="habit-check"><input type="checkbox" id="h2-cardio" onchange="updateDayPreview2()"> 🏃 Cardio</label>
+          <label class="habit-check"><input type="checkbox" id="h2-force" onchange="updateDayPreview2()"> 💪 Force</label>
+          <label class="habit-check"><input type="checkbox" id="h2-mixte" onchange="updateDayPreview2()"> ⚡ Mixte</label>
+          <label class="habit-check"><input type="checkbox" id="h2-sauna" onchange="updateDayPreview2()"> 🧖 Sauna</label>
+          <label class="habit-check"><input type="checkbox" id="h2-bain_froid" onchange="updateDayPreview2()"> 🧊 Bain froid</label>
+          <label class="habit-check"><input type="checkbox" id="h2-wim_hof" onchange="updateDayPreview2()"> 🫁 Wim Hof (3 sets min)</label>
+          <label class="habit-check"><input type="checkbox" id="h2-yoga" onchange="updateDayPreview2()"> 🧘 Yoga / Étirements 30min</label>
+          <label class="habit-check"><input type="checkbox" id="h2-point_faible" onchange="updateDayPreview2()"> 🎯 Travail point faible</label>
+        </div>
+        <div class="stitle">Douches froides (+0,2 pt chacune)</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <button class="btn btn-d" style="padding:6px 16px;font-size:18px;" onclick="adjustShowers2(-1)">−</button>
+          <span id="shower-count2" style="font-family:'Black Ops One',cursive;font-size:28px;color:var(--accent);">0</span>
+          <button class="btn btn-p" style="padding:6px 16px;font-size:18px;" onclick="adjustShowers2(1)">+</button>
+          <span style="font-size:12px;color:var(--muted);">douches froides</span>
+        </div>
+        <div style="background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
+          <span style="font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Points du jour : </span>
+          <span id="day-preview2" style="font-family:'Black Ops One',cursive;font-size:24px;color:var(--accent);">0</span>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-p" onclick="saveHabits2()">💾 Enregistrer</button>
+      </div>
+      <div id="habit-msg2"></div>
     </div>
   </div>
 
@@ -350,6 +471,82 @@ select.fi option{background:var(--dark);}
     <div id="criteres-content"></div>
   </div>
 
+
+  <!-- HABITUDES -->
+  <div class="section" id="s-habits">
+
+    <!-- WINNERS BANNER -->
+    <div id="winners-banner" style="margin-bottom:16px;"></div>
+
+    <!-- TABS -->
+    <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;">
+      <button class="nav-btn active" id="htab-encode" onclick="switchHabitsTab('encode')">✏️ Encoder</button>
+      <button class="nav-btn" id="htab-week" onclick="switchHabitsTab('week')">📅 Semaine</button>
+      <button class="nav-btn" id="htab-month" onclick="switchHabitsTab('month')">📆 Mois</button>
+    </div>
+
+    <!-- ENCODE -->
+    <div id="hcontent-encode">
+      <div class="card">
+        <div class="stitle">Encoder mes habitudes</div>
+        <div class="form-grid">
+          <div class="fg full">
+            <label class="fl">Guerrier</label>
+            <select class="fi" id="h-warrior"></select>
+          </div>
+          <div class="fg">
+            <label class="fl">Date</label>
+            <input class="fi" id="h-date" type="date">
+          </div>
+        </div>
+        <div style="margin-top:20px;">
+          <div class="stitle">Activités du jour (+1 pt chacune)</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px;">
+            <label class="habit-check"><input type="checkbox" id="h-cardio"> 🏃 Cardio</label>
+            <label class="habit-check"><input type="checkbox" id="h-force"> 💪 Force</label>
+            <label class="habit-check"><input type="checkbox" id="h-mixte"> ⚡ Mixte</label>
+            <label class="habit-check"><input type="checkbox" id="h-sauna"> 🧖 Sauna</label>
+            <label class="habit-check"><input type="checkbox" id="h-bain_froid"> 🧊 Bain froid</label>
+            <label class="habit-check"><input type="checkbox" id="h-wim_hof"> 🫁 Wim Hof (3 sets min)</label>
+            <label class="habit-check"><input type="checkbox" id="h-yoga"> 🧘 Yoga / Étirements 30min</label>
+            <label class="habit-check"><input type="checkbox" id="h-point_faible"> 🎯 Travail point faible</label>
+          </div>
+          <div class="stitle">Douches froides (+0,2 pt chacune)</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <button class="btn btn-d" style="padding:6px 16px;font-size:18px;" onclick="adjustShowers(-1)">−</button>
+            <span id="shower-count" style="font-family:'Black Ops One',cursive;font-size:28px;color:var(--accent);">0</span>
+            <button class="btn btn-p" style="padding:6px 16px;font-size:18px;" onclick="adjustShowers(1)">+</button>
+            <span style="font-size:12px;color:var(--muted);">douches froides</span>
+          </div>
+          <div style="background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
+            <span style="font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Points du jour : </span>
+            <span id="day-preview" style="font-family:'Black Ops One',cursive;font-size:24px;color:var(--accent);">0</span>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-p" onclick="saveHabits()">💾 Enregistrer</button>
+        </div>
+        <div id="habit-msg"></div>
+      </div>
+    </div>
+
+    <!-- WEEK LEADERBOARD -->
+    <div id="hcontent-week" style="display:none;">
+      <div class="card">
+        <div class="stitle" id="week-title">Classement — Semaine en cours</div>
+        <div id="week-lb"></div>
+      </div>
+    </div>
+
+    <!-- MONTH LEADERBOARD -->
+    <div id="hcontent-month" style="display:none;">
+      <div class="card">
+        <div class="stitle" id="month-title">Classement — Mois en cours</div>
+        <div id="month-lb"></div>
+      </div>
+    </div>
+
+  </div>
   <!-- LEVELS -->
   <div class="section" id="s-levels">
     <div class="stitle">Hiérarchie Frozen Warriors</div>
@@ -482,6 +679,26 @@ async function sbFetch(path, options={}) {
   return text ? JSON.parse(text) : [];
 }
 
+
+async function getHabits() {
+  return await sbFetch('habits?order=date.desc');
+}
+
+async function upsertHabit(h) {
+  return await sbFetch('habits', {
+    method: 'POST',
+    headers: {'Prefer': 'resolution=merge-duplicates,return=representation'},
+    body: JSON.stringify({
+      id: h.id, warrior_id: h.warriorId, date: h.date,
+      cardio: h.cardio||false, force: h.force||false,
+      mixte: h.mixte||false, sauna: h.sauna||false,
+      bain_froid: h.bain_froid||false, wim_hof: h.wim_hof||false,
+      yoga: h.yoga||false, point_faible: h.point_faible||false,
+      douches_froides: h.douches_froides||0
+    })
+  });
+}
+
 async function getWarriors() {
   return await sbFetch('warriors?order=name');
 }
@@ -528,17 +745,24 @@ async function deleteResultDb(rid) {
 }
 
 // ======== LOCAL CACHE ========
-let _cache = { warriors: [], results: [] };
+let _cache = { warriors: [], results: [], habits: [] };
 
 async function loadFromDb() {
   showLoading(true);
   try {
-    const [warriors, results] = await Promise.all([getWarriors(), getResults()]);
+    const [warriors, results, habits] = await Promise.all([getWarriors(), getResults(), getHabits()]);
     _cache.warriors = warriors.map(w => ({
       id: w.id, name: w.name, gender: w.gender,
       weight: w.weight, height: w.height
     }));
-    _cache.results = results.map(r => ({
+    _cache.habits = habits.map(h => ({
+      id: h.id, warriorId: h.warrior_id, date: h.date,
+      cardio: h.cardio, force: h.force, mixte: h.mixte,
+      sauna: h.sauna, bain_froid: h.bain_froid, wim_hof: h.wim_hof,
+      yoga: h.yoga, point_faible: h.point_faible,
+      douches_froides: h.douches_froides||0
+    }));
+  _cache.results = results.map(r => ({
       id: r.id, warriorId: r.warrior_id, date: r.date,
       grip_g: r.grip_g, grip_d: r.grip_d,
       deadhang: r.deadhang, legext: r.legext,
@@ -1157,6 +1381,133 @@ async function deleteWarrior(wid) {
   } catch(e) { alert('Erreur: ' + e.message); }
 }
 
+
+function populateHabitWarriorSelect2() {
+  const d = getData();
+  const sel = document.getElementById('h-warrior2');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Sélectionne un guerrier —</option>';
+  d.warriors.forEach(w => { sel.innerHTML += `<option value="${w.id}">${w.name}</option>`; });
+}
+
+let showerCount2 = 0;
+function adjustShowers2(delta) {
+  showerCount2 = Math.max(0, showerCount2 + delta);
+  document.getElementById('shower-count2').textContent = showerCount2;
+  updateDayPreview2();
+}
+function updateDayPreview2() {
+  const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
+  let pts = checks.filter(id => document.getElementById('h2-'+id)?.checked).length;
+  pts += showerCount2 * 0.2;
+  document.getElementById('day-preview2').textContent = pts.toFixed(1);
+}
+
+async function saveHabits2() {
+  const wid = document.getElementById('h-warrior2').value;
+  const date = document.getElementById('h-date2').value;
+  if (!wid) return showMsg('habit-msg2','Sélectionne un guerrier','err');
+  if (!date) return showMsg('habit-msg2','Entre une date','err');
+  const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
+  const habit = { id:'h_'+wid+'_'+date, warriorId:wid, date, douches_froides:showerCount2 };
+  checks.forEach(k => { habit[k] = document.getElementById('h2-'+k)?.checked||false; });
+  try {
+    await upsertHabit(habit);
+    await loadFromDb();
+    renderHomeHabits();
+    renderHomeWinners();
+    showMsg('habit-msg2','✅ Habitudes enregistrées !','ok');
+    checks.forEach(k => { const el=document.getElementById('h2-'+k); if(el) el.checked=false; });
+    showerCount2=0;
+    document.getElementById('shower-count2').textContent='0';
+    document.getElementById('day-preview2').textContent='0';
+  } catch(e) { showMsg('habit-msg2','Erreur: '+e.message,'err'); }
+}
+
+function renderHabitsLbFull(period) {
+  const today = new Date().toISOString().split('T')[0];
+  const bounds = period==='week' ? getWeekBounds(today) : getMonthBounds(today);
+  const lb = getHabitsLeaderboard(bounds.start, bounds.end);
+  const container = document.getElementById(period==='week'?'hw-lb':'hm-lb');
+  const title = document.getElementById(period==='week'?'hw-title':'hm-title');
+  const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  title.textContent = period==='week'
+    ? `Habitudes — Semaine du ${bounds.start} au ${bounds.end}`
+    : `Habitudes — ${months[new Date(bounds.start).getMonth()]} ${new Date(bounds.start).getFullYear()}`;
+  if (lb.every(e=>e.pts===0)) {
+    container.innerHTML='<div class="no-history">Aucune habitude encodée pour cette période.</div>';
+    return;
+  }
+  container.innerHTML = lb.map((entry,i) => {
+    const rc = i===0?'var(--gold)':i===1?'var(--silver)':i===2?'var(--bronze)':'var(--muted)';
+    return `<div class="hrow">
+      <div class="hrow-rank" style="color:${rc}">${i+1}</div>
+      <div class="hrow-animal">${entry.animal.emoji}</div>
+      <div class="hrow-name">${entry.w.name}</div>
+      <div><div class="hrow-score">${entry.pts.toFixed(1)}</div>
+      <div class="hrow-days">${entry.days} jour${entry.days>1?'s':''}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderHomeHabits() {
+  const today = new Date().toISOString().split('T')[0];
+  const bounds = getWeekBounds(today);
+  const lb = getHabitsLeaderboard(bounds.start, bounds.end);
+  const container = document.getElementById('home-habits-lb');
+  if (!container) return;
+  if (lb.every(e=>e.pts===0)) {
+    container.innerHTML='<div style="color:var(--muted);font-size:13px;padding:20px 0;">Aucune habitude cette semaine encore. Sois le premier ! 💪</div>';
+    return;
+  }
+  container.innerHTML = lb.filter(e=>e.pts>0).map((entry,i) => {
+    const rc = i===0?'var(--gold)':i===1?'var(--silver)':i===2?'var(--bronze)':'var(--muted)';
+    return `<div class="hrow">
+      <div class="hrow-rank" style="color:${rc}">${i+1}</div>
+      <div class="hrow-animal">${entry.animal.emoji}</div>
+      <div class="hrow-name">${entry.w.name}</div>
+      <div><div class="hrow-score">${entry.pts.toFixed(1)}</div>
+      <div class="hrow-days">${entry.days}j</div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderHomeWinners() {
+  const container = document.getElementById('home-winners');
+  if (!container) return;
+  const prevWeek = getPrevWeekBounds();
+  const prevMonth = getPrevMonthBounds();
+  const weekLb = getHabitsLeaderboard(prevWeek.start, prevWeek.end);
+  const monthLb = getHabitsLeaderboard(prevMonth.start, prevMonth.end);
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+  const ww = weekLb[0];
+  if (ww && ww.pts > 0) {
+    html += `<div class="winner-banner winner-week">
+      <div class="winner-crown">👑</div>
+      <div class="winner-emoji">${ww.animal.emoji}</div>
+      <div class="winner-info">
+        <div class="winner-label">Vainqueur — semaine passée</div>
+        <div class="winner-name">${ww.w.name}</div>
+        <div class="winner-score">${ww.pts.toFixed(1)} pts · ${ww.animal.name}</div>
+      </div>
+    </div>`;
+  } else { html += '<div></div>'; }
+  const mw = monthLb[0];
+  if (mw && mw.pts > 0) {
+    html += `<div class="winner-banner winner-month">
+      <div class="winner-crown">🏆</div>
+      <div class="winner-emoji">${mw.animal.emoji}</div>
+      <div class="winner-info">
+        <div class="winner-label">Vainqueur — mois passé</div>
+        <div class="winner-name">${mw.w.name}</div>
+        <div class="winner-score">${mw.pts.toFixed(1)} pts · ${mw.animal.name}</div>
+      </div>
+    </div>`;
+  } else { html += '<div></div>'; }
+  html += '</div>';
+  container.innerHTML = html;
+}
+
 // ======== CRITERES ========
 function renderCriteres() {
   const container = document.getElementById('criteres-content');
@@ -1350,11 +1701,18 @@ function nav(name) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(`s-${name}`).classList.add('active');
-  const idx = ['leaderboard','add','warriors','criteres','levels','admin'].indexOf(name);
+  const idx = ['leaderboard','habits-week','habits-month','add','encode-habits','warriors','criteres','levels','admin'].indexOf(name);
   document.querySelectorAll('.nav-btn')[idx]?.classList.add('active');
   if (name === 'add') { populateWarriorSelect(); document.getElementById('f-date').value = new Date().toISOString().split('T')[0]; }
   if (name === 'warriors') renderWarriorsList();
   if (name === 'criteres') renderCriteres();
+  if (name === 'encode-habits') {
+    populateHabitWarriorSelect2();
+    document.getElementById('h-date2').value = new Date().toISOString().split('T')[0];
+  }
+  if (name === 'habits-week') renderHabitsLbFull('week');
+  if (name === 'habits-month') renderHabitsLbFull('month');
+  if (name === 'leaderboard') { renderLeaderboard(); renderHomeHabits(); renderHomeWinners(); }
 }
 
 // ======== SNOW ========
@@ -1373,12 +1731,268 @@ function makeSnow() {
   }
 }
 
+
+// ======== HABITS ========
+let showerCount = 0;
+
+function adjustShowers(delta) {
+  showerCount = Math.max(0, showerCount + delta);
+  document.getElementById('shower-count').textContent = showerCount;
+  updateDayPreview();
+}
+
+function updateDayPreview() {
+  const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
+  let pts = checks.filter(id => document.getElementById('h-'+id)?.checked).length;
+  pts += showerCount * 0.2;
+  document.getElementById('day-preview').textContent = pts.toFixed(1);
+}
+
+function switchHabitsTab(tab) {
+  ['encode','week','month'].forEach(t => {
+    document.getElementById('hcontent-'+t).style.display = t===tab?'block':'none';
+    document.getElementById('htab-'+t).classList.toggle('active', t===tab);
+  });
+  if (tab==='week') renderHabitsLb('week');
+  if (tab==='month') renderHabitsLb('month');
+}
+
+function populateHabitWarriorSelect() {
+  const d = getData();
+  const sel = document.getElementById('h-warrior');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Sélectionne un guerrier —</option>';
+  d.warriors.forEach(w => {
+    sel.innerHTML += `<option value="${w.id}">${w.name}</option>`;
+  });
+}
+
+function calcHabitPoints(h) {
+  const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
+  let pts = checks.filter(k => h[k]).length;
+  pts += (h.douches_froides||0) * 0.2;
+  return pts;
+}
+
+function getWeekBounds(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1) - day; // Monday
+  const mon = new Date(d); mon.setDate(d.getDate() + diff);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return {
+    start: mon.toISOString().split('T')[0],
+    end: sun.toISOString().split('T')[0]
+  };
+}
+
+function getMonthBounds(date) {
+  const d = new Date(date);
+  const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  const end = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
+  return {start, end};
+}
+
+function getPrevWeekBounds() {
+  const today = new Date();
+  today.setDate(today.getDate() - 7);
+  return getWeekBounds(today.toISOString().split('T')[0]);
+}
+
+function getPrevMonthBounds() {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth()-1, 1).toISOString().split('T')[0];
+  const end = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
+  return {start, end};
+}
+
+function getHabitsLeaderboard(start, end) {
+  const d = getData();
+  return d.warriors.map(w => {
+    const wHabits = d.habits.filter(h =>
+      h.warriorId === w.id && h.date >= start && h.date <= end
+    );
+    const pts = wHabits.reduce((sum, h) => sum + calcHabitPoints(h), 0);
+    const days = wHabits.length;
+    const latest = getLatestResult(w.id);
+    const score = latest ? calcScore(w, latest).total : 0;
+    const animal = getAnimal(score);
+    return {w, pts, days, animal};
+  }).sort((a,b) => b.pts - a.pts);
+}
+
+function renderHabitsLb(period) {
+  const today = new Date().toISOString().split('T')[0];
+  const bounds = period === 'week' ? getWeekBounds(today) : getMonthBounds(today);
+  const lb = getHabitsLeaderboard(bounds.start, bounds.end);
+  const container = document.getElementById(period+'-lb');
+  const title = document.getElementById(period+'-title');
+
+  if (period === 'week') {
+    title.textContent = `Semaine du ${bounds.start} au ${bounds.end}`;
+  } else {
+    const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    title.textContent = `${months[new Date(bounds.start).getMonth()]} ${new Date(bounds.start).getFullYear()}`;
+  }
+
+  if (lb.every(e => e.pts === 0)) {
+    container.innerHTML = '<div class="no-history">Aucune habitude encodée pour cette période.</div>';
+    return;
+  }
+
+  container.innerHTML = lb.map((entry, i) => {
+    const rankColor = i===0?'var(--gold)':i===1?'var(--silver)':i===2?'var(--bronze)':'var(--muted)';
+    return `<div class="hrow">
+      <div class="hrow-rank" style="color:${rankColor}">${i+1}</div>
+      <div class="hrow-animal">${entry.animal.emoji}</div>
+      <div class="hrow-name">${entry.w.name}</div>
+      <div>
+        <div class="hrow-score">${entry.pts.toFixed(1)}</div>
+        <div class="hrow-days">${entry.days} jour${entry.days>1?'s':''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderWinnersBanner() {
+  const container = document.getElementById('winners-banner');
+  if (!container) return;
+
+  const prevWeek = getPrevWeekBounds();
+  const prevMonth = getPrevMonthBounds();
+  const weekLb = getHabitsLeaderboard(prevWeek.start, prevWeek.end);
+  const monthLb = getHabitsLeaderboard(prevMonth.start, prevMonth.end);
+
+  let html = '';
+
+  const weekWinner = weekLb[0];
+  if (weekWinner && weekWinner.pts > 0) {
+    html += `<div class="winner-banner winner-week">
+      <div class="winner-crown">👑</div>
+      <div class="winner-emoji">${weekWinner.animal.emoji}</div>
+      <div class="winner-info">
+        <div class="winner-label">Vainqueur semaine précédente</div>
+        <div class="winner-name">${weekWinner.w.name}</div>
+        <div class="winner-score">${weekWinner.pts.toFixed(1)} pts · ${weekWinner.animal.name}</div>
+      </div>
+    </div>`;
+  }
+
+  const monthWinner = monthLb[0];
+  if (monthWinner && monthWinner.pts > 0) {
+    html += `<div class="winner-banner winner-month">
+      <div class="winner-crown">🏆</div>
+      <div class="winner-emoji">${monthWinner.animal.emoji}</div>
+      <div class="winner-info">
+        <div class="winner-label">Vainqueur mois précédent</div>
+        <div class="winner-name">${monthWinner.w.name}</div>
+        <div class="winner-score">${monthWinner.pts.toFixed(1)} pts · ${monthWinner.animal.name}</div>
+      </div>
+    </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+async function saveHabits() {
+  const wid = document.getElementById('h-warrior').value;
+  const date = document.getElementById('h-date').value;
+  if (!wid) return showMsg('habit-msg','Sélectionne un guerrier','err');
+  if (!date) return showMsg('habit-msg','Entre une date','err');
+
+  const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
+  const habit = {
+    id: 'h_' + wid + '_' + date,
+    warriorId: wid, date,
+    douches_froides: showerCount
+  };
+  checks.forEach(k => { habit[k] = document.getElementById('h-'+k)?.checked || false; });
+
+  try {
+    await upsertHabit(habit);
+    await loadFromDb();
+    renderWinnersBanner();
+    showMsg('habit-msg','✅ Habitudes enregistrées !','ok');
+    // Reset
+    checks.forEach(k => { const el = document.getElementById('h-'+k); if(el) el.checked=false; });
+    showerCount = 0;
+    document.getElementById('shower-count').textContent = '0';
+    document.getElementById('day-preview').textContent = '0';
+  } catch(e) {
+    showMsg('habit-msg','Erreur: ' + e.message,'err');
+  }
+}
+
+// Also add winners banner to leaderboard page
+function renderLeaderboardWinners() {
+  const lb = document.getElementById('lb');
+  if (!lb) return;
+  const prevWeek = getPrevWeekBounds();
+  const prevMonth = getPrevMonthBounds();
+  const weekLb = getHabitsLeaderboard(prevWeek.start, prevWeek.end);
+  const monthLb = getHabitsLeaderboard(prevMonth.start, prevMonth.end);
+  let html = '';
+  const ww = weekLb[0];
+  if (ww && ww.pts > 0) {
+    html += `<div class="winner-banner winner-week" style="margin-bottom:10px;">
+      <div class="winner-crown">👑</div><div class="winner-emoji">${ww.animal.emoji}</div>
+      <div class="winner-info">
+        <div class="winner-label">Vainqueur habitudes — semaine précédente</div>
+        <div class="winner-name">${ww.w.name}</div>
+        <div class="winner-score">${ww.pts.toFixed(1)} pts</div>
+      </div></div>`;
+  }
+  const mw = monthLb[0];
+  if (mw && mw.pts > 0) {
+    html += `<div class="winner-banner winner-month" style="margin-bottom:16px;">
+      <div class="winner-crown">🏆</div><div class="winner-emoji">${mw.animal.emoji}</div>
+      <div class="winner-info">
+        <div class="winner-label">Vainqueur habitudes — mois précédent</div>
+        <div class="winner-name">${mw.w.name}</div>
+        <div class="winner-score">${mw.pts.toFixed(1)} pts</div>
+      </div></div>`;
+  }
+  if (html) lb.insertAdjacentHTML('beforebegin', html);
+}
+
 // ======== INIT ========
 makeSnow();
 renderLevels();
+// Add habit checkbox listeners
+['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'].forEach(id => {
+  const el = document.getElementById('h-'+id);
+  if (el) el.addEventListener('change', updateDayPreview);
+});
 loadFromDb().then(async () => {
   await seedIfEmpty();
+  // Seed demo habit for Jessica (prev week winner)
+  const d = getData();
+  const jessica = d.warriors.find(w => w.name === 'Jessica');
+  if (jessica && !d.habits.find(h => h.warriorId === jessica.id)) {
+    const prevWeek = getPrevWeekBounds();
+    // Give Jessica 10 pts last week (5 days of 2pts)
+    const days = [];
+    const start = new Date(prevWeek.start);
+    for (let i=0;i<5;i++) {
+      const date = new Date(start);
+      date.setDate(start.getDate()+i);
+      const dateStr = date.toISOString().split('T')[0];
+      days.push({
+        id:'h_'+jessica.id+'_'+dateStr,
+        warriorId:jessica.id, date:dateStr,
+        cardio:true, force:false, mixte:false, sauna:true,
+        bain_froid:false, wim_hof:false, yoga:false, point_faible:false,
+        douches_froides:0
+      });
+    }
+    for (const h of days) {
+      try { await upsertHabit(h); } catch(e){}
+    }
+    await loadFromDb();
+  }
   renderLeaderboard();
+  renderHomeHabits();
+  renderHomeWinners();
   populateWarriorSelect();
 });
 </script>
