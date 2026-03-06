@@ -883,9 +883,92 @@ function renderHistory(wid) {
       <span class="hist-date">📅 ${r.date}</span>
       <span>${animal.emoji} <span class="hist-animal">${animal.name}</span></span>
       <span class="hist-score">${total} pts</span>
-      <span class="hist-del" onclick="deleteResult('${r.id}','${wid}')" title="Supprimer">✕</span>
+      <span style="display:flex;gap:6px;">
+        <span class="hist-del" onclick="editResult('${r.id}','${wid}')" title="Modifier" style="color:var(--accent);">✏️</span>
+        <span class="hist-del" onclick="deleteResult('${r.id}','${wid}')" title="Supprimer">✕</span>
+      </span>
     </div>`;
   }).join('')}</div>`;
+}
+
+async function editResult(rid, wid) {
+  const d = getData();
+  const warrior = d.warriors.find(w => w.id === wid);
+  const result = d.results.find(r => r.id === rid);
+  if (!warrior || !result) return;
+
+  // Switch to add tab and pre-fill everything
+  nav('add');
+  await new Promise(r => setTimeout(r, 100));
+
+  document.getElementById('f-warrior').value = wid;
+  onWarriorSelect();
+  await new Promise(r => setTimeout(r, 100));
+
+  document.getElementById('f-date').value = result.date;
+
+  const tests = TESTS[warrior.gender||'homme'];
+  tests.forEach(t => {
+    if (t.id === 'legext') {
+      const mode = result.legext_mode || 'legext';
+      setLegMode(mode);
+      if (result.legext) document.getElementById('ft-legext').value = result.legext;
+      if (result.backsquat) document.getElementById('ft-backsquat').value = result.backsquat;
+      return;
+    }
+    const el = document.getElementById(`ft-${t.id}`);
+    if (el && result[t.id] != null) el.value = result[t.id];
+  });
+  if (result.bp) document.getElementById('f-bp').value = result.bp;
+
+  // Mark as edit mode - delete old result on save
+  document.getElementById('test-fields').dataset.editId = rid;
+  document.getElementById('test-fields').dataset.editWid = wid;
+
+  // Change button text
+  const btn = document.querySelector('#test-fields .btn-p');
+  if (btn) btn.textContent = '💾 Mettre à jour';
+
+  showMsg('save-msg', '✏️ Mode modification — corrige les valeurs et sauvegarde', 'ok');
+}
+
+async function editResult(rid, wid) {
+  const d = getData();
+  const warrior = d.warriors.find(w => w.id === wid);
+  const result = d.results.find(r => r.id === rid);
+  if (!warrior || !result) return;
+
+  // Switch to add tab and pre-fill everything
+  nav('add');
+  await new Promise(r => setTimeout(r, 100));
+
+  document.getElementById('f-warrior').value = wid;
+  onWarriorSelect();
+  await new Promise(r => setTimeout(r, 100));
+
+  document.getElementById('f-date').value = result.date;
+
+  const tests = TESTS[warrior.gender||'homme'];
+  tests.forEach(t => {
+    if (t.id === 'legext') {
+      const mode = result.legext_mode || 'legext';
+      setLegMode(mode);
+      if (result.legext) document.getElementById('ft-legext').value = result.legext;
+      if (result.backsquat) document.getElementById('ft-backsquat').value = result.backsquat;
+      return;
+    }
+    const el = document.getElementById('ft-' + t.id);
+    if (el && result[t.id] != null) el.value = result[t.id];
+  });
+  if (result.bp) document.getElementById('f-bp').value = result.bp;
+
+  // Mark as editing
+  window._editingResultId = rid;
+  document.getElementById('save-msg').innerHTML =
+    '<div class="msg msg-ok">✏️ Mode modification — tu écrases le résultat du ' + result.date + '</div>';
+
+  // Scroll to top
+  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 async function deleteResult(rid, wid) {
@@ -974,6 +1057,14 @@ async function saveResult() {
   if (!wid) return showMsg('save-msg','Sélectionne un guerrier','err');
   if (!date) return showMsg('save-msg','Entre une date','err');
 
+  // Check if edit mode
+  const editId = document.getElementById('test-fields').dataset.editId;
+  if (editId) {
+    delete document.getElementById('test-fields').dataset.editId;
+    delete document.getElementById('test-fields').dataset.editWid;
+    await deleteResultDb(editId);
+  }
+
   const d = getData();
   const warrior = d.warriors.find(w => w.id === wid);
   const tests = TESTS[warrior.gender||'homme'];
@@ -994,7 +1085,9 @@ async function saveResult() {
     await upsertResult(result);
     await loadFromDb();
     renderLeaderboard();
-    showMsg('save-msg','✅ Résultat enregistré !','ok');
+    const btn = document.querySelector('#test-fields .btn-p');
+    if (btn) btn.textContent = '💾 Enregistrer';
+    showMsg('save-msg', editId ? '✅ Résultat modifié !' : '✅ Résultat enregistré !','ok');
     setTimeout(() => nav('leaderboard'), 1200);
   } catch(e) {
     showMsg('save-msg','Erreur: ' + e.message,'err');
