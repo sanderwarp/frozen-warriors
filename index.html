@@ -1851,8 +1851,8 @@ function renderFeed() {
   container.innerHTML = html;
 }
 
-async function triggerFeedEvent(type, warriorId, message) {
-  await insertFeedEvent(type, warriorId, message);
+async function triggerFeedEvent(type, warriorId, message, details) {
+  await insertFeedEvent(type, warriorId, message, details);
   await loadFromDb();
   renderFeed();
 }
