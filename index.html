@@ -1594,13 +1594,31 @@ function setMyProfile(wid) {
   try { localStorage.setItem(PROFILE_KEY, wid); } catch(e) {}
 }
 
-function showProfileModal() {
+function showProfileModal(showNew) {
   const d = getData();
-  if (d.warriors.length === 0) return;
   const modal = document.getElementById('profile-modal');
   const list = document.getElementById('profile-list');
   if (!modal || !list) return;
   modal.style.display = 'flex';
+
+  if (showNew) {
+    list.innerHTML = '<div style="text-align:left;">'
+      + '<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Entre ton prenom ou pseudo :</div>'
+      + '<input id="new-warrior-name" type="text" placeholder="Ton nom, guerrier..." '
+      + 'style="width:100%;padding:12px;border-radius:6px;background:rgba(0,180,216,.08);'
+      + 'border:1px solid rgba(0,180,216,.3);color:#fff;font-family:\'Barlow Condensed\',sans-serif;'
+      + 'font-size:16px;margin-bottom:12px;box-sizing:border-box;" autofocus>'
+      + '<div style="display:flex;gap:10px;">'
+      + '<button onclick="showNewWarriorForm()" style="flex:1;padding:12px;border-radius:6px;'
+      + 'background:var(--accent);border:none;color:#000;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;'
+      + 'font-size:15px;font-weight:700;text-transform:uppercase;">Continuer ➜</button>'
+      + '<button onclick="showProfileModal(false)" style="padding:12px 16px;border-radius:6px;'
+      + 'background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--muted);'
+      + 'cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-size:13px;">Retour</button>'
+      + '</div></div>';
+    return;
+  }
+
   let html = '';
   d.warriors.forEach(function(w) {
     const last = getLatestResult(w.id);
@@ -1611,7 +1629,51 @@ function showProfileModal() {
       + '<span>' + w.name + '</span>'
       + '</button>';
   });
+  html += '<button onclick="showProfileModal(true)" style="padding:14px 20px;background:rgba(255,255,255,.03);'
+    + 'border:1px dashed rgba(255,255,255,.15);border-radius:8px;color:var(--muted);cursor:pointer;'
+    + 'font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;'
+    + 'display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:6px;">'
+    + '➕ Je suis nouveau</button>';
   list.innerHTML = html;
+}
+
+function showNewWarriorForm() {
+  const nameEl = document.getElementById('new-warrior-name');
+  if (!nameEl || !nameEl.value.trim()) { if(nameEl) nameEl.focus(); return; }
+  const name = nameEl.value.trim();
+  const list = document.getElementById('profile-list');
+  list.innerHTML = '<div style="text-align:left;">'
+    + '<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Quelques infos pour ton profil :</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'
+    + '<div><label style="font-size:11px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px;">GENRE</label>'
+    + '<select id="nw-gender" style="width:100%;padding:10px;border-radius:6px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.3);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;">'
+    + '<option value="H">Homme</option><option value="F">Femme</option></select></div>'
+    + '<div><label style="font-size:11px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px;">POIDS (kg)</label>'
+    + '<input id="nw-weight" type="number" placeholder="75" style="width:100%;padding:10px;border-radius:6px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.3);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;box-sizing:border-box;"></div>'
+    + '</div>'
+    + '<div style="margin-bottom:14px;"><label style="font-size:11px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px;">TAILLE (cm)</label>'
+    + '<input id="nw-height" type="number" placeholder="175" style="width:100%;padding:10px;border-radius:6px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.3);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;box-sizing:border-box;"></div>'
+    + '<button onclick="finalizeNewWarrior(\'' + name.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')" style="width:100%;padding:13px;border-radius:6px;'
+    + 'background:var(--accent);border:none;color:#000;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;'
+    + 'font-size:16px;font-weight:700;text-transform:uppercase;">⚔️ Rejoindre la tribu !</button>'
+    + '</div>';
+}
+
+async function finalizeNewWarrior(name) {
+  const gender = document.getElementById('nw-gender') ? document.getElementById('nw-gender').value : 'H';
+  const weight = parseFloat(document.getElementById('nw-weight') ? document.getElementById('nw-weight').value : 75) || 75;
+  const height = parseFloat(document.getElementById('nw-height') ? document.getElementById('nw-height').value : 175) || 175;
+  const newW = { id: 'w'+Date.now(), name: name, gender: gender, weight: weight, height: height };
+  try {
+    await upsertWarrior(newW);
+    await loadFromDb();
+    await triggerFeedEvent('new_warrior', newW.id, '⚔️ <strong>'+name+'</strong> rejoint la tribu Frozen Warriors !');
+    selectProfile(newW.id);
+    renderWarriorsList();
+    renderLeaderboard();
+  } catch(e) {
+    alert('Erreur lors de la creation. Reessaie !');
+  }
 }
 
 function selectProfile(wid) {
