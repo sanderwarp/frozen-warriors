@@ -803,11 +803,7 @@ function showReactionDetails(feedId, reactionType) {
   if (existing) existing.remove();
   const popup = document.createElement('div');
   popup.id = 'reaction-popup';
-  popup.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);'
-    + 'background:#0d1f38;border:1px solid rgba(0,180,216,.3);border-radius:8px;'
-    + 'padding:12px 18px;z-index:9998;font-family:Barlow Condensed,sans-serif;'
-    + 'font-size:14px;color:#fff;text-align:center;max-width:300px;'
-    + 'box-shadow:0 4px 20px rgba(0,0,0,.5);';
+  popup.style.cssText = "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#0d1f38;border:1px solid rgba(0,180,216,.3);border-radius:8px;padding:12px 18px;z-index:9998;font-family:Barlow Condensed,sans-serif;font-size:14px;color:#fff;text-align:center;max-width:300px;box-shadow:0 4px 20px rgba(0,0,0,.5);";
   popup.innerHTML = icon + ' ' + names;
   document.body.appendChild(popup);
   setTimeout(function(){ popup.remove(); }, 3000);
@@ -1677,15 +1673,15 @@ function showProfileModal(showNew) {
       + '<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Entre ton prenom ou pseudo :</div>'
       + '<input id="new-warrior-name" type="text" placeholder="Ton nom, guerrier..." '
       + 'style="width:100%;padding:12px;border-radius:6px;background:rgba(0,180,216,.08);'
-      + 'border:1px solid rgba(0,180,216,.3);color:#fff;font-family:\'Barlow Condensed\',sans-serif;'
+      + 'border:1px solid rgba(0,180,216,.3);color:#fff;font-family:Barlow Condensed,sans-serif;'
       + 'font-size:16px;margin-bottom:12px;box-sizing:border-box;" autofocus>'
       + '<div style="display:flex;gap:10px;">'
       + '<button onclick="showNewWarriorForm()" style="flex:1;padding:12px;border-radius:6px;'
-      + 'background:var(--accent);border:none;color:#000;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;'
+      + 'background:var(--accent);border:none;color:#000;cursor:pointer;font-family:Barlow Condensed,sans-serif;'
       + 'font-size:15px;font-weight:700;text-transform:uppercase;">Continuer ➜</button>'
       + '<button onclick="showProfileModal(false)" style="padding:12px 16px;border-radius:6px;'
       + 'background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--muted);'
-      + 'cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-size:13px;">Retour</button>'
+      + 'cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;">Retour</button>'
       + '</div></div>';
     return;
   }
@@ -1695,14 +1691,14 @@ function showProfileModal(showNew) {
     const last = getLatestResult(w.id);
     const score = last ? calcScore(w, last).total : 0;
     const animal = getAnimal(score);
-    html += '<button onclick="selectProfile(\'' + w.id + '\')" style="padding:14px 20px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:8px;color:var(--text);cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;gap:12px;width:100%;">'
+    html += '<button onclick="selectProfile(\'' + w.id + '\')" style="padding:14px 20px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:8px;color:var(--text);cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;transition:all .2s;display:flex;align-items:center;gap:12px;width:100%;">'
       + '<span style="font-size:24px;">' + animal.emoji + '</span>'
       + '<span>' + w.name + '</span>'
       + '</button>';
   });
   html += '<button onclick="showProfileModal(true)" style="padding:14px 20px;background:rgba(255,255,255,.03);'
     + 'border:1px dashed rgba(255,255,255,.15);border-radius:8px;color:var(--muted);cursor:pointer;'
-    + 'font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;'
+    + 'font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;'
     + 'display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:6px;">'
     + '➕ Je suis nouveau</button>';
   list.innerHTML = html;
@@ -1717,15 +1713,15 @@ function showNewWarriorForm() {
     + '<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Quelques infos pour ton profil :</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'
     + '<div><label style="font-size:11px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px;">GENRE</label>'
-    + '<select id="nw-gender" style="width:100%;padding:10px;border-radius:6px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.3);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;">'
+    + '<select id="nw-gender" style="width:100%;padding:10px;border-radius:6px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.3);color:#fff;font-family:Barlow Condensed,sans-serif;font-size:14px;">'
     + '<option value="H">Homme</option><option value="F">Femme</option></select></div>'
     + '<div><label style="font-size:11px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px;">POIDS (kg)</label>'
-    + '<input id="nw-weight" type="number" placeholder="75" style="width:100%;padding:10px;border-radius:6px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.3);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;box-sizing:border-box;"></div>'
+    + '<input id="nw-weight" type="number" placeholder="75" style="width:100%;padding:10px;border-radius:6px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.3);color:#fff;font-family:Barlow Condensed,sans-serif;font-size:14px;box-sizing:border-box;"></div>'
     + '</div>'
     + '<div style="margin-bottom:14px;"><label style="font-size:11px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:4px;">TAILLE (cm)</label>'
-    + '<input id="nw-height" type="number" placeholder="175" style="width:100%;padding:10px;border-radius:6px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.3);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:14px;box-sizing:border-box;"></div>'
+    + '<input id="nw-height" type="number" placeholder="175" style="width:100%;padding:10px;border-radius:6px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.3);color:#fff;font-family:Barlow Condensed,sans-serif;font-size:14px;box-sizing:border-box;"></div>'
     + '<button onclick="finalizeNewWarrior(\'' + name.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')" style="width:100%;padding:13px;border-radius:6px;'
-    + 'background:var(--accent);border:none;color:#000;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;'
+    + 'background:var(--accent);border:none;color:#000;cursor:pointer;font-family:Barlow Condensed,sans-serif;'
     + 'font-size:16px;font-weight:700;text-transform:uppercase;">⚔️ Rejoindre la tribu !</button>'
     + '</div>';
 }
@@ -1845,10 +1841,10 @@ function renderFeed() {
       + '<div style="font-size:10px;color:var(--muted);margin-top:3px;">' + timeAgo(item.createdAt) + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">'
-      + '<button onclick="addReaction(\'' + item.id + '\',\'ahou\')" style="padding:5px 8px;border-radius:16px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);cursor:pointer;font-size:11px;color:var(--accent);font-family:\'Barlow Condensed\',sans-serif;font-weight:700;">🛡️ ' + (item.ahouCount > 0 ? item.ahouCount : 'AHOU') + '</button>'
-      + '<button onclick="addReaction(\'' + item.id + '\',\'respect\')" style="padding:5px 8px;border-radius:16px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);cursor:pointer;font-size:11px;color:#fbbf24;font-family:\'Barlow Condensed\',sans-serif;font-weight:700;">👊 ' + (item.respectCount > 0 ? item.respectCount : '') + '</button>'
-      + '<button onclick="addReaction(\'' + item.id + '\',\'frozen\')" style="padding:5px 8px;border-radius:16px;background:rgba(168,216,234,.08);border:1px solid rgba(168,216,234,.2);cursor:pointer;font-size:11px;color:var(--ice);font-family:\'Barlow Condensed\',sans-serif;font-weight:700;">❄️ ' + (item.frozenCount > 0 ? item.frozenCount : '') + '</button>'
-      + '<button onclick="addReaction(\'' + item.id + '\',\'fire\')" style="padding:5px 8px;border-radius:16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);cursor:pointer;font-size:11px;color:var(--red);font-family:\'Barlow Condensed\',sans-serif;font-weight:700;">🔥 ' + (item.fireCount > 0 ? item.fireCount : '') + '</button>'
+      + '<button onclick="addReaction(\'' + item.id + '\',\'ahou\')" style="padding:5px 8px;border-radius:16px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);cursor:pointer;font-size:11px;color:var(--accent);font-family:Barlow Condensed,sans-serif;font-weight:700;">🛡️ ' + (item.ahouCount > 0 ? item.ahouCount : 'AHOU') + '</button>'
+      + '<button onclick="addReaction(\'' + item.id + '\',\'respect\')" style="padding:5px 8px;border-radius:16px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);cursor:pointer;font-size:11px;color:#fbbf24;font-family:Barlow Condensed,sans-serif;font-weight:700;">👊 ' + (item.respectCount > 0 ? item.respectCount : '') + '</button>'
+      + '<button onclick="addReaction(\'' + item.id + '\',\'frozen\')" style="padding:5px 8px;border-radius:16px;background:rgba(168,216,234,.08);border:1px solid rgba(168,216,234,.2);cursor:pointer;font-size:11px;color:var(--ice);font-family:Barlow Condensed,sans-serif;font-weight:700;">❄️ ' + (item.frozenCount > 0 ? item.frozenCount : '') + '</button>'
+      + '<button onclick="addReaction(\'' + item.id + '\',\'fire\')" style="padding:5px 8px;border-radius:16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);cursor:pointer;font-size:11px;color:var(--red);font-family:Barlow Condensed,sans-serif;font-weight:700;">🔥 ' + (item.fireCount > 0 ? item.fireCount : '') + '</button>'
       + '</div>'
       + '</div>';
   });
