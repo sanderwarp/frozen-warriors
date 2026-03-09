@@ -1822,6 +1822,29 @@ const FEED_ICONS = {
   'personal_record':'🏆','level_up':'🐉'
 };
 
+
+function buildReactionButtons(item) {
+  var btns = '';
+  var ahouLabel = item.ahouCount > 0 ? item.ahouCount + ' 👁' : 'AHOU';
+  var ahouAction = item.ahouCount > 0 ? 'showReactionDetails' : 'addReaction';
+  btns += '<button data-id="' + item.id + '" data-type="ahou" data-action="' + ahouAction + '" onclick="handleReactionClick(this)" style="padding:5px 8px;border-radius:16px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);cursor:pointer;font-size:11px;color:var(--accent);font-family:Barlow Condensed,sans-serif;font-weight:700;">🛡️ ' + ahouLabel + '</button>';
+  btns += '<button data-id="' + item.id + '" data-type="respect" data-action="addReaction" onclick="handleReactionClick(this)" style="padding:5px 8px;border-radius:16px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);cursor:pointer;font-size:11px;color:#fbbf24;font-family:Barlow Condensed,sans-serif;font-weight:700;">👊 ' + (item.respectCount > 0 ? item.respectCount : '') + '</button>';
+  btns += '<button data-id="' + item.id + '" data-type="frozen" data-action="addReaction" onclick="handleReactionClick(this)" style="padding:5px 8px;border-radius:16px;background:rgba(168,216,234,.08);border:1px solid rgba(168,216,234,.2);cursor:pointer;font-size:11px;color:var(--ice);font-family:Barlow Condensed,sans-serif;font-weight:700;">❄️ ' + (item.frozenCount > 0 ? item.frozenCount : '') + '</button>';
+  btns += '<button data-id="' + item.id + '" data-type="fire" data-action="addReaction" onclick="handleReactionClick(this)" style="padding:5px 8px;border-radius:16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);cursor:pointer;font-size:11px;color:var(--red);font-family:Barlow Condensed,sans-serif;font-weight:700;">🔥 ' + (item.fireCount > 0 ? item.fireCount : '') + '</button>';
+  return btns;
+}
+
+function handleReactionClick(btn) {
+  var id = btn.getAttribute('data-id');
+  var type = btn.getAttribute('data-type');
+  var action = btn.getAttribute('data-action');
+  if (action === 'showReactionDetails') {
+    showReactionDetails(id, type);
+  } else {
+    addReaction(id, type);
+  }
+}
+
 function renderFeed() {
   const d = getData();
   const container = document.getElementById('activity-feed');
@@ -1841,10 +1864,7 @@ function renderFeed() {
       + '<div style="font-size:10px;color:var(--muted);margin-top:3px;">' + timeAgo(item.createdAt) + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">'
-      + '<button onclick="' + (item.ahouCount > 0 ? 'showReactionDetails(\\'' + item.id + '\\',\\'ahou\\')' : 'addReaction(\\'' + item.id + '\\',\\'ahou\\')') + '" style="padding:5px 8px;border-radius:16px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);cursor:pointer;font-size:11px;color:var(--accent);font-family:Barlow Condensed,sans-serif;font-weight:700;">🛡️ ' + (item.ahouCount > 0 ? item.ahouCount + ' 👁' : 'AHOU') + '</button>'
-      + '<button onclick="addReaction(\'' + item.id + '\',\'respect\')" style="padding:5px 8px;border-radius:16px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);cursor:pointer;font-size:11px;color:#fbbf24;font-family:Barlow Condensed,sans-serif;font-weight:700;">👊 ' + (item.respectCount > 0 ? item.respectCount : '') + '</button>'
-      + '<button onclick="addReaction(\'' + item.id + '\',\'frozen\')" style="padding:5px 8px;border-radius:16px;background:rgba(168,216,234,.08);border:1px solid rgba(168,216,234,.2);cursor:pointer;font-size:11px;color:var(--ice);font-family:Barlow Condensed,sans-serif;font-weight:700;">❄️ ' + (item.frozenCount > 0 ? item.frozenCount : '') + '</button>'
-      + '<button onclick="addReaction(\'' + item.id + '\',\'fire\')" style="padding:5px 8px;border-radius:16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);cursor:pointer;font-size:11px;color:var(--red);font-family:Barlow Condensed,sans-serif;font-weight:700;">🔥 ' + (item.fireCount > 0 ? item.fireCount : '') + '</button>'
+      + buildReactionButtons(item)
       + '</div>'
       + '</div>';
   });
