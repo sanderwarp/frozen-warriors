@@ -728,7 +728,32 @@ async function getFeed() {
   catch(e) { return []; }
 }
 
-async function insertFeedEvent(type, warriorId, message) {
+async function getFeedReactions() {
+  try { return await sbFetch('feed_reactions?order=created_at.desc'); }
+  catch(e) { return []; }
+}
+
+async function insertFeedReaction(feedId, reactionType) {
+  const myId = getMyProfile();
+  const d = getData();
+  const w = myId ? d.warriors.find(function(w){ return w.id === myId; }) : null;
+  const name = w ? w.name : 'Anonyme';
+  try {
+    await sbFetch('feed_reactions', {
+      method: 'POST', prefer: '',
+      headers: {'Prefer': 'return=minimal'},
+      body: JSON.stringify({
+        id: 'r'+Date.now()+'_'+Math.random().toString(36).substr(2,5),
+        feed_id: feedId,
+        warrior_id: myId || null,
+        warrior_name: name,
+        reaction_type: reactionType
+      })
+    });
+  } catch(e) {}
+}
+
+async function insertFeedEvent(type, warriorId, message, details) {
   try {
     await sbFetch('feed', {
       method: 'POST', prefer: '',
@@ -736,6 +761,7 @@ async function insertFeedEvent(type, warriorId, message) {
       body: JSON.stringify({
         id: 'f'+Date.now()+'_'+Math.random().toString(36).substr(2,5),
         warrior_id: warriorId, type, message,
+        details: details || null,
         ahou_count: 0, respect_count: 0, frozen_count: 0, fire_count: 0
       })
     });
@@ -750,14 +776,41 @@ async function addReaction(feedId, reactionType) {
   const patch = {};
   patch[field] = (item[reactionType+'Count']||0) + 1;
   try {
-    await sbFetch('feed?id=eq.'+feedId, {
-      method: 'PATCH', prefer: '',
-      headers: {'Prefer': 'return=minimal'},
-      body: JSON.stringify(patch)
-    });
+    await Promise.all([
+      sbFetch('feed?id=eq.'+feedId, {
+        method: 'PATCH', prefer: '',
+        headers: {'Prefer': 'return=minimal'},
+        body: JSON.stringify(patch)
+      }),
+      insertFeedReaction(feedId, reactionType)
+    ]);
     await loadFromDb();
     renderFeed();
   } catch(e) {}
+}
+
+function showReactionDetails(feedId, reactionType) {
+  const d = getData();
+  const reactions = (d.reactions||[]).filter(function(r){
+    return r.feedId === feedId && r.type === reactionType;
+  });
+  if (reactions.length === 0) return;
+  const names = reactions.map(function(r){ return r.warriorName; }).join(', ');
+  const icons = { ahou:'🛡️', respect:'👊', frozen:'❄️', fire:'🔥' };
+  const icon = icons[reactionType] || '';
+  // Show a small tooltip/popup
+  const existing = document.getElementById('reaction-popup');
+  if (existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'reaction-popup';
+  popup.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);'
+    + 'background:#0d1f38;border:1px solid rgba(0,180,216,.3);border-radius:8px;'
+    + 'padding:12px 18px;z-index:9998;font-family:'Barlow Condensed',sans-serif;'
+    + 'font-size:14px;color:#fff;text-align:center;max-width:300px;'
+    + 'box-shadow:0 4px 20px rgba(0,0,0,.5);';
+  popup.innerHTML = icon + ' ' + names;
+  document.body.appendChild(popup);
+  setTimeout(function(){ popup.remove(); }, 3000);
 }
 
 async function getWarriors() {
@@ -806,19 +859,23 @@ async function deleteResultDb(rid) {
 }
 
 // ======== LOCAL CACHE ========
-let _cache = { warriors: [], results: [], habits: [], feed: [] };
+let _cache = { warriors: [], results: [], habits: [], feed: [], reactions: [] };
 
 async function loadFromDb() {
   showLoading(true);
   try {
-    const [warriors, results, habits, feed] = await Promise.all([getWarriors(), getResults(), getHabits(), getFeed()]);
+    const [warriors, results, habits, feed, reactions] = await Promise.all([getWarriors(), getResults(), getHabits(), getFeed(), getFeedReactions()]);
     _cache.warriors = warriors.map(w => ({
       id: w.id, name: w.name, gender: w.gender,
       weight: w.weight, height: w.height
     }));
-    _cache.feed = (feed||[]).map(function(f) { return {
+    _cache.reactions = (reactions||[]).map(function(r){ return {
+    id: r.id, feedId: r.feed_id, warriorId: r.warrior_id,
+    warriorName: r.warrior_name, type: r.reaction_type, createdAt: r.created_at
+  }; });
+  _cache.feed = (feed||[]).map(function(f) { return {
     id: f.id, warriorId: f.warrior_id, type: f.type,
-    message: f.message,
+    message: f.message, details: f.details || null,
     ahouCount: f.ahou_count||0, respectCount: f.respect_count||0,
     frozenCount: f.frozen_count||0, fireCount: f.fire_count||0,
     createdAt: f.created_at
@@ -1486,7 +1543,21 @@ async function saveHabits2() {
     await loadFromDb();
     const wFeedH = getData().warriors.find(function(w){ return w.id === wid; });
     const pts2 = calcHabitPoints(habit);
-    if (wFeedH) await triggerFeedEvent('habit_entry', wid, '<strong>'+wFeedH.name+'</strong> a encode ses habitudes — '+pts2.toFixed(1)+' pts 🔥');
+    if (wFeedH) {
+      // Build details string from checked habits
+      const habitIcons = [];
+      if (habit.cardio) habitIcons.push('🏃 Cardio');
+      if (habit.force) habitIcons.push('💪 Force');
+      if (habit.mixte) habitIcons.push('⚡ Mixte');
+      if (habit.sauna) habitIcons.push('🧖 Sauna');
+      if (habit.bain_froid) habitIcons.push('🧊 Bain froid');
+      if (habit.wim_hof) habitIcons.push('🫁 Wim Hof');
+      if (habit.yoga) habitIcons.push('🧘 Yoga');
+      if (habit.point_faible) habitIcons.push('🎯 Point faible');
+      if (habit.douches_froides > 0) habitIcons.push('🚿×'+habit.douches_froides);
+      const details = habitIcons.join(' · ');
+      await triggerFeedEvent('habit_entry', wid, '<strong>'+wFeedH.name+'</strong> a encode ses habitudes — '+pts2.toFixed(1)+' pts 🔥', details);
+    }
     renderHomeHabits();
     renderHomeWinners();
     renderFeed();
@@ -1770,7 +1841,8 @@ function renderFeed() {
       + '<div style="font-size:22px;min-width:32px;text-align:center;">' + icon + '</div>'
       + '<div style="flex:1;font-size:13px;line-height:1.5;">'
       + '<div>' + item.message + '</div>'
-      + '<div style="font-size:10px;color:var(--muted);margin-top:2px;">' + timeAgo(item.createdAt) + '</div>'
+      + (item.details ? '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + item.details + '</div>' : '')
+      + '<div style="font-size:10px;color:var(--muted);margin-top:3px;">' + timeAgo(item.createdAt) + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">'
       + '<button onclick="addReaction(\'' + item.id + '\',\'ahou\')" style="padding:5px 8px;border-radius:16px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);cursor:pointer;font-size:11px;color:var(--accent);font-family:\'Barlow Condensed\',sans-serif;font-weight:700;">🛡️ ' + (item.ahouCount > 0 ? item.ahouCount : 'AHOU') + '</button>'
