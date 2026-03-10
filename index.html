@@ -1593,6 +1593,29 @@ function renderHabitsLbFull(period) {
   }).join('');
 }
 
+function renderHabitsInto(containerId, start, end) {
+  const lb = getHabitsLeaderboard(start, end);
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const active = lb.filter(function(e){ return e.pts > 0; });
+  if (active.length === 0) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px 0;">Aucune habitude encore.</div>';
+    return;
+  }
+  let html = '';
+  active.forEach(function(entry, i) {
+    const rc = i===0?'var(--gold)':i===1?'var(--silver)':i===2?'var(--bronze)':'var(--muted)';
+    html += '<div class="hrow">'
+      + '<div class="hrow-rank" style="color:'+rc+'">'+(i+1)+'</div>'
+      + '<div class="hrow-animal">'+entry.animal.emoji+'</div>'
+      + '<div class="hrow-name">'+entry.w.name+'</div>'
+      + '<div><div class="hrow-score">'+entry.pts.toFixed(1)+'</div>'
+      + '<div class="hrow-days">'+entry.days+'j</div></div>'
+      + '</div>';
+  });
+  container.innerHTML = html;
+}
+
 function renderHomeHabits() {
   const today = new Date().toISOString().split('T')[0];
   const wb = getWeekBounds(today);
