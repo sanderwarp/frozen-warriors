@@ -1595,6 +1595,14 @@ function renderHabitsLbFull(period) {
 
 function renderHomeHabits() {
   const today = new Date().toISOString().split('T')[0];
+  const wb = getWeekBounds(today);
+  const mb = getMonthBounds(today);
+  renderHabitsInto('home-habits-lb', wb.start, wb.end);
+  renderHabitsInto('home-habits-month-lb', mb.start, mb.end);
+}
+
+function renderHomeHabits_OLD() {
+  const today = new Date().toISOString().split('T')[0];
   const bounds = getWeekBounds(today);
   const lb = getHabitsLeaderboard(bounds.start, bounds.end);
   const container = document.getElementById('home-habits-lb');
