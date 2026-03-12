@@ -231,7 +231,7 @@ select.fi option{background:var(--dark);}
 
 /* WINNER BANNER */
 .winner-banner{border-radius:8px;padding:16px 20px;margin-bottom:10px;
-  display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;}
+  display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;width:100%;box-sizing:border-box;}
 .winner-banner::before{content:'';position:absolute;inset:0;opacity:.06;
   background:repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%);
   background-size:8px 8px;}
@@ -239,12 +239,12 @@ select.fi option{background:var(--dark);}
   border:1px solid rgba(255,209,102,.3);}
 .winner-month{background:linear-gradient(135deg,rgba(0,180,216,.15),rgba(0,180,216,.05));
   border:1px solid rgba(0,180,216,.3);}
-.winner-emoji{font-size:36px;}
-.winner-info{flex:1;}
+.winner-emoji{font-size:36px;flex-shrink:0;}
+.winner-info{flex:1;min-width:0;}
 .winner-label{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
-.winner-name{font-family:'Black Ops One',cursive;font-size:20px;line-height:1.2;}
+.winner-name{font-family:'Black Ops One',cursive;font-size:20px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .winner-score{font-family:Barlow Condensed,sans-serif;font-size:13px;color:var(--muted);}
-.winner-crown{font-size:28px;}
+.winner-crown{font-size:28px;flex-shrink:0;}
 
 /* HABIT LB */
 .hrow{display:flex;align-items:center;gap:14px;padding:12px 16px;
@@ -285,6 +285,7 @@ select.fi option{background:var(--dark);}
     <div class="nav">
       <button class="nav-btn active" onclick="nav('leaderboard')">🏆 Fitness</button>
       <button class="nav-btn" onclick="nav('encode-habits')">🔥 Habitudes</button>
+      <button class="nav-btn" onclick="nav('challenge')">⚔️ Challenge</button>
       <button class="nav-btn" onclick="nav('add')">➕ Résultat</button>
       <button class="nav-btn" onclick="nav('warriors')">⚔ Guerriers</button>
       <button class="nav-btn" onclick="nav('criteres')">📖 Critères</button>
@@ -315,6 +316,11 @@ select.fi option{background:var(--dark);}
         <div id="home-habits-lb"></div>
         <div class="stitle" style="margin-top:20px;">📆 Habitudes — Mois</div>
         <div id="home-habits-month-lb"></div>
+      </div>
+
+      <!-- CHALLENGE -->
+      <div style="margin-top:28px;">
+        <div id="home-challenge-block"></div>
       </div>
 
       <!-- FEED -->
@@ -571,6 +577,11 @@ select.fi option{background:var(--dark);}
     </div>
 
   </div>
+  <!-- CHALLENGE -->
+  <div class="section" id="s-challenge">
+    <div id="challenge-main-block"></div>
+  </div>
+
   <!-- LEVELS -->
   <div class="section" id="s-levels">
     <div class="stitle">Hiérarchie Frozen Warriors</div>
@@ -590,6 +601,42 @@ select.fi option{background:var(--dark);}
         <div id="admin-msg"></div>
       </div>
       <div id="admin-panel" style="display:none;">
+        <div class="stitle">🏅 Challenge du mois</div>
+        <div style="background:rgba(0,180,216,.05);border:1px solid rgba(0,180,216,.15);border-radius:8px;padding:16px;margin-bottom:20px;">
+          <div id="current-challenge-admin" style="margin-bottom:14px;font-size:13px;color:var(--muted);">Chargement...</div>
+          <div class="form-grid">
+            <div class="fg full">
+              <label class="fl">Titre du challenge</label>
+              <input class="fi" id="ch-title" placeholder="ex: Sandbag Carry — Distance max" type="text">
+            </div>
+            <div class="fg full">
+              <label class="fl">Description</label>
+              <input class="fi" id="ch-desc" placeholder="ex: Portez la moitie de votre poids corporel le plus loin possible" type="text">
+            </div>
+            <div class="fg">
+              <label class="fl">Unité de mesure</label>
+              <select class="fi" id="ch-unit">
+                <option value="m">Distance (m)</option>
+                <option value="km">Distance (km)</option>
+                <option value="sec">Temps (secondes)</option>
+                <option value="min">Temps (minutes)</option>
+                <option value="reps">Répétitions</option>
+                <option value="kg">Poids (kg)</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label class="fl">Ordre du classement</label>
+              <select class="fi" id="ch-order">
+                <option value="desc">Plus grand = meilleur</option>
+                <option value="asc">Plus petit = meilleur</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-p" onclick="saveChallengeAdmin()">💾 Enregistrer le challenge</button>
+          </div>
+          <div id="ch-admin-msg"></div>
+        </div>
         <div class="stitle">Gestion des données</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-p" onclick="exportData()">📤 Exporter JSON</button>
@@ -1653,7 +1700,7 @@ function renderHomeWinners() {
   const prevMonth = getPrevMonthBounds();
   const weekLb = getHabitsLeaderboard(prevWeek.start, prevWeek.end);
   const monthLb = getHabitsLeaderboard(prevMonth.start, prevMonth.end);
-  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+  let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
   const ww = weekLb[0];
   if (ww && ww.pts > 0) {
     html += `<div class="winner-banner winner-week">
@@ -1665,7 +1712,7 @@ function renderHomeWinners() {
         <div class="winner-score">${ww.pts.toFixed(1)} pts · ${ww.animal.name}</div>
       </div>
     </div>`;
-  } else { html += '<div></div>'; }
+  } else { html += ''; }
   const mw = monthLb[0];
   if (mw && mw.pts > 0) {
     html += `<div class="winner-banner winner-month">
@@ -1677,7 +1724,7 @@ function renderHomeWinners() {
         <div class="winner-score">${mw.pts.toFixed(1)} pts · ${mw.animal.name}</div>
       </div>
     </div>`;
-  } else { html += '<div></div>'; }
+  } else { html += ''; }
   html += '</div>';
   container.innerHTML = html;
 }
@@ -2103,12 +2150,14 @@ function nav(name) {
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
   const section = document.getElementById('s-'+name);
   if (section) section.classList.add('active');
-  const idx = ['leaderboard','encode-habits','add','warriors','criteres','levels','admin'].indexOf(name);
+  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin'].indexOf(name);
   const btns = document.querySelectorAll('.nav-btn');
   if (btns[idx]) btns[idx].classList.add('active');
   if (name === 'add') { populateWarriorSelect(); document.getElementById('f-date').value = new Date().toISOString().split('T')[0]; }
   if (name === 'warriors') renderWarriorsList();
   if (name === 'criteres') renderCriteres();
+  if (name === 'challenge') { renderChallengePage(); }
+  if (name === 'admin') { renderChallengeAdmin(); }
   if (name === 'encode-habits') {
     const myId = getMyProfile();
     if (!myId) { showProfileModal(); }
@@ -2117,6 +2166,223 @@ function nav(name) {
     loadTodayHabits();
   }
   if (name === 'leaderboard') { renderLeaderboard(); renderHomeHabits(); renderHomeWinners(); renderFeed(); }
+}
+
+// ======== CHALLENGE ========
+async function getChallenges() {
+  try { return await sbFetch('challenges?order=created_at.desc'); }
+  catch(e) { return []; }
+}
+
+async function getChallengeResults() {
+  try { return await sbFetch('challenge_results?order=value.desc'); }
+  catch(e) { return []; }
+}
+
+async function upsertChallenge(ch) {
+  return await sbFetch('challenges', {
+    method: 'POST',
+    headers: {'Prefer': 'resolution=merge-duplicates,return=representation'},
+    body: JSON.stringify(ch)
+  });
+}
+
+async function upsertChallengeResult(cr) {
+  return await sbFetch('challenge_results', {
+    method: 'POST',
+    headers: {'Prefer': 'resolution=merge-duplicates,return=representation'},
+    body: JSON.stringify(cr)
+  });
+}
+
+function getCurrentMonthChallengeId() {
+  const now = new Date();
+  return 'ch_' + now.getFullYear() + '_' + String(now.getMonth()+1).padStart(2,'0');
+}
+
+function getCurrentChallenge() {
+  const id = getCurrentMonthChallengeId();
+  return (_cache.challenges||[]).find(function(c){ return c.id === id; }) || null;
+}
+
+function getChallengeLeaderboard(challengeId) {
+  const results = (_cache.challengeResults||[]).filter(function(r){ return r.challenge_id === challengeId; });
+  const d = getData();
+  const ch = (_cache.challenges||[]).find(function(c){ return c.id === challengeId; });
+  const order = ch ? ch.sort_order : 'desc';
+  // Best result per warrior
+  const best = {};
+  results.forEach(function(r) {
+    if (!best[r.warrior_id] || (order === 'desc' ? r.value > best[r.warrior_id].value : r.value < best[r.warrior_id].value)) {
+      best[r.warrior_id] = r;
+    }
+  });
+  return Object.values(best).map(function(r) {
+    const w = d.warriors.find(function(w){ return w.id === r.warrior_id; }) || {name:'Inconnu'};
+    const last = getLatestResult(r.warrior_id);
+    const score = last ? calcScore(w, last).total : 0;
+    const animal = getAnimal(score);
+    return {warrior: w, value: r.value, animal: animal};
+  }).sort(function(a,b){ return order === 'desc' ? b.value - a.value : a.value - b.value; });
+}
+
+async function loadChallengeData() {
+  try {
+    const [challenges, challengeResults] = await Promise.all([getChallenges(), getChallengeResults()]);
+    _cache.challenges = challenges;
+    _cache.challengeResults = challengeResults;
+  } catch(e) { _cache.challenges = []; _cache.challengeResults = []; }
+}
+
+function renderChallengePage() {
+  const container = document.getElementById('challenge-main-block');
+  if (!container) return;
+  const ch = getCurrentChallenge();
+  const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const now = new Date();
+  const monthLabel = months[now.getMonth()] + ' ' + now.getFullYear();
+
+  if (!ch) {
+    container.innerHTML = '<div class="card"><div class="stitle">⚔️ Challenge du mois</div>'
+      + '<div style="text-align:center;padding:40px;color:var(--muted);font-size:14px;">'
+      + 'Aucun challenge defini pour ' + monthLabel + '.<br>L\'admin publiera bientot le prochain defi !</div></div>';
+    return;
+  }
+
+  const lb = getChallengeLeaderboard(ch.id);
+  const unitLabel = ch.unit || '';
+  const myId = getMyProfile();
+
+  let html = '<div class="card">'
+    + '<div style="background:linear-gradient(135deg,rgba(0,180,216,.12),rgba(168,216,234,.05));border:1px solid rgba(0,180,216,.25);border-radius:10px;padding:20px;margin-bottom:20px;">'
+    + '<div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:6px;">⚔️ Challenge ' + monthLabel + '</div>'
+    + '<div style="font-family:Barlow Condensed,sans-serif;font-size:24px;font-weight:700;color:#fff;margin-bottom:8px;">' + ch.title + '</div>'
+    + '<div style="font-size:13px;color:var(--muted);line-height:1.6;">' + ch.description + '</div>'
+    + '<div style="margin-top:12px;font-size:12px;color:var(--accent);">📏 Unité : ' + unitLabel + ' &nbsp;·&nbsp; 🎽 T-shirt offert au vainqueur sur <a href="https://www.frozenwarriors.be" target="_blank" style="color:var(--accent);">frozenwarriors.be</a></div>'
+    + '</div>';
+
+  // Formulaire de soumission
+  html += '<div class="stitle">📤 Soumettre mon résultat</div>'
+    + '<div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;">'
+    + '<div class="fg" style="flex:1;min-width:120px;">'
+    + '<label class="fl">Mon résultat (' + unitLabel + ')</label>'
+    + '<input class="fi" id="ch-value" type="number" step="0.01" placeholder="0">'
+    + '</div>'
+    + '<button class="btn btn-p" onclick="submitChallengeResult()" style="white-space:nowrap;">💾 Enregistrer</button>'
+    + '</div>'
+    + '<div id="ch-submit-msg"></div>';
+
+  // Classement
+  html += '<div class="stitle" style="margin-top:8px;">🏅 Classement</div>';
+  if (lb.length === 0) {
+    html += '<div style="color:var(--muted);font-size:13px;padding:16px 0;">Aucun résultat encore. Sois le premier ! 💪</div>';
+  } else {
+    lb.forEach(function(entry, i) {
+      const rc = i===0?'var(--gold)':i===1?'var(--silver)':i===2?'var(--bronze)':'var(--muted)';
+      const isMe = myId && entry.warrior.id === myId;
+      html += '<div class="hrow" style="' + (isMe ? 'background:rgba(0,180,216,.08);border-radius:6px;' : '') + '">'
+        + '<div class="hrow-rank" style="color:' + rc + '">' + (i+1) + '</div>'
+        + '<div class="hrow-animal">' + entry.animal.emoji + '</div>'
+        + '<div class="hrow-name">' + entry.warrior.name + (isMe ? ' <span style="font-size:10px;color:var(--accent);">· toi</span>' : '') + '</div>'
+        + '<div><div class="hrow-score">' + entry.value + '</div>'
+        + '<div class="hrow-days">' + unitLabel + '</div></div>'
+        + '</div>';
+    });
+  }
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+async function submitChallengeResult() {
+  const myId = getMyProfile();
+  if (!myId) { showProfileModal(); return; }
+  const valEl = document.getElementById('ch-value');
+  const val = parseFloat(valEl ? valEl.value : '');
+  if (isNaN(val) || val <= 0) { showMsg('ch-submit-msg','Entre une valeur valide','err'); return; }
+  const ch = getCurrentChallenge();
+  if (!ch) { showMsg('ch-submit-msg','Pas de challenge actif','err'); return; }
+  const d = getData();
+  const w = d.warriors.find(function(w){ return w.id === myId; });
+  try {
+    await upsertChallengeResult({
+      id: 'cr_' + ch.id + '_' + myId,
+      challenge_id: ch.id,
+      warrior_id: myId,
+      value: val,
+      submitted_at: new Date().toISOString()
+    });
+    await triggerFeedEvent('challenge', myId, '⚔️ <strong>' + (w?w.name:'Guerrier') + '</strong> a soumis ' + val + ' ' + ch.unit + ' au challenge ' + ch.title + ' !', null);
+    await loadChallengeData();
+    renderChallengePage();
+    renderHomeChallengeBlock();
+    showMsg('ch-submit-msg','✅ Résultat enregistré ! Que le meilleur gagne ⚔️','ok');
+    if (valEl) valEl.value = '';
+  } catch(e) {
+    showMsg('ch-submit-msg','Erreur: ' + e.message,'err');
+  }
+}
+
+async function saveChallengeAdmin() {
+  const title = document.getElementById('ch-title') ? document.getElementById('ch-title').value.trim() : '';
+  const desc = document.getElementById('ch-desc') ? document.getElementById('ch-desc').value.trim() : '';
+  const unit = document.getElementById('ch-unit') ? document.getElementById('ch-unit').value : 'm';
+  const order = document.getElementById('ch-order') ? document.getElementById('ch-order').value : 'desc';
+  if (!title) { showMsg('ch-admin-msg','Entre un titre','err'); return; }
+  const id = getCurrentMonthChallengeId();
+  try {
+    await upsertChallenge({ id, title, description: desc, unit, sort_order: order, created_at: new Date().toISOString() });
+    await loadChallengeData();
+    renderChallengeAdmin();
+    renderChallengePage();
+    renderHomeChallengeBlock();
+    showMsg('ch-admin-msg','✅ Challenge publié !','ok');
+  } catch(e) {
+    showMsg('ch-admin-msg','Erreur: ' + e.message,'err');
+  }
+}
+
+function renderChallengeAdmin() {
+  const ch = getCurrentChallenge();
+  const el = document.getElementById('current-challenge-admin');
+  if (!el) return;
+  if (ch) {
+    el.innerHTML = '<strong style="color:var(--accent);">Challenge actif :</strong> ' + ch.title + ' (' + ch.unit + ')';
+    if (document.getElementById('ch-title')) document.getElementById('ch-title').value = ch.title;
+    if (document.getElementById('ch-desc')) document.getElementById('ch-desc').value = ch.description || '';
+    if (document.getElementById('ch-unit')) document.getElementById('ch-unit').value = ch.unit || 'm';
+    if (document.getElementById('ch-order')) document.getElementById('ch-order').value = ch.sort_order || 'desc';
+  } else {
+    el.innerHTML = '<span style="color:var(--muted);">Aucun challenge défini ce mois-ci.</span>';
+  }
+}
+
+function renderHomeChallengeBlock() {
+  const container = document.getElementById('home-challenge-block');
+  if (!container) return;
+  const ch = getCurrentChallenge();
+  if (!ch) { container.innerHTML = ''; return; }
+  const lb = getChallengeLeaderboard(ch.id);
+  const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const now = new Date();
+  const monthLabel = months[now.getMonth()];
+
+  let html = '<div class="stitle">⚔️ Challenge ' + monthLabel + ' — ' + ch.title + '</div>';
+  if (lb.length === 0) {
+    html += '<div style="color:var(--muted);font-size:12px;padding:8px 0;">Aucun résultat encore. <span style="color:var(--accent);cursor:pointer;" onclick="nav(\'challenge\')">Sois le premier !</span></div>';
+  } else {
+    html += lb.slice(0,5).map(function(entry, i) {
+      const rc = i===0?'var(--gold)':i===1?'var(--silver)':i===2?'var(--bronze)':'var(--muted)';
+      return '<div class="hrow">'
+        + '<div class="hrow-rank" style="color:'+rc+'">'+(i+1)+'</div>'
+        + '<div class="hrow-animal">'+entry.animal.emoji+'</div>'
+        + '<div class="hrow-name">'+entry.warrior.name+'</div>'
+        + '<div><div class="hrow-score">'+entry.value+'</div>'
+        + '<div class="hrow-days">'+ch.unit+'</div></div>'
+        + '</div>';
+    }).join('');
+    html += '<div style="text-align:right;margin-top:6px;"><span style="font-size:11px;color:var(--accent);cursor:pointer;letter-spacing:1px;" onclick="nav(\'challenge\')">Voir tout ➜</span></div>';
+  }
+  container.innerHTML = html;
 }
 
 // ======== SNOW ========
@@ -2368,9 +2634,11 @@ renderLevels();
   if (el) el.addEventListener('change', updateDayPreview);
 });
 loadFromDb().then(async function() {
+  await loadChallengeData();
   renderLeaderboard();
   renderHomeHabits();
   renderHomeWinners();
+  renderHomeChallengeBlock();
   renderFeed();
   populateWarriorSelect();
   const myId = getMyProfile();
