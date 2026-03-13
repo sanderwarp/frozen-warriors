@@ -1474,17 +1474,91 @@ async function saveResult() {
   });
   result.bp = document.getElementById('f-bp').value || null;
 
+  // Détecter les records AVANT sauvegarde
+  const prevBest = getPreviousBests(wid, warrior.gender||'homme');
+
   try {
     await upsertResult(result);
     await loadFromDb();
     renderLeaderboard();
     const btn = document.querySelector('#test-fields .btn-p');
     if (btn) btn.textContent = '💾 Enregistrer';
-    showMsg('save-msg', editId ? '✅ Résultat modifié !' : '✅ Résultat enregistré !','ok');
-    setTimeout(() => nav('leaderboard'), 1200);
+
+    // Détecter et annoncer les records
+    const prs = detectPersonalRecords(result, prevBest, warrior.gender||'homme');
+    if (prs.length > 0) {
+      for (const pr of prs) {
+        const msg = '🏆 <strong style="color:#FFD700;">' + warrior.name + '</strong> bat son record personnel — <span style="color:#FFD700;">' + pr.label + ' : ' + pr.val + pr.unit + '</span> 🏆';
+        await triggerFeedEvent('personal_record', wid, msg, JSON.stringify({test: pr.id, value: pr.val, prev: pr.prev}));
+      }
+      renderFeed();
+      renderHomeHabits();
+    }
+
+    showMsg('save-msg', prs.length > 0
+      ? '🏆 ' + prs.length + ' record(s) personnel(s) battu(s) !'
+      : (editId ? '✅ Résultat modifié !' : '✅ Résultat enregistré !'), 'ok');
+    setTimeout(() => nav('leaderboard'), 1500);
   } catch(e) {
     showMsg('save-msg','Erreur: ' + e.message,'err');
   }
+}
+
+function getPreviousBests(warriorId, gender) {
+  const d = getData();
+  const allResults = d.results.filter(function(r){ return r.warriorId === warriorId; });
+  const tests = TESTS[gender] || TESTS.homme;
+  const bests = {};
+  tests.forEach(function(t) {
+    const vals = allResults.map(function(r){ return parseFloat(r[t.id]); }).filter(function(v){ return !isNaN(v); });
+    if (vals.length > 0) bests[t.id] = Math.max.apply(null, vals);
+  });
+  // VO2max, pushups, plank etc. — higher is better for all except BP
+  const bpVals = allResults.map(function(r){ return parseFloat(r.bp); }).filter(function(v){ return !isNaN(v); });
+  if (bpVals.length > 0) bests['bp'] = Math.min.apply(null, bpVals); // BP : lower is better
+  return bests;
+}
+
+function detectPersonalRecords(result, prevBests, gender) {
+  const tests = TESTS[gender] || TESTS.homme;
+  const prs = [];
+  const unitMap = {
+    grip_g:'kg', grip_d:'kg', deadhang:'sec', legext:'kg', backsquat:'kg',
+    wimhof:'sec', vo2max:'', broadjump:'cm', pushups:'reps', plank_f:'sec', plank_s:'sec'
+  };
+  tests.forEach(function(t) {
+    if (t.id === 'legext') return; // géré via backsquat/legext séparément
+    const newVal = parseFloat(result[t.id]);
+    if (isNaN(newVal)) return;
+    const prev = prevBests[t.id];
+    if (prev === undefined || newVal > prev) {
+      prs.push({ id: t.id, label: t.label, val: newVal, prev: prev || null, unit: unitMap[t.id] ? ' ' + unitMap[t.id] : '' });
+    }
+  });
+  // Leg extension / back squat
+  const leMode = result.legext_mode || 'legext';
+  if (leMode === 'backsquat') {
+    const newVal = parseFloat(result.backsquat);
+    const prev = prevBests['backsquat'];
+    if (!isNaN(newVal) && (prev === undefined || newVal > prev)) {
+      prs.push({ id: 'backsquat', label: 'Back squat', val: newVal, prev: prev || null, unit: ' kg' });
+    }
+  } else {
+    const newVal = parseFloat(result.legext);
+    const prev = prevBests['legext'];
+    if (!isNaN(newVal) && (prev === undefined || newVal > prev)) {
+      prs.push({ id: 'legext', label: 'Leg extension', val: newVal, prev: prev || null, unit: ' kg' });
+    }
+  }
+  // BP : record si plus bas
+  const newBP = parseFloat(result.bp);
+  if (!isNaN(newBP)) {
+    const prevBP = prevBests['bp'];
+    if (prevBP === undefined || newBP < prevBP) {
+      prs.push({ id: 'bp', label: 'Tension systolique', val: newBP, prev: prevBP || null, unit: ' mmHg' });
+    }
+  }
+  return prs;
 }
 
 // ======== WARRIORS CRUD ========
@@ -1934,13 +2008,17 @@ function renderFeed() {
   }
   let html = '';
   d.feed.slice(0,10).forEach(function(item) {
-    const icon = FEED_ICONS[item.type] || '⚡';
-    html += '<div style="display:flex;align-items:center;gap:12px;padding:13px 16px;background:rgba(7,17,30,.6);border-radius:8px;margin-bottom:8px;border:1px solid rgba(0,180,216,.07);">'
+    const isPR = item.type === 'personal_record';
+    const icon = isPR ? '🏆' : (FEED_ICONS[item.type] || '⚡');
+    const bgStyle = isPR
+      ? 'background:linear-gradient(135deg,rgba(255,215,0,.12),rgba(255,180,0,.05));border:1px solid rgba(255,215,0,.35);'
+      : 'background:rgba(7,17,30,.6);border:1px solid rgba(0,180,216,.07);';
+    html += '<div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:8px;margin-bottom:8px;' + bgStyle + '">'
       + '<div style="font-size:22px;min-width:32px;text-align:center;">' + icon + '</div>'
       + '<div style="flex:1;font-size:13px;line-height:1.5;">'
       + '<div>' + item.message + '</div>'
-      + (item.details ? '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + item.details + '</div>' : '')
-      + '<div style="font-size:10px;color:var(--muted);margin-top:3px;">' + timeAgo(item.createdAt) + '</div>'
+      + (item.details ? '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + (isPR ? '' : item.details) + '</div>' : '')
+      + '<div style="font-size:10px;color:' + (isPR ? '#FFD700' : 'var(--muted)') + ';margin-top:3px;">' + timeAgo(item.createdAt) + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">'
       + buildReactionButtons(item)
