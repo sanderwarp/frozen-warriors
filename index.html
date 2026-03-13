@@ -1486,11 +1486,19 @@ async function saveResult() {
 
     // Détecter et annoncer les records
     const prs = detectPersonalRecords(result, prevBest, warrior.gender||'homme');
+    console.log('[PR] Records détectés:', prs.length, prs);
     if (prs.length > 0) {
       for (const pr of prs) {
         const msg = '🏆 <strong style="color:#FFD700;">' + warrior.name + '</strong> bat son record personnel — <span style="color:#FFD700;">' + pr.label + ' : ' + pr.val + pr.unit + '</span> 🏆';
-        await triggerFeedEvent('personal_record', wid, msg, JSON.stringify({test: pr.id, value: pr.val, prev: pr.prev}));
+        console.log('[PR] Envoi feed event:', msg);
+        try {
+          await insertFeedEvent('personal_record', wid, msg, null);
+          console.log('[PR] Feed event inseré avec succès');
+        } catch(feedErr) {
+          console.error('[PR] Erreur feed event:', feedErr);
+        }
       }
+      await loadFromDb();
       renderFeed();
       renderHomeHabits();
     }
@@ -1506,16 +1514,20 @@ async function saveResult() {
 
 function getPreviousBests(warriorId, gender) {
   const d = getData();
+  // On prend TOUS les résultats existants — le nouveau n'est pas encore sauvé
   const allResults = d.results.filter(function(r){ return r.warriorId === warriorId; });
+  if (allResults.length === 0) return {}; // Aucun historique = pas de record possible
   const tests = TESTS[gender] || TESTS.homme;
   const bests = {};
   tests.forEach(function(t) {
     const vals = allResults.map(function(r){ return parseFloat(r[t.id]); }).filter(function(v){ return !isNaN(v); });
     if (vals.length > 0) bests[t.id] = Math.max.apply(null, vals);
   });
-  // VO2max, pushups, plank etc. — higher is better for all except BP
   const bpVals = allResults.map(function(r){ return parseFloat(r.bp); }).filter(function(v){ return !isNaN(v); });
-  if (bpVals.length > 0) bests['bp'] = Math.min.apply(null, bpVals); // BP : lower is better
+  if (bpVals.length > 0) bests['bp'] = Math.min.apply(null, bpVals);
+  // Backsquat
+  const bsVals = allResults.map(function(r){ return parseFloat(r.backsquat); }).filter(function(v){ return !isNaN(v); });
+  if (bsVals.length > 0) bests['backsquat'] = Math.max.apply(null, bsVals);
   return bests;
 }
 
