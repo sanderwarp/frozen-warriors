@@ -684,8 +684,8 @@ const TESTS = {
      criteres:[{label:"Faible",val:"< 40 kg"},{label:"Bon",val:"40 – 60 kg"},{label:"Excellent",val:"> 60 kg"}]},
     {id:"grip_d",cat:"Force",label:"Grip droit (kg)",score:(v)=>v<40?-1:v<=60?1:2,
      criteres:[{label:"Faible",val:"< 40 kg"},{label:"Bon",val:"40 – 60 kg"},{label:"Excellent",val:"> 60 kg"}]},
-    {id:"deadhang",cat:"Force",label:"Dead hang (sec)",score:(v)=>v<30?-1:v<=60?1:2,
-     criteres:[{label:"Faible",val:"< 30 sec"},{label:"Bon",val:"30 – 60 sec"},{label:"Excellent",val:"> 60 sec"}]},
+    {id:"deadhang",cat:"Force",label:"Dead hang (sec)",score:(v)=>v<60?-1:v<=180?1:2,
+     criteres:[{label:"Faible",val:"< 60 sec"},{label:"Bon",val:"60 – 180 sec"},{label:"Excellent",val:"> 180 sec"}]},
     {id:"legext",cat:"Force",label:"Leg extension (kg)",score:(v,w)=>v<w?-1:1,useWeight:true,hasAlt:true,
      criteres:[{label:"Faible",val:"< poids de corps"},{label:"Bon",val:"≥ poids de corps"},{label:"Excellent",val:"N/A"}],
      altLabel:"Back squat (kg)",altCriteres:[{label:"Faible",val:"< 1,2× PDC"},{label:"Bon",val:"1,2 – 1,6× PDC"},{label:"Excellent",val:"> 1,6× PDC"}]},
@@ -693,22 +693,22 @@ const TESTS = {
      criteres:[{label:"Faible",val:"< 90 sec"},{label:"Bon",val:"90 – 179 sec"},{label:"Excellent",val:"≥ 180 sec"}]},
     {id:"vo2max",cat:"Capacité anaérobique",label:"VO2 max",score:(v)=>v<50?-1:v<=55?1:2,
      criteres:[{label:"Faible",val:"< 50"},{label:"Bon",val:"50 – 55"},{label:"Excellent",val:"> 55"}]},
-    {id:"broadjump",cat:"Puissance",label:"Broad jump (cm)",score:(v,w,h)=>v<h?-1:1,useHeight:true,
-     criteres:[{label:"Faible",val:"< taille (cm)"},{label:"Bon",val:"≥ taille (cm)"},{label:"Excellent",val:"N/A"}]},
+    {id:"broadjump",cat:"Puissance",label:"Broad jump (cm)",score:(v,w,h)=>v<h?-1:v<=(h+60)?1:2,useHeight:true,
+     criteres:[{label:"Faible",val:"< taille (cm)"},{label:"Bon",val:"taille – taille+60 cm"},{label:"Excellent",val:"> taille+60 cm"}]},
     {id:"pushups",cat:"Endurance musculaire",label:"Push-ups",score:(v)=>v<25?-1:v<=50?1:2,
      criteres:[{label:"Faible",val:"< 25"},{label:"Bon",val:"25 – 50"},{label:"Excellent",val:"> 50"}]},
-    {id:"plank_f",cat:"Endurance musculaire",label:"Front plank (sec)",score:(v)=>v<60?-1:v<=90?1:2,
-     criteres:[{label:"Faible",val:"< 60 sec"},{label:"Bon",val:"60 – 90 sec"},{label:"Excellent",val:"> 90 sec"}]},
-    {id:"plank_s",cat:"Endurance musculaire",label:"Side plank (sec)",score:(v)=>v<45?-1:v<=60?1:2,
-     criteres:[{label:"Faible",val:"< 45 sec"},{label:"Bon",val:"45 – 60 sec"},{label:"Excellent",val:"> 60 sec"}]},
+    {id:"plank_f",cat:"Endurance musculaire",label:"Front plank (sec)",score:(v)=>v<90?-1:v<=180?1:2,
+     criteres:[{label:"Faible",val:"< 90 sec"},{label:"Bon",val:"90 – 180 sec"},{label:"Excellent",val:"> 180 sec"}]},
+    {id:"plank_s",cat:"Endurance musculaire",label:"Side plank (sec)",score:(v)=>v<60?-1:v<=120?1:2,
+     criteres:[{label:"Faible",val:"< 60 sec"},{label:"Bon",val:"60 – 120 sec"},{label:"Excellent",val:"> 120 sec"}]},
   ],
   femme:[
     {id:"grip_g",cat:"Force",label:"Grip gauche (kg)",score:(v)=>v<35?-1:v<=50?1:2,
      criteres:[{label:"Faible",val:"< 35 kg"},{label:"Bon",val:"35 – 50 kg"},{label:"Excellent",val:"> 50 kg"}]},
     {id:"grip_d",cat:"Force",label:"Grip droit (kg)",score:(v)=>v<35?-1:v<=50?1:2,
      criteres:[{label:"Faible",val:"< 35 kg"},{label:"Bon",val:"35 – 50 kg"},{label:"Excellent",val:"> 50 kg"}]},
-    {id:"deadhang",cat:"Force",label:"Dead hang (sec)",score:(v)=>v<30?-1:v<=60?1:2,
-     criteres:[{label:"Faible",val:"< 30 sec"},{label:"Bon",val:"30 – 60 sec"},{label:"Excellent",val:"> 60 sec"}]},
+    {id:"deadhang",cat:"Force",label:"Dead hang (sec)",score:(v)=>v<60?-1:v<=180?1:2,
+     criteres:[{label:"Faible",val:"< 60 sec"},{label:"Bon",val:"60 – 180 sec"},{label:"Excellent",val:"> 180 sec"}]},
     {id:"legext",cat:"Force",label:"Leg extension (kg)",score:(v,w)=>v<w?-1:1,useWeight:true,hasAlt:true,
      criteres:[{label:"Faible",val:"< poids de corps"},{label:"Bon",val:"≥ poids de corps"},{label:"Excellent",val:"N/A"}],
      altLabel:"Back squat (kg)",altCriteres:[{label:"Faible",val:"< 1,2× PDC"},{label:"Bon",val:"1,2 – 1,6× PDC"},{label:"Excellent",val:"> 1,6× PDC"}]},
@@ -716,14 +716,14 @@ const TESTS = {
      criteres:[{label:"Faible",val:"< 90 sec"},{label:"Bon",val:"90 – 179 sec"},{label:"Excellent",val:"≥ 180 sec"}]},
     {id:"vo2max",cat:"Capacité anaérobique",label:"VO2 max",score:(v)=>v<45?-1:v<=50?1:2,
      criteres:[{label:"Faible",val:"< 45"},{label:"Bon",val:"45 – 50"},{label:"Excellent",val:"> 50"}]},
-    {id:"broadjump",cat:"Puissance",label:"Broad jump (cm)",score:(v,w,h)=>v<h?-1:1,useHeight:true,
-     criteres:[{label:"Faible",val:"< taille (cm)"},{label:"Bon",val:"≥ taille (cm)"},{label:"Excellent",val:"N/A"}]},
+    {id:"broadjump",cat:"Puissance",label:"Broad jump (cm)",score:(v,w,h)=>v<h?-1:v<=(h+60)?1:2,useHeight:true,
+     criteres:[{label:"Faible",val:"< taille (cm)"},{label:"Bon",val:"taille – taille+60 cm"},{label:"Excellent",val:"> taille+60 cm"}]},
     {id:"pushups",cat:"Endurance musculaire",label:"Push-ups",score:(v)=>v<15?-1:v<=25?1:2,
      criteres:[{label:"Faible",val:"< 15"},{label:"Bon",val:"15 – 25"},{label:"Excellent",val:"> 25"}]},
-    {id:"plank_f",cat:"Endurance musculaire",label:"Front plank (sec)",score:(v)=>v<60?-1:v<=90?1:2,
-     criteres:[{label:"Faible",val:"< 60 sec"},{label:"Bon",val:"60 – 90 sec"},{label:"Excellent",val:"> 90 sec"}]},
-    {id:"plank_s",cat:"Endurance musculaire",label:"Side plank (sec)",score:(v)=>v<45?-1:v<=60?1:2,
-     criteres:[{label:"Faible",val:"< 45 sec"},{label:"Bon",val:"45 – 60 sec"},{label:"Excellent",val:"> 60 sec"}]},
+    {id:"plank_f",cat:"Endurance musculaire",label:"Front plank (sec)",score:(v)=>v<90?-1:v<=180?1:2,
+     criteres:[{label:"Faible",val:"< 90 sec"},{label:"Bon",val:"90 – 180 sec"},{label:"Excellent",val:"> 180 sec"}]},
+    {id:"plank_s",cat:"Endurance musculaire",label:"Side plank (sec)",score:(v)=>v<60?-1:v<=120?1:2,
+     criteres:[{label:"Faible",val:"< 60 sec"},{label:"Bon",val:"60 – 120 sec"},{label:"Excellent",val:"> 120 sec"}]},
   ]
 };
 
@@ -1133,6 +1133,25 @@ function renderBulletin(warrior, result, total, cats) {
     </div>`;
   }).join('');
 
+  // Résultats de challenges
+  const d = getData();
+  const warriorChallengeResults = (_cache.challengeResults||[]).filter(function(r){ return r.warrior_id === warrior.id; });
+  let challengeHTML = '';
+  if (warriorChallengeResults.length > 0) {
+    const rows = warriorChallengeResults.map(function(cr) {
+      const ch = (_cache.challenges||[]).find(function(c){ return c.id === cr.challenge_id; });
+      const label = ch ? ch.title : cr.challenge_id;
+      const unit = ch ? ch.unit : '';
+      return `<div class="brow"><span class="brow-test">${label}</span>
+        <span><span class="brow-val">${cr.value} ${unit}</span>
+        <span class="pts" style="background:rgba(168,216,234,.15);color:var(--ice-b);border-color:rgba(168,216,234,.2);">INFO</span></span></div>`;
+    }).join('');
+    challengeHTML = `<div class="bul-cat">
+      <div class="bul-cat-name" style="color:#a8d8ea;">⚔️ Défis mensuels</div>
+      ${rows}
+    </div>`;
+  }
+
   return `
     <div id="print-${warrior.id}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
@@ -1145,7 +1164,7 @@ function renderBulletin(warrior, result, total, cats) {
           <div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;color:var(--accent);text-transform:uppercase;">${animal.name}</div>
         </div>
       </div>
-      <div class="bul-grid">${catsHTML}</div>
+      <div class="bul-grid">${catsHTML}${challengeHTML}</div>
       <div class="total-row">
         <span class="total-lbl">Score total</span>
         <span class="total-val">${total} pts</span>
@@ -1984,8 +2003,80 @@ function timeAgo(dateStr) {
 
 const FEED_ICONS = {
   'new_warrior':'⚔️','fitness_result':'🏋','habit_entry':'🔥',
-  'personal_record':'🏆','level_up':'🐉'
+  'personal_record':'🏆','level_up':'🐉','challenge':'⚔️',
+  'month_winner_habits':'👑','month_winner_challenge':'🏅'
 };
+
+// ======== ANNONCE FIN DE MOIS ========
+const MONTH_ANNOUNCE_KEY = 'fw_month_announced';
+
+async function checkAndAnnounceMonthWinners() {
+  const now = new Date();
+  // Déclencher le 1er de chaque mois
+  if (now.getDate() !== 1) return;
+
+  // Clé unique pour ce 1er du mois
+  const monthKey = now.getFullYear() + '_' + String(now.getMonth() + 1).padStart(2, '0');
+  let announced = {};
+  try { announced = JSON.parse(localStorage.getItem(MONTH_ANNOUNCE_KEY) || '{}'); } catch(e) {}
+  if (announced[monthKey]) return; // Déjà annoncé ce mois
+
+  // Mois précédent
+  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevBounds = getPrevMonthBounds();
+  const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const prevMonthLabel = months[prevMonth.getMonth()] + ' ' + prevMonth.getFullYear();
+
+  let didAnnounce = false;
+
+  // 1. Vainqueur habitudes du mois précédent
+  const habitsLb = getHabitsLeaderboard(prevBounds.start, prevBounds.end);
+  const habitsWinner = habitsLb.find(function(e){ return e.pts > 0; });
+  if (habitsWinner) {
+    const msg = '👑 <strong style="color:#FFD700;font-family:Black Ops One,cursive;font-size:15px;">'
+      + habitsWinner.w.name + '</strong>'
+      + ' <span style="color:#FFD700;">remporte le challenge des HABITUDES de ' + prevMonthLabel + '</span>'
+      + ' avec <strong style="color:#FFD700;">' + habitsWinner.pts.toFixed(1) + ' points</strong> ! '
+      + habitsWinner.animal.emoji + ' Bravo guerrier ! ⚔️';
+    await insertFeedEvent('month_winner_habits', habitsWinner.w.id, msg, null);
+    didAnnounce = true;
+  }
+
+  // 2. Vainqueur défi fitness du mois précédent
+  const prevChId = 'ch_' + prevMonth.getFullYear() + '_' + String(prevMonth.getMonth() + 1).padStart(2, '0');
+  const prevCh = (_cache.challenges||[]).find(function(c){ return c.id === prevChId; });
+  if (prevCh) {
+    const chLb = getChallengeLeaderboard(prevChId);
+    const chWinner = chLb[0];
+    if (chWinner) {
+      const msg = '🏅 <strong style="color:#A8D8EA;font-family:Black Ops One,cursive;font-size:15px;">'
+        + chWinner.warrior.name + '</strong>'
+        + ' <span style="color:#A8D8EA;">remporte le DÉFI FITNESS de ' + prevMonthLabel + '</span>'
+        + ' — <strong style="color:#A8D8EA;">' + prevCh.title + ' : ' + chWinner.value + ' ' + prevCh.unit + '</strong> !'
+        + ' ' + chWinner.animal.emoji + ' Légendaire ! ❄️';
+      await insertFeedEvent('month_winner_challenge', chWinner.warrior.id, msg, null);
+      didAnnounce = true;
+    }
+  }
+
+  // 3. Annonce nouveau challenge si défini ce mois
+  const curChId = getCurrentMonthChallengeId();
+  const curCh = (_cache.challenges||[]).find(function(c){ return c.id === curChId; });
+  if (curCh) {
+    const msg = '⚔️ <span style="color:#4CAF7D;font-family:Black Ops One,cursive;">NOUVEAU DÉFI DU MOIS !</span>'
+      + ' Le challenge <strong style="color:#4CAF7D;">' + curCh.title + '</strong> commence maintenant.'
+      + ' Encode ton meilleur résultat dans l\'onglet ⚔️ Challenge. Que le meilleur gagne ! 🧊';
+    await insertFeedEvent('challenge', null, msg, null);
+    didAnnounce = true;
+  }
+
+  if (didAnnounce) {
+    announced[monthKey] = true;
+    try { localStorage.setItem(MONTH_ANNOUNCE_KEY, JSON.stringify(announced)); } catch(e) {}
+    await loadFromDb();
+    renderFeed();
+  }
+}
 
 
 function buildReactionButtons(item) {
@@ -2021,16 +2112,24 @@ function renderFeed() {
   let html = '';
   d.feed.slice(0,10).forEach(function(item) {
     const isPR = item.type === 'personal_record';
-    const icon = isPR ? '🏆' : (FEED_ICONS[item.type] || '⚡');
-    const bgStyle = isPR
-      ? 'background:linear-gradient(135deg,rgba(255,215,0,.12),rgba(255,180,0,.05));border:1px solid rgba(255,215,0,.35);'
-      : 'background:rgba(7,17,30,.6);border:1px solid rgba(0,180,216,.07);';
+    const isHabitsWinner = item.type === 'month_winner_habits';
+    const isChallengeWinner = item.type === 'month_winner_challenge';
+    const icon = isPR ? '🏆' : isHabitsWinner ? '👑' : isChallengeWinner ? '🏅' : (FEED_ICONS[item.type] || '⚡');
+    let bgStyle;
+    if (isPR || isHabitsWinner) {
+      bgStyle = 'background:linear-gradient(135deg,rgba(255,215,0,.14),rgba(255,180,0,.06));border:1px solid rgba(255,215,0,.4);';
+    } else if (isChallengeWinner) {
+      bgStyle = 'background:linear-gradient(135deg,rgba(0,180,216,.14),rgba(168,216,234,.06));border:1px solid rgba(0,180,216,.4);';
+    } else {
+      bgStyle = 'background:rgba(7,17,30,.6);border:1px solid rgba(0,180,216,.07);';
+    }
+    const timeColor = (isPR || isHabitsWinner) ? '#FFD700' : isChallengeWinner ? '#A8D8EA' : 'var(--muted)';
     html += '<div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:8px;margin-bottom:8px;' + bgStyle + '">'
       + '<div style="font-size:22px;min-width:32px;text-align:center;">' + icon + '</div>'
       + '<div style="flex:1;font-size:13px;line-height:1.5;">'
       + '<div>' + item.message + '</div>'
       + (item.details ? '<div style="font-size:11px;color:var(--muted);margin-top:4px;">' + (isPR ? '' : item.details) + '</div>' : '')
-      + '<div style="font-size:10px;color:' + (isPR ? '#FFD700' : 'var(--muted)') + ';margin-top:3px;">' + timeAgo(item.createdAt) + '</div>'
+      + '<div style="font-size:10px;color:' + timeColor + ';margin-top:3px;">' + timeAgo(item.createdAt) + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">'
       + buildReactionButtons(item)
@@ -2730,6 +2829,7 @@ loadFromDb().then(async function() {
   renderHomeWinners();
   renderHomeChallengeBlock();
   renderFeed();
+  await checkAndAnnounceMonthWinners();
   populateWarriorSelect();
   const myId = getMyProfile();
   const d = getData();
