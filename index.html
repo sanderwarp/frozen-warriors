@@ -605,6 +605,14 @@ select.fi option{background:var(--dark);}
         <div style="background:rgba(0,180,216,.05);border:1px solid rgba(0,180,216,.15);border-radius:8px;padding:16px;margin-bottom:20px;">
           <div id="current-challenge-admin" style="margin-bottom:14px;font-size:13px;color:var(--muted);">Chargement...</div>
           <div class="form-grid">
+            <div class="fg">
+              <label class="fl">Mois</label>
+              <select class="fi" id="ch-month"></select>
+            </div>
+            <div class="fg">
+              <label class="fl">Année</label>
+              <select class="fi" id="ch-year"></select>
+            </div>
             <div class="fg full">
               <label class="fl">Titre du challenge</label>
               <input class="fi" id="ch-title" placeholder="ex: Sandbag Carry — Distance max" type="text">
@@ -2516,8 +2524,10 @@ async function saveChallengeAdmin() {
   const desc = document.getElementById('ch-desc') ? document.getElementById('ch-desc').value.trim() : '';
   const unit = document.getElementById('ch-unit') ? document.getElementById('ch-unit').value : 'm';
   const order = document.getElementById('ch-order') ? document.getElementById('ch-order').value : 'desc';
+  const month = document.getElementById('ch-month') ? document.getElementById('ch-month').value : String(new Date().getMonth()+1).padStart(2,'0');
+  const year = document.getElementById('ch-year') ? document.getElementById('ch-year').value : String(new Date().getFullYear());
   if (!title) { showMsg('ch-admin-msg','Entre un titre','err'); return; }
-  const id = getCurrentMonthChallengeId();
+  const id = 'ch_' + year + '_' + month;
   try {
     await upsertChallenge({ id, title, description: desc, unit, sort_order: order, created_at: new Date().toISOString() });
     await loadChallengeData();
@@ -2531,17 +2541,44 @@ async function saveChallengeAdmin() {
 }
 
 function renderChallengeAdmin() {
-  const ch = getCurrentChallenge();
+  // Peupler le sélecteur de mois
+  const monthSel = document.getElementById('ch-month');
+  const yearSel = document.getElementById('ch-year');
+  if (monthSel && monthSel.options.length === 0) {
+    const mois = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    mois.forEach(function(m, i) {
+      const opt = document.createElement('option');
+      opt.value = String(i+1).padStart(2,'0');
+      opt.textContent = m;
+      monthSel.appendChild(opt);
+    });
+    const now = new Date();
+    monthSel.value = String(now.getMonth()+1).padStart(2,'0');
+  }
+  if (yearSel && yearSel.options.length === 0) {
+    const y = new Date().getFullYear();
+    [y, y+1].forEach(function(yr) {
+      const opt = document.createElement('option');
+      opt.value = String(yr);
+      opt.textContent = String(yr);
+      yearSel.appendChild(opt);
+    });
+  }
+
+  // Afficher tous les challenges existants
   const el = document.getElementById('current-challenge-admin');
   if (!el) return;
-  if (ch) {
-    el.innerHTML = '<strong style="color:var(--accent);">Challenge actif :</strong> ' + ch.title + ' (' + ch.unit + ')';
-    if (document.getElementById('ch-title')) document.getElementById('ch-title').value = ch.title;
-    if (document.getElementById('ch-desc')) document.getElementById('ch-desc').value = ch.description || '';
-    if (document.getElementById('ch-unit')) document.getElementById('ch-unit').value = ch.unit || 'm';
-    if (document.getElementById('ch-order')) document.getElementById('ch-order').value = ch.sort_order || 'desc';
+  const allChallenges = (_cache.challenges||[]).sort(function(a,b){ return b.id.localeCompare(a.id); });
+  if (allChallenges.length > 0) {
+    const rows = allChallenges.map(function(ch) {
+      const parts = ch.id.split('_');
+      const label = parts[2] + '/' + parts[1];
+      return '<span style="display:inline-block;margin-right:12px;margin-bottom:4px;">'
+        + '<strong style="color:var(--accent);">' + label + '</strong> — ' + ch.title + ' (' + ch.unit + ')</span>';
+    }).join('');
+    el.innerHTML = '<strong style="color:var(--accent);">Challenges enregistrés :</strong><br>' + rows;
   } else {
-    el.innerHTML = '<span style="color:var(--muted);">Aucun challenge défini ce mois-ci.</span>';
+    el.innerHTML = '<span style="color:var(--muted);">Aucun challenge défini encore.</span>';
   }
 }
 
