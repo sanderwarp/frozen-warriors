@@ -246,6 +246,23 @@ select.fi option{background:var(--dark);}
 .winner-score{font-family:Barlow Condensed,sans-serif;font-size:13px;color:var(--muted);}
 .winner-crown{font-size:28px;flex-shrink:0;}
 
+/* WEEK CALENDAR */
+.week-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;}
+.week-day{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;
+  border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,.06);
+  background:rgba(7,17,30,.5);transition:all .2s;}
+.week-day:hover{border-color:rgba(0,180,216,.3);background:rgba(0,180,216,.08);}
+.week-day.wday-today{border-color:rgba(0,180,216,.4);background:rgba(0,180,216,.1);}
+.week-day.wday-selected{border-color:var(--accent);background:rgba(0,180,216,.2);}
+.week-day.wday-done{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.08);}
+.week-day.wday-done.wday-selected{border-color:var(--green);background:rgba(34,197,94,.18);}
+.wday-name{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-family:Barlow Condensed,sans-serif;font-weight:700;}
+.wday-num{font-family:'Black Ops One',cursive;font-size:16px;color:var(--text);}
+.wday-dot{width:6px;height:6px;border-radius:50%;background:transparent;}
+.wday-done .wday-dot{background:var(--green);}
+.wday-pts{font-size:9px;color:var(--muted);font-family:Barlow Condensed,sans-serif;}
+.wday-future{opacity:.35;cursor:default;}
+
 /* HABIT LB */
 .hrow{display:flex;align-items:center;gap:14px;padding:12px 16px;
   background:rgba(7,17,30,.6);border-radius:6px;margin-bottom:8px;
@@ -287,7 +304,7 @@ select.fi option{background:var(--dark);}
       <button class="nav-btn" onclick="nav('encode-habits')">🔥 Habitudes</button>
       <button class="nav-btn" onclick="nav('challenge')">⚔️ Challenge</button>
       <button class="nav-btn" onclick="nav('add')">➕ Résultat</button>
-      <button class="nav-btn" onclick="nav('warriors')">⚔ Guerriers</button>
+      <button class="nav-btn" onclick="nav('warriors')">🛡️ Guerriers</button>
       <button class="nav-btn" onclick="nav('criteres')">📖 Critères</button>
       <button class="nav-btn" onclick="nav('levels')">🐉 Niveaux</button>
       <button class="nav-btn" onclick="nav('admin')">🔐 Admin</button>
@@ -366,11 +383,15 @@ select.fi option{background:var(--dark);}
           🔔 Rappel quotidien
         </button>
       </div>
+
+      <!-- MINI CALENDRIER SEMAINE -->
+      <div id="week-calendar" style="margin-bottom:20px;"></div>
+
       <input type="hidden" id="h-warrior2">
       <div class="form-grid">
         <div class="fg">
           <label class="fl">Date</label>
-          <input class="fi" id="h-date2" type="date">
+          <input class="fi" id="h-date2" type="date" onchange="onHabitDateChange()">
         </div>
       </div>
       <div style="margin-top:20px;">
@@ -407,14 +428,18 @@ select.fi option{background:var(--dark);}
   <!-- ADD RESULT -->
   <div class="section" id="s-add">
     <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:32px;" id="add-result-emoji">⚔️</span>
+          <div>
+            <div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;" id="add-result-name">—</div>
+            <div style="font-size:11px;color:var(--muted);">C'est toi ? <span style="color:var(--accent);cursor:pointer;text-decoration:underline;" onclick="showProfileModal()">Changer</span></div>
+          </div>
+        </div>
+      </div>
+      <input type="hidden" id="f-warrior">
       <div class="stitle">Enregistrer un résultat</div>
       <div class="form-grid">
-        <div class="fg full">
-          <label class="fl">Guerrier</label>
-          <select class="fi" id="f-warrior" onchange="onWarriorSelect()">
-            <option value="">— Sélectionne un guerrier —</option>
-          </select>
-        </div>
         <div class="fg">
           <label class="fl">Date du test</label>
           <input class="fi" id="f-date" type="date">
@@ -630,6 +655,7 @@ select.fi option{background:var(--dark);}
                 <option value="min">Temps (minutes)</option>
                 <option value="reps">Répétitions</option>
                 <option value="kg">Poids (kg)</option>
+                <option value="cal">Calories (cal)</option>
               </select>
             </div>
             <div class="fg">
@@ -1403,20 +1429,40 @@ async function deleteResult(rid, wid) {
 
 // ======== ADD RESULT ========
 function populateWarriorSelect() {
-  const d = getData();
+  // Charge automatiquement le profil mémorisé
+  const myId = getMyProfile();
   const sel = document.getElementById('f-warrior');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">— Sélectionne un guerrier —</option>';
-  d.warriors.forEach(w => {
-    sel.innerHTML += `<option value="${w.id}" ${w.id===current?'selected':''}>${w.name}</option>`;
-  });
+  if (sel) sel.value = myId || '';
+  updateAddResultProfile();
+  if (myId) onWarriorSelect();
+}
+
+function updateAddResultProfile() {
+  const wid = getMyProfile();
+  const d = getData();
+  const w = wid ? d.warriors.find(function(x){ return x.id === wid; }) : null;
+  const nameEl = document.getElementById('add-result-name');
+  const emojiEl = document.getElementById('add-result-emoji');
+  const sel = document.getElementById('f-warrior');
+  if (w) {
+    const last = getLatestResult(wid);
+    const score = last ? calcScore(w, last).total : 0;
+    const animal = getAnimal(score);
+    if (nameEl) nameEl.textContent = w.name;
+    if (emojiEl) emojiEl.textContent = animal.emoji;
+    if (sel) sel.value = wid;
+    onWarriorSelect();
+  } else {
+    if (nameEl) nameEl.textContent = '—';
+    if (emojiEl) emojiEl.textContent = '⚔️';
+  }
 }
 
 function onWarriorSelect() {
-  const wid = document.getElementById('f-warrior').value;
+  const wid = document.getElementById('f-warrior') ? document.getElementById('f-warrior').value : getMyProfile();
   const fields = document.getElementById('test-fields');
-  if (!wid) { fields.style.display='none'; return; }
-  fields.style.display='block';
+  if (!wid) { if(fields) fields.style.display='none'; return; }
+  if(fields) fields.style.display='block';
   const d = getData();
   const warrior = d.warriors.find(w => w.id === wid);
   if (!warrior) return;
@@ -1718,12 +1764,9 @@ async function saveHabits2() {
     renderHomeHabits();
     renderHomeWinners();
     renderFeed();
-    loadTodayHabits();
+    renderWeekCalendar();
     showMsg('habit-msg2','✅ Habitudes enregistrées !','ok');
-    checks.forEach(k => { const el=document.getElementById('h2-'+k); if(el) el.checked=false; });
-    showerCount2=0;
-    document.getElementById('shower-count2').textContent='0';
-    document.getElementById('day-preview2').textContent='0';
+    // Ne pas reset les coches — rester sur le même jour pour confirmation visuelle
   } catch(e) { showMsg('habit-msg2','Erreur: '+e.message,'err'); }
 }
 
@@ -1900,6 +1943,25 @@ function showNewWarriorForm() {
   const nameEl = document.getElementById('new-warrior-name');
   if (!nameEl || !nameEl.value.trim()) { if(nameEl) nameEl.focus(); return; }
   const name = nameEl.value.trim();
+
+  // Vérification doublon immédiate
+  const d = getData();
+  const existing = d.warriors.find(function(w){ return w.name.toLowerCase().trim() === name.toLowerCase().trim(); });
+  if (existing) {
+    const list = document.getElementById('profile-list');
+    list.innerHTML = '<div style="text-align:center;padding:16px;">'
+      + '<div style="font-size:32px;margin-bottom:12px;">⚠️</div>'
+      + '<div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:#FF6B6B;margin-bottom:8px;">Ce nom existe déjà !</div>'
+      + '<div style="font-size:13px;color:var(--muted);margin-bottom:20px;">'
+      + '<strong style="color:#fff;">' + existing.name + '</strong> est déjà dans la tribu.<br>Si c\'est toi, sélectionne ton nom dans la liste.'
+      + '</div>'
+      + '<div style="display:flex;gap:10px;">'
+      + '<button onclick="showProfileModal(false)" style="flex:1;padding:12px;border-radius:6px;background:rgba(0,180,216,.15);border:1px solid rgba(0,180,216,.3);color:var(--accent);cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;">← Retour</button>'
+      + '<button onclick="selectProfile(\'' + existing.id + '\')" style="flex:1;padding:12px;border-radius:6px;background:var(--accent);border:none;color:#000;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;">C\'est moi !</button>'
+      + '</div></div>';
+    return;
+  }
+
   const list = document.getElementById('profile-list');
   list.innerHTML = '<div style="text-align:left;">'
     + '<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Quelques infos pour ton profil :</div>'
@@ -1919,6 +1981,14 @@ function showNewWarriorForm() {
 }
 
 async function finalizeNewWarrior(name) {
+  // Double vérification côté serveur
+  const d = getData();
+  const existing = d.warriors.find(function(w){ return w.name.toLowerCase().trim() === name.toLowerCase().trim(); });
+  if (existing) {
+    const list = document.getElementById('profile-list');
+    if (list) list.innerHTML = '<div style="text-align:center;padding:16px;color:#FF6B6B;font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700;">⚠️ Ce nom existe déjà !</div>';
+    return;
+  }
   const gender = document.getElementById('nw-gender') ? document.getElementById('nw-gender').value : 'H';
   const weight = parseFloat(document.getElementById('nw-weight') ? document.getElementById('nw-weight').value : 75) || 75;
   const height = parseFloat(document.getElementById('nw-height') ? document.getElementById('nw-height').value : 175) || 175;
@@ -1940,6 +2010,7 @@ function selectProfile(wid) {
   const modal = document.getElementById('profile-modal');
   if (modal) modal.style.display = 'none';
   updateProfileDisplay();
+  updateAddResultProfile();
   loadTodayHabits();
 }
 
@@ -1960,22 +2031,112 @@ function updateProfileDisplay() {
   if (sel) sel.value = wid;
 }
 
+function renderWeekCalendar() {
+  const wid = getMyProfile();
+  const container = document.getElementById('week-calendar');
+  if (!container || !wid) return;
+
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const selectedDate = document.getElementById('h-date2') ? document.getElementById('h-date2').value : todayStr;
+
+  // Bornes de la semaine (lundi -> dimanche)
+  const wb = getWeekBounds(todayStr);
+  const startDate = new Date(wb.start);
+
+  const d = getData();
+  const jours = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+
+  let html = '<div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-family:Barlow Condensed,sans-serif;">📅 Cette semaine</div>';
+  html += '<div class="week-cal">';
+
+  for (let i = 0; i < 7; i++) {
+    const d2 = new Date(startDate);
+    d2.setDate(startDate.getDate() + i);
+    const dateStr = d2.toISOString().split('T')[0];
+    const isFuture = dateStr > todayStr;
+    const isToday = dateStr === todayStr;
+    const isSelected = dateStr === selectedDate;
+
+    // Chercher les habitudes de ce jour
+    const habitEntry = d.habits.find(function(h){ return h.warriorId === wid && h.date === dateStr; });
+    const isDone = !!habitEntry;
+    const pts = isDone ? calcHabitPoints(habitEntry).toFixed(1) : '';
+
+    let classes = 'week-day';
+    if (isFuture) classes += ' wday-future';
+    if (isToday) classes += ' wday-today';
+    if (isSelected) classes += ' wday-selected';
+    if (isDone) classes += ' wday-done';
+
+    const clickHandler = isFuture ? '' : 'onclick="selectWeekDay(\'' + dateStr + '\')"';
+
+    html += '<div class="' + classes + '" ' + clickHandler + '>'
+      + '<div class="wday-name">' + jours[i] + '</div>'
+      + '<div class="wday-num">' + d2.getDate() + '</div>'
+      + '<div class="wday-dot"></div>'
+      + (isDone ? '<div class="wday-pts">' + pts + 'pts</div>' : '<div class="wday-pts" style="color:transparent;">-</div>')
+      + '</div>';
+  }
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function selectWeekDay(dateStr) {
+  const dateInput = document.getElementById('h-date2');
+  if (dateInput) {
+    dateInput.value = dateStr;
+    onHabitDateChange();
+  }
+  renderWeekCalendar();
+}
+
+function onHabitDateChange() {
+  const wid = getMyProfile();
+  if (!wid) return;
+  const date = document.getElementById('h-date2') ? document.getElementById('h-date2').value : '';
+  if (!date) return;
+  const d = getData();
+  const habitEntry = d.habits.find(function(h){ return h.warriorId === wid && h.date === date; });
+  const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
+  if (habitEntry) {
+    checks.forEach(function(k) {
+      const el = document.getElementById('h2-'+k);
+      if (el) el.checked = habitEntry[k] || false;
+    });
+    showerCount2 = habitEntry.douches_froides || 0;
+  } else {
+    checks.forEach(function(k) {
+      const el = document.getElementById('h2-'+k);
+      if (el) el.checked = false;
+    });
+    showerCount2 = 0;
+  }
+  const sc = document.getElementById('shower-count2');
+  if (sc) sc.textContent = showerCount2;
+  updateDayPreview2();
+  renderWeekCalendar();
+}
+
 function loadTodayHabits() {
   const wid = getMyProfile();
   if (!wid) return;
   const today = new Date().toISOString().split('T')[0];
+  const dateInput = document.getElementById('h-date2');
+  const date = dateInput ? dateInput.value : today;
   const d = getData();
-  const todayHabit = d.habits.find(function(h){ return h.warriorId === wid && h.date === today; });
-  if (!todayHabit) return;
+  const habitEntry = d.habits.find(function(h){ return h.warriorId === wid && h.date === date; });
+  if (!habitEntry) { renderWeekCalendar(); return; }
   const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
   checks.forEach(function(k) {
     const el = document.getElementById('h2-'+k);
-    if (el) el.checked = todayHabit[k] || false;
+    if (el) el.checked = habitEntry[k] || false;
   });
-  showerCount2 = todayHabit.douches_froides || 0;
+  showerCount2 = habitEntry.douches_froides || 0;
   const sc = document.getElementById('shower-count2');
   if (sc) sc.textContent = showerCount2;
   updateDayPreview2();
+  renderWeekCalendar();
 }
 
 function addCalendarReminder() {
@@ -2350,7 +2511,11 @@ function nav(name) {
   const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin'].indexOf(name);
   const btns = document.querySelectorAll('.nav-btn');
   if (btns[idx]) btns[idx].classList.add('active');
-  if (name === 'add') { populateWarriorSelect(); document.getElementById('f-date').value = new Date().toISOString().split('T')[0]; }
+  if (name === 'add') {
+    document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+    updateAddResultProfile();
+    if (!getMyProfile()) showProfileModal();
+  }
   if (name === 'warriors') renderWarriorsList();
   if (name === 'criteres') renderCriteres();
   if (name === 'challenge') { renderChallengePage(); }
