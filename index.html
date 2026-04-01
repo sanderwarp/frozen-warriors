@@ -1078,7 +1078,7 @@ function renderLeaderboard() {
     if (!latest) return {w, total:-999, cats:{}, latest:null};
     const {total, cats} = calcScore(w, latest);
     return {w, total, cats, latest};
-  }).filter(x => x.latest).sort((a,b) => b.total - a.total);
+  }).filter(x => x.latest && x.total > 0).sort((a,b) => b.total - a.total);
 
   if (ranked.length === 0) { empty.style.display='block'; return; }
   empty.style.display='none';
@@ -2836,34 +2836,47 @@ function calcHabitPoints(h) {
 }
 
 function getWeekBounds(date) {
-  const d = new Date(date);
+  const parts = date.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
   const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1) - day; // Monday
+  const diff = (day === 0 ? -6 : 1) - day;
   const mon = new Date(d); mon.setDate(d.getDate() + diff);
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const pad = function(n){ return String(n).padStart(2,'0'); };
   return {
-    start: mon.toISOString().split('T')[0],
-    end: sun.toISOString().split('T')[0]
+    start: mon.getFullYear()+'-'+pad(mon.getMonth()+1)+'-'+pad(mon.getDate()),
+    end:   sun.getFullYear()+'-'+pad(sun.getMonth()+1)+'-'+pad(sun.getDate())
   };
-}
-
-function getMonthBounds(date) {
-  const d = new Date(date);
-  const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
-  const end = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
-  return {start, end};
 }
 
 function getPrevWeekBounds() {
   const today = new Date();
-  today.setDate(today.getDate() - 7);
-  return getWeekBounds(today.toISOString().split('T')[0]);
+  const pad = function(n){ return String(n).padStart(2,'0'); };
+  const prev = new Date(today);
+  prev.setDate(today.getDate() - 7);
+  const prevStr = prev.getFullYear()+'-'+pad(prev.getMonth()+1)+'-'+pad(prev.getDate());
+  return getWeekBounds(prevStr);
+}
+
+function getMonthBounds(date) {
+  const parts = date.split('-');
+  const year = parseInt(parts[0]);
+  const month = parseInt(parts[1]) - 1;
+  const startD = new Date(year, month, 1);
+  const endD = new Date(year, month + 1, 0);
+  const pad = function(n){ return String(n).padStart(2,'0'); };
+  const start = startD.getFullYear() + '-' + pad(startD.getMonth()+1) + '-' + pad(startD.getDate());
+  const end = endD.getFullYear() + '-' + pad(endD.getMonth()+1) + '-' + pad(endD.getDate());
+  return {start, end};
 }
 
 function getPrevMonthBounds() {
   const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth()-1, 1).toISOString().split('T')[0];
-  const end = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
+  const pad = function(n){ return String(n).padStart(2,'0'); };
+  const startD = new Date(today.getFullYear(), today.getMonth()-1, 1);
+  const endD = new Date(today.getFullYear(), today.getMonth(), 0);
+  const start = startD.getFullYear() + '-' + pad(startD.getMonth()+1) + '-' + pad(startD.getDate());
+  const end = endD.getFullYear() + '-' + pad(endD.getMonth()+1) + '-' + pad(endD.getDate());
   return {start, end};
 }
 
