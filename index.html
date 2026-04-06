@@ -308,6 +308,7 @@ select.fi option{background:var(--dark);}
       <button class="nav-btn" onclick="nav('criteres')">📖 Critères</button>
       <button class="nav-btn" onclick="nav('levels')">🐉 Niveaux</button>
       <button class="nav-btn" onclick="nav('admin')">🔐 Admin</button>
+      <button class="nav-btn" onclick="nav('athx')">🏅 ATHX</button>
     </div>
   </header>
 
@@ -690,6 +691,110 @@ select.fi option{background:var(--dark);}
       </div>
     </div>
   </div>
+  <!-- ATHX -->
+  <div class="section" id="s-athx">
+    <div style="padding:12px 8px 8px;">
+
+      <!-- Filtres -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+        <select id="athxFilterType" onchange="onAthxTypeChange()" style="flex:1;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;">
+          <option value="solo">Solo</option>
+          <option value="duo">Duo</option>
+        </select>
+        <select id="athxFilterLevel" onchange="loadAthxLeaderboard()" style="flex:1;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;">
+          <option value="athx">ATHX</option>
+          <option value="light">Light</option>
+        </select>
+        <select id="athxFilterCat" onchange="loadAthxLeaderboard()" style="flex:1;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;display:none;">
+          <option value="all">Toutes catégories</option>
+          <option value="HH">H / H</option>
+          <option value="FF">F / F</option>
+          <option value="Mixte">Mixte</option>
+        </select>
+      </div>
+
+      <!-- Toggle mensuel / all time -->
+      <div style="display:flex;gap:6px;margin-bottom:12px;">
+        <button onclick="setAthxPeriod('month')" id="athxBtnMonth" style="flex:1;padding:8px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--deep);font-weight:700;font-size:12px;cursor:pointer;">Ce mois</button>
+        <button onclick="setAthxPeriod('alltime')" id="athxBtnAlltime" style="flex:1;padding:8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--dim);font-weight:700;font-size:12px;cursor:pointer;">All Time</button>
+      </div>
+
+      <!-- Classement -->
+      <div id="athxLeaderboard" style="margin-bottom:12px;">
+        <div style="text-align:center;color:var(--dim);padding:30px 0;font-size:13px;">Chargement...</div>
+      </div>
+
+      <!-- Bouton soumettre -->
+      <button onclick="openAthxModal()" style="width:100%;padding:12px;background:transparent;border:1px dashed var(--accent);border-radius:8px;color:var(--accent);font-weight:700;font-size:13px;cursor:pointer;">🏅 Soumettre mon score</button>
+    </div>
+
+    <!-- Modal saisie -->
+    <div id="athxModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;overflow-y:auto;padding:16px;">
+      <div style="background:var(--card);border-radius:12px;padding:16px;max-width:420px;margin:0 auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <span style="color:var(--accent);font-weight:700;font-size:15px;">🏅 MON SCORE ATHX</span>
+          <button onclick="closeAthxModal()" style="background:none;border:none;color:var(--dim);font-size:20px;cursor:pointer;">✕</button>
+        </div>
+
+        <!-- Type et niveau -->
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <select id="athxInputType" onchange="onAthxInputTypeChange()" style="flex:1;background:var(--deep);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;">
+            <option value="solo">Solo</option>
+            <option value="duo">Duo</option>
+          </select>
+          <select id="athxInputLevel" style="flex:1;background:var(--deep);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;">
+            <option value="athx">ATHX</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+
+        <!-- Solo -->
+        <div id="athxInputSoloSection" style="margin-bottom:10px;">
+          <select id="athxInputWarrior" style="width:100%;box-sizing:border-box;background:var(--deep);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;">
+            <option value="">-- Qui es-tu ? --</option>
+          </select>
+        </div>
+
+        <!-- Duo -->
+        <div id="athxInputDuoSection" style="display:none;margin-bottom:10px;">
+          <select id="athxInputMember1" style="width:100%;box-sizing:border-box;background:var(--deep);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;margin-bottom:6px;">
+            <option value="">-- Membre 1 --</option>
+          </select>
+          <select id="athxInputMember2" style="width:100%;box-sizing:border-box;background:var(--deep);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;margin-bottom:6px;">
+            <option value="">-- Membre 2 --</option>
+          </select>
+          <select id="athxInputCat" style="width:100%;box-sizing:border-box;background:var(--deep);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;">
+            <option value="HH">H / H</option>
+            <option value="FF">F / F</option>
+            <option value="Mixte">Mixte</option>
+          </select>
+        </div>
+
+        <!-- Scores -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div style="text-align:center;">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:2px;">STRENGTH</div>
+            <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">kg total</div>
+            <input id="athxInputStrength" type="number" placeholder="0" style="width:100%;box-sizing:border-box;background:var(--deep);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:13px;text-align:center;">
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:2px;">ENDURANCE</div>
+            <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">mètres</div>
+            <input id="athxInputEndurance" type="number" placeholder="0" style="width:100%;box-sizing:border-box;background:var(--deep);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:13px;text-align:center;">
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:2px;">METCON</div>
+            <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">secondes</div>
+            <input id="athxInputMetcon" type="number" placeholder="0" style="width:100%;box-sizing:border-box;background:var(--deep);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:13px;text-align:center;">
+          </div>
+        </div>
+
+        <button onclick="saveAthxScore()" style="width:100%;padding:12px;background:var(--accent);color:var(--deep);border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">💾 Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+
 </div>
 
 <script>
@@ -2508,7 +2613,7 @@ function nav(name) {
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
   const section = document.getElementById('s-'+name);
   if (section) section.classList.add('active');
-  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin'].indexOf(name);
+  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx'].indexOf(name);
   const btns = document.querySelectorAll('.nav-btn');
   if (btns[idx]) btns[idx].classList.add('active');
   if (name === 'add') {
@@ -2520,6 +2625,7 @@ function nav(name) {
   if (name === 'criteres') renderCriteres();
   if (name === 'challenge') { renderChallengePage(); }
   if (name === 'admin') { renderChallengeAdmin(); }
+  if (name === 'athx') { initAthxPage(); }
   if (name === 'encode-habits') {
     const myId = getMyProfile();
     if (!myId) { showProfileModal(); }
@@ -3083,6 +3189,231 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+
+// ══════════════════════════════════════
+// ATHX GAMES
+// ══════════════════════════════════════
+
+let athxPeriod = 'month';
+let athxWarriorsList = [];
+
+async function initAthxPage() {
+  await loadWarriorsForAthx();
+  onAthxTypeChange();
+  loadAthxLeaderboard();
+}
+
+async function loadWarriorsForAthx() {
+  try { athxWarriorsList = await sbFetch('warriors?order=name'); }
+  catch(e) { athxWarriorsList = []; }
+}
+
+function onAthxTypeChange() {
+  const type = document.getElementById('athxFilterType').value;
+  document.getElementById('athxFilterCat').style.display = type === 'duo' ? 'block' : 'none';
+  const levelSel = document.getElementById('athxFilterLevel');
+  levelSel.innerHTML = type === 'solo'
+    ? '<option value="athx">ATHX</option>'
+    : '<option value="athx">ATHX</option><option value="light">Light</option>';
+  loadAthxLeaderboard();
+}
+
+function setAthxPeriod(p) {
+  athxPeriod = p;
+  const mBtn = document.getElementById('athxBtnMonth');
+  const aBtn = document.getElementById('athxBtnAlltime');
+  mBtn.style.background = p === 'month' ? 'var(--accent)' : 'transparent';
+  mBtn.style.color = p === 'month' ? 'var(--deep)' : 'var(--dim)';
+  mBtn.style.border = '1px solid ' + (p === 'month' ? 'var(--accent)' : 'var(--border)');
+  aBtn.style.background = p === 'alltime' ? 'var(--accent)' : 'transparent';
+  aBtn.style.color = p === 'alltime' ? 'var(--deep)' : 'var(--dim)';
+  aBtn.style.border = '1px solid ' + (p === 'alltime' ? 'var(--accent)' : 'var(--border)');
+  loadAthxLeaderboard();
+}
+
+async function loadAthxLeaderboard() {
+  const type = document.getElementById('athxFilterType') ? document.getElementById('athxFilterType').value : 'solo';
+  const level = document.getElementById('athxFilterLevel') ? document.getElementById('athxFilterLevel').value : 'athx';
+  const cat = document.getElementById('athxFilterCat') ? document.getElementById('athxFilterCat').value : 'all';
+  const board = document.getElementById('athxLeaderboard');
+  if (!board) return;
+  board.innerHTML = '<div style="text-align:center;color:var(--dim);padding:20px;">Chargement...</div>';
+
+  try {
+    const allResults = await sbFetch('athx_results?participant_type=eq.' + type + '&level=eq.' + level + '&order=submitted_at.desc');
+
+    let results = allResults;
+    if (athxPeriod === 'month') {
+      const now = new Date();
+      const y = now.getFullYear(), m = now.getMonth();
+      results = allResults.filter(function(r) {
+        const d = new Date(r.submitted_at);
+        return d.getFullYear() === y && d.getMonth() === m;
+      });
+    }
+
+    if (!results.length) {
+      board.innerHTML = '<div style="text-align:center;color:var(--dim);padding:30px 0;font-size:13px;">' + (athxPeriod === 'month' ? 'Aucun score ce mois-ci' : 'Aucun score enregistré') + '</div>';
+      return;
+    }
+
+    if (type === 'duo' && cat !== 'all') {
+      results = results.filter(function(r) { return r.category === cat; });
+    }
+
+    const ranked = computeAthxRanks(results);
+
+    // Garder le meilleur score par participant
+    const best = {};
+    ranked.forEach(function(r) {
+      if (!best[r.participant_key] || r.total_rank < best[r.participant_key].total_rank) {
+        best[r.participant_key] = r;
+      }
+    });
+    const display = Object.values(best).sort(function(a,b) { return a.total_rank - b.total_rank; });
+
+    const medals = ['🥇','🥈','🥉'];
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    display.forEach(function(r, i) {
+      const name = getAthxName(r, type);
+      const medal = i < 3 ? medals[i] : (i+1) + '.';
+      const borderColor = i===0 ? 'var(--accent)' : i===1 ? '#aaa' : i===2 ? '#cd7f32' : 'var(--border)';
+      html += '<div style="background:var(--card);border-radius:10px;padding:12px;border-left:3px solid ' + borderColor + '">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+        + '<span style="font-weight:700;font-size:14px;">' + medal + ' ' + name + '</span>'
+        + '<span style="background:var(--accent);color:var(--deep);font-weight:800;font-size:14px;padding:3px 10px;border-radius:20px;">' + r.total_rank + ' pts</span>'
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:11px;color:var(--dim);">'
+        + '<div>Force: <span style="color:var(--text)">' + (r.strength_score ?? '-') + 'kg</span> <span style="color:var(--accent)">#' + r.rank_strength + '</span></div>'
+        + '<div>Endu: <span style="color:var(--text)">' + (r.endurance_score ?? '-') + 'm</span> <span style="color:var(--accent)">#' + r.rank_endurance + '</span></div>'
+        + '<div>Metcon: <span style="color:var(--text)">' + (r.metcon_score ? athxFmtTime(r.metcon_score) : '-') + '</span> <span style="color:var(--accent)">#' + r.rank_metcon + '</span></div>'
+        + '</div></div>';
+    });
+    html += '</div>';
+    board.innerHTML = html;
+  } catch(e) {
+    board.innerHTML = '<div style="color:red;padding:12px;">Erreur: ' + e.message + '</div>';
+  }
+}
+
+function getAthxName(r, type) {
+  if (type === 'solo') {
+    const w = athxWarriorsList.find(function(w) { return w.id === r.participant_key; });
+    return w ? w.name : r.participant_key;
+  }
+  const w1 = athxWarriorsList.find(function(w) { return w.id === r.member1_id; });
+  const w2 = athxWarriorsList.find(function(w) { return w.id === r.member2_id; });
+  return (w1 ? w1.name : '?') + ' & ' + (w2 ? w2.name : '?');
+}
+
+function computeAthxRanks(results) {
+  const r = results.map(function(x) { return Object.assign({}, x); });
+  function rank(arr, key, asc) {
+    const sorted = arr.filter(function(x) { return x[key] != null; })
+      .sort(function(a,b) { return asc ? a[key]-b[key] : b[key]-a[key]; });
+    sorted.forEach(function(x, i) {
+      const orig = r.find(function(o) { return o.id === x.id; });
+      if (orig) orig['rank_' + key.replace('_score','')] = i + 1;
+    });
+  }
+  rank(r, 'strength_score', false);
+  rank(r, 'endurance_score', false);
+  rank(r, 'metcon_score', true);
+  r.forEach(function(x) {
+    x.rank_strength = x.rank_strength || r.length;
+    x.rank_endurance = x.rank_endurance || r.length;
+    x.rank_metcon = x.rank_metcon || r.length;
+    x.total_rank = x.rank_strength + x.rank_endurance + x.rank_metcon;
+  });
+  return r;
+}
+
+function athxFmtTime(sec) {
+  const m = Math.floor(sec/60), s = sec % 60;
+  return m + 'min' + (s > 0 ? s + 's' : '');
+}
+
+function openAthxModal() {
+  populateAthxWarriorSelects();
+  document.getElementById('athxModal').style.display = 'block';
+}
+
+function closeAthxModal() {
+  document.getElementById('athxModal').style.display = 'none';
+}
+
+function populateAthxWarriorSelects() {
+  [['athxInputWarrior','-- Qui es-tu ? --'],['athxInputMember1','-- Membre 1 --'],['athxInputMember2','-- Membre 2 --']].forEach(function(pair) {
+    const sel = document.getElementById(pair[0]);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">' + pair[1] + '</option>';
+    athxWarriorsList.forEach(function(w) {
+      const opt = document.createElement('option');
+      opt.value = w.id; opt.textContent = w.name;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function onAthxInputTypeChange() {
+  const type = document.getElementById('athxInputType').value;
+  document.getElementById('athxInputSoloSection').style.display = type === 'solo' ? 'block' : 'none';
+  document.getElementById('athxInputDuoSection').style.display = type === 'duo' ? 'block' : 'none';
+  document.getElementById('athxInputLevel').innerHTML = type === 'solo'
+    ? '<option value="athx">ATHX</option>'
+    : '<option value="athx">ATHX</option><option value="light">Light</option>';
+}
+
+async function saveAthxScore() {
+  const type = document.getElementById('athxInputType').value;
+  const level = document.getElementById('athxInputLevel').value;
+  const strength = parseFloat(document.getElementById('athxInputStrength').value) || null;
+  const endurance = parseFloat(document.getElementById('athxInputEndurance').value) || null;
+  const metcon = parseFloat(document.getElementById('athxInputMetcon').value) || null;
+
+  if (!strength && !endurance && !metcon) { alert('Entre au moins un score'); return; }
+
+  let payload = {
+    id: 'athx_' + Date.now(),
+    participant_type: type,
+    level: level,
+    strength_score: strength,
+    endurance_score: endurance,
+    metcon_score: metcon,
+    submitted_at: new Date().toISOString()
+  };
+
+  if (type === 'solo') {
+    const wId = document.getElementById('athxInputWarrior').value;
+    if (!wId) { alert('Sélectionne ton profil'); return; }
+    payload.participant_key = wId;
+    payload.member1_id = null;
+    payload.member2_id = null;
+    payload.category = null;
+  } else {
+    const m1 = document.getElementById('athxInputMember1').value;
+    const m2 = document.getElementById('athxInputMember2').value;
+    const cat = document.getElementById('athxInputCat').value;
+    if (!m1 || !m2) { alert('Sélectionne les deux membres'); return; }
+    if (m1 === m2) { alert('Les deux membres doivent être différents'); return; }
+    const sorted = [m1, m2].sort();
+    payload.participant_key = sorted[0] + '_' + sorted[1];
+    payload.member1_id = sorted[0];
+    payload.member2_id = sorted[1];
+    payload.category = cat;
+  }
+
+  try {
+    await sbFetch('athx_results', { method: 'POST', body: JSON.stringify(payload) });
+    ['athxInputStrength','athxInputEndurance','athxInputMetcon'].forEach(function(id) {
+      document.getElementById(id).value = '';
+    });
+    closeAthxModal();
+    alert('Score enregistré !');
+    loadAthxLeaderboard();
+  } catch(e) { alert('Erreur: ' + e.message); }
+}
+
 </script>
 </body>
 </html>
