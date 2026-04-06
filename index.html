@@ -1009,7 +1009,7 @@
 
   <!-- Filtres type / level / catégorie -->
   <div style="padding:16px;display:flex;gap:8px;flex-wrap:wrap;">
-    <select id="athxFilterType" onchange="onAthxTypeChange()" style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;">
+    <select id="athxFilterType" onchange="loadAthxLeaderboard()" style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;">
       <option value="solo">Solo</option>
       <option value="duo">Duo</option>
     </select>
@@ -1017,7 +1017,7 @@
       <option value="athx">ATHX</option>
       <option value="light">Light</option>
     </select>
-    <select id="athxFilterCat" onchange="loadAthxLeaderboard()" style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;display:none;">
+    <select id="athxFilterCat" onchange="loadAthxLeaderboard()" style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;">
       <option value="all">Toutes catégories</option>
       <option value="HH">H / H</option>
       <option value="FF">F / F</option>
@@ -1031,78 +1031,90 @@
     <button onclick="setAthxPeriod('alltime')" id="athxBtnAlltime" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-weight:700;font-size:13px;">All Time</button>
   </div>
 
-  <!-- Classement -->
-  <div id="athxLeaderboard" style="padding:0 16px 16px;">
-    <div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:14px;">Chargement...</div>
+  <!-- Sélecteur de compétition -->
+  <div style="padding:0 16px 8px;">
+    <select id="athxFilterComp" onchange="loadAthxLeaderboard()" style="width:100%;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;">
+      <option value="">-- Sélectionner une compétition --</option>
+    </select>
   </div>
 
-  <!-- Bouton saisir score -->
-  <div style="padding:0 16px 100px;">
-    <button onclick="openAthxModal()" style="width:100%;padding:14px;background:var(--surface);border:1px dashed var(--gold);border-radius:10px;color:var(--gold);font-weight:700;font-size:14px;">+ Soumettre mon score</button>
+  <!-- Classement -->
+  <div id="athxLeaderboard" style="padding:16px;">
+    <div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:14px;">Sélectionne une compétition</div>
+  </div>
+
+  <!-- Bouton admin -->
+  <div style="padding:16px;">
+    <button onclick="openAthxAdmin()" style="width:100%;padding:14px;background:var(--surface);border:1px dashed var(--gold);border-radius:10px;color:var(--gold);font-weight:700;font-size:14px;">+ Saisir / Gérer les résultats</button>
   </div>
 
   <!-- Modal saisie -->
   <div id="athxModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;overflow-y:auto;padding:20px;">
     <div style="background:var(--surface);border-radius:16px;padding:20px;max-width:480px;margin:0 auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <h3 style="color:var(--gold);font-size:16px;margin:0;">⚔️ MON SCORE ATHX</h3>
-        <button onclick="closeAthxModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">✕</button>
+        <h3 style="color:var(--gold);font-size:16px;margin:0;">SAISIE RÉSULTATS ATHX</h3>
+        <button onclick="closeAthxModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">X</button>
       </div>
 
-      <!-- Type et niveau -->
-      <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <select id="athxInputType" onchange="onAthxInputTypeChange()" style="flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;">
-          <option value="solo">Solo</option>
-          <option value="duo">Duo</option>
-        </select>
-        <select id="athxInputLevel" style="flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;">
-          <option value="athx">ATHX</option>
-          <option value="light">Light</option>
-        </select>
-      </div>
-
-      <!-- Section solo -->
-      <div id="athxInputSoloSection" style="margin-bottom:12px;">
-        <select id="athxInputWarrior" style="width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;">
-          <option value="">-- Qui es-tu ? --</option>
-        </select>
-      </div>
-
-      <!-- Section duo -->
-      <div id="athxInputDuoSection" style="display:none;margin-bottom:12px;">
-        <select id="athxInputMember1" style="width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;margin-bottom:8px;">
-          <option value="">-- Membre 1 --</option>
-        </select>
-        <select id="athxInputMember2" style="width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;margin-bottom:8px;">
-          <option value="">-- Membre 2 --</option>
-        </select>
-        <select id="athxInputCat" style="width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;">
-          <option value="HH">H / H</option>
-          <option value="FF">F / F</option>
-          <option value="Mixte">Mixte</option>
-        </select>
-      </div>
-
-      <!-- Scores -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
-        <div>
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-align:center;">STRENGTH</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;text-align:center;">kg total</div>
-          <input id="athxInputStrength" type="number" placeholder="0" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:14px;text-align:center;">
+      <!-- Créer compétition -->
+      <div style="margin-bottom:20px;padding:16px;background:var(--bg);border-radius:10px;">
+        <div style="font-weight:700;color:var(--text);font-size:13px;margin-bottom:12px;">NOUVELLE COMPETITION</div>
+        <input id="athxCompName" placeholder="Nom (ex: Avril 2026)" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:13px;margin-bottom:8px;">
+        <input id="athxCompDate" type="date" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:13px;margin-bottom:8px;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <select id="athxCompType" onchange="toggleAthxCompType()" style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;">
+            <option value="solo">Solo</option>
+            <option value="duo">Duo</option>
+          </select>
+          <select id="athxCompLevel" style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;">
+            <option value="athx">ATHX</option>
+            <option value="light">Light</option>
+          </select>
         </div>
-        <div>
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-align:center;">ENDURANCE</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;text-align:center;">mètres</div>
-          <input id="athxInputEndurance" type="number" placeholder="0" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:14px;text-align:center;">
-        </div>
-        <div>
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-align:center;">METCON</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;text-align:center;">secondes</div>
-          <input id="athxInputMetcon" type="number" placeholder="0" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:14px;text-align:center;">
-        </div>
+        <button onclick="createAthxCompetition()" style="width:100%;padding:10px;background:var(--gold);color:#000;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Créer</button>
       </div>
 
-      <button onclick="saveAthxScore()" style="width:100%;padding:14px;background:var(--gold);color:#000;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:15px;">💾 Enregistrer</button>
+      <!-- Saisir résultat -->
+      <div style="padding:16px;background:var(--bg);border-radius:10px;">
+        <div style="font-weight:700;color:var(--text);font-size:13px;margin-bottom:12px;">SAISIR UN RÉSULTAT</div>
+        <select id="athxResComp" onchange="onAthxResCompChange()" style="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;margin-bottom:8px;">
+          <option value="">-- Compétition --</option>
+        </select>
+        <div id="athxTeamSection" style="display:none;margin-bottom:8px;">
+          <input id="athxTeamName" placeholder="Nom d'équipe" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:13px;margin-bottom:8px;">
+          <select id="athxMember1" style="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;margin-bottom:8px;">
+            <option value="">-- Membre 1 --</option>
+          </select>
+          <select id="athxMember2" style="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;margin-bottom:8px;">
+            <option value="">-- Membre 2 --</option>
+          </select>
+          <select id="athxTeamCat" style="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;">
+            <option value="HH">H / H</option>
+            <option value="FF">F / F</option>
+            <option value="Mixte">Mixte</option>
+          </select>
+        </div>
+        <div id="athxSoloSection" style="margin-bottom:8px;">
+          <select id="athxSoloWarrior" style="width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;">
+            <option value="">-- Guerrier --</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">STRENGTH (kg)</div>
+            <input id="athxStrength" type="number" placeholder="0" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:14px;text-align:center;">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">ENDURANCE (m)</div>
+            <input id="athxEndurance" type="number" placeholder="0" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:14px;text-align:center;">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">METCON (sec)</div>
+            <input id="athxMetcon" type="number" placeholder="0" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:14px;text-align:center;">
+          </div>
+        </div>
+        <button onclick="saveAthxResult()" style="width:100%;padding:12px;background:var(--gold);color:#000;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;">Enregistrer</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2013,13 +2025,20 @@ buildProgTable();
 // ATHX GAMES
 // ══════════════════════════════════════
 
+let athxCompetitions = [];
 let athxPeriod = 'month';
 let athxWarriorsList = [];
 
 async function initAthxPage() {
+  await loadAthxCompetitions();
   await loadWarriorsForAthx();
-  onAthxTypeChange();
-  loadAthxLeaderboard();
+  populateAthxCompSelect();
+}
+
+async function loadAthxCompetitions() {
+  try {
+    athxCompetitions = await sbFetch('athx_competitions?order=date.desc');
+  } catch(e) { athxCompetitions = []; }
 }
 
 async function loadWarriorsForAthx() {
@@ -2028,95 +2047,113 @@ async function loadWarriorsForAthx() {
   } catch(e) { athxWarriorsList = []; }
 }
 
-function onAthxTypeChange() {
+function populateAthxCompSelect() {
   const type = document.getElementById('athxFilterType').value;
-  const catSel = document.getElementById('athxFilterCat');
-  catSel.style.display = type === 'duo' ? 'block' : 'none';
-  // Solo = ATHX uniquement
-  const levelSel = document.getElementById('athxFilterLevel');
-  if (type === 'solo') {
-    levelSel.innerHTML = '<option value="athx">ATHX</option>';
-  } else {
-    levelSel.innerHTML = '<option value="athx">ATHX</option><option value="light">Light</option>';
-  }
+  const level = document.getElementById('athxFilterLevel').value;
+  const sel = document.getElementById('athxFilterComp');
+  const filtered = athxCompetitions.filter(c => c.type === type && c.level === level);
+  sel.innerHTML = '<option value="">-- Sélectionner une compétition --</option>';
+  filtered.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.name + ' (' + c.date + ')';
+    sel.appendChild(opt);
+  });
   loadAthxLeaderboard();
 }
 
 function setAthxPeriod(p) {
   athxPeriod = p;
-  const gold = 'var(--gold)', border = 'var(--border)', muted = 'var(--text-muted)';
-  const mBtn = document.getElementById('athxBtnMonth');
-  const aBtn = document.getElementById('athxBtnAlltime');
-  mBtn.style.background = p === 'month' ? gold : 'transparent';
-  mBtn.style.color = p === 'month' ? '#000' : muted;
-  mBtn.style.border = '1px solid ' + (p === 'month' ? gold : border);
-  aBtn.style.background = p === 'alltime' ? gold : 'transparent';
-  aBtn.style.color = p === 'alltime' ? '#000' : muted;
-  aBtn.style.border = '1px solid ' + (p === 'alltime' ? gold : border);
+  document.getElementById('athxBtnMonth').style.background = p === 'month' ? 'var(--gold)' : 'transparent';
+  document.getElementById('athxBtnMonth').style.color = p === 'month' ? '#000' : 'var(--text-muted)';
+  document.getElementById('athxBtnMonth').style.border = p === 'month' ? '1px solid var(--gold)' : '1px solid var(--border)';
+  document.getElementById('athxBtnAlltime').style.background = p === 'alltime' ? 'var(--gold)' : 'transparent';
+  document.getElementById('athxBtnAlltime').style.color = p === 'alltime' ? '#000' : 'var(--text-muted)';
+  document.getElementById('athxBtnAlltime').style.border = p === 'alltime' ? '1px solid var(--gold)' : '1px solid var(--border)';
   loadAthxLeaderboard();
 }
 
 async function loadAthxLeaderboard() {
+  populateAthxCompSelect();
+  const compId = document.getElementById('athxFilterComp').value;
   const type = document.getElementById('athxFilterType').value;
-  const level = document.getElementById('athxFilterLevel').value;
-  const cat = document.getElementById('athxFilterCat') ? document.getElementById('athxFilterCat').value : 'all';
+  const cat = document.getElementById('athxFilterCat').value;
   const board = document.getElementById('athxLeaderboard');
+
+  // Masquer filtre catégorie si solo
+  document.getElementById('athxFilterCat').style.display = type === 'solo' ? 'none' : 'block';
+
+  if (!compId && athxPeriod === 'month') {
+    board.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:14px;">Sélectionne une compétition</div>';
+    return;
+  }
+
   board.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;">Chargement...</div>';
 
   try {
-    // Récupérer les résultats filtrés
-    let query = 'athx_results?participant_type=eq.' + type + '&level=eq.' + level + '&order=submitted_at.desc';
-    const allResults = await sbFetch(query);
-
-    if (!allResults.length) {
-      board.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:14px;">Aucun score enregistré</div>';
-      return;
+    let query = 'athx_results?';
+    if (compId) query += 'competition_id=eq.' + compId + '&';
+    else {
+      // All time : prendre toutes les compétitions du bon type
+      const ids = athxCompetitions.filter(c => c.type === type).map(c => c.id);
+      if (!ids.length) { board.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;">Aucune compétition</div>'; return; }
+      query += 'competition_id=in.(' + ids.join(',') + ')&';
     }
+    query += 'participant_type=eq.' + type;
 
-    // Filtrer par mois si nécessaire
-    let results = allResults;
-    if (athxPeriod === 'month') {
-      const now = new Date();
-      const y = now.getFullYear(), m = now.getMonth();
-      results = allResults.filter(r => {
-        const d = new Date(r.submitted_at);
-        return d.getFullYear() === y && d.getMonth() === m;
-      });
+    const results = await sbFetch(query);
+    let teams = [];
+    if (type === 'duo') {
+      let teamQuery = 'athx_teams?';
+      if (compId) teamQuery += 'competition_id=eq.' + compId;
+      else teamQuery += 'competition_id=in.(' + athxCompetitions.filter(c=>c.type==='duo').map(c=>c.id).join(',') + ')';
+      if (cat !== 'all') teamQuery += '&category=eq.' + cat;
+      teams = await sbFetch(teamQuery);
     }
 
     if (!results.length) {
-      board.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:14px;">Aucun score ce mois-ci</div>';
+      board.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;">Aucun résultat</div>';
       return;
     }
 
     // Filtrer par catégorie si duo
+    let filteredResults = results;
     if (type === 'duo' && cat !== 'all') {
-      results = results.filter(r => r.category === cat);
+      const teamIds = teams.map(t => t.id);
+      filteredResults = results.filter(r => teamIds.includes(r.participant_id));
     }
 
-    // Garder le MEILLEUR score par participant (basé sur total_rank minimum)
-    // D'abord calculer les rangs sur tous les résultats filtrés
-    const ranked = computeAthxRanks(results);
+    // Calcul des rangs par épreuve
+    // Strength : plus haut = meilleur | Endurance : plus haut = meilleur | Metcon : plus bas = meilleur
+    const ranked = computeAthxRanks(filteredResults);
 
-    // Garder le meilleur par participant_key
-    const best = {};
-    ranked.forEach(r => {
-      const key = r.participant_key;
-      if (!best[key] || r.total_rank < best[key].total_rank) {
-        best[key] = r;
-      }
-    });
-    const display = Object.values(best).sort((a,b) => a.total_rank - b.total_rank);
+    // All time : agréger par participant (meilleur score total)
+    let display = ranked;
+    if (athxPeriod === 'alltime') {
+      const byParticipant = {};
+      ranked.forEach(r => {
+        if (!byParticipant[r.participant_id] || r.total_rank < byParticipant[r.participant_id].total_rank) {
+          byParticipant[r.participant_id] = r;
+        }
+      });
+      display = Object.values(byParticipant).sort((a,b) => a.total_rank - b.total_rank);
+    }
 
     // Affichage
     const medals = ['🥇','🥈','🥉'];
     let html = '<div style="display:flex;flex-direction:column;gap:10px;">';
     display.forEach((r, i) => {
-      let name = getAthxParticipantName(r, type);
-      const medal = i < 3 ? medals[i] : (i+1) + '.';
-      const borderColor = i===0 ? 'var(--gold)' : i===1 ? '#aaa' : i===2 ? '#cd7f32' : 'var(--border)';
+      let name = r.participant_id;
+      if (type === 'duo') {
+        const team = teams.find(t => t.id === r.participant_id);
+        name = team ? team.team_name : r.participant_id;
+      } else {
+        const w = athxWarriorsList.find(w => w.id === r.participant_id);
+        name = w ? w.name : r.participant_id;
+      }
+      const medal = medals[i] || (i+1) + '.';
       html += `
-        <div style="background:var(--surface);border-radius:12px;padding:14px;border-left:3px solid ${borderColor}">
+        <div style="background:var(--surface);border-radius:12px;padding:14px;border-left:3px solid ${i===0?'var(--gold)':i===1?'#aaa':i===2?'#cd7f32':'var(--border)'}">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <div style="font-weight:700;font-size:15px;">${medal} ${name}</div>
             <div style="background:var(--gold);color:#000;font-weight:800;font-size:16px;padding:4px 12px;border-radius:20px;">${r.total_rank} pts</div>
@@ -2135,60 +2172,59 @@ async function loadAthxLeaderboard() {
   }
 }
 
-function getAthxParticipantName(r, type) {
-  if (type === 'solo') {
-    const w = athxWarriorsList.find(w => w.id === r.participant_key);
-    return w ? w.name : r.participant_key;
-  } else {
-    // Duo : "Membre1 & Membre2"
-    const w1 = athxWarriorsList.find(w => w.id === r.member1_id);
-    const w2 = athxWarriorsList.find(w => w.id === r.member2_id);
-    const n1 = w1 ? w1.name : '?';
-    const n2 = w2 ? w2.name : '?';
-    return n1 + ' & ' + n2;
-  }
-}
-
 function computeAthxRanks(results) {
-  const r = results.map(x => ({...x}));
-  // Strength: desc (plus haut = mieux)
+  const r = [...results];
+  // Strength: desc
   const byStr = [...r].filter(x=>x.strength_score!=null).sort((a,b)=>b.strength_score-a.strength_score);
-  byStr.forEach((x,i) => { r.find(o=>o.id===x.id).rank_strength = i+1; });
+  byStr.forEach((x,i) => { const orig = r.find(o=>o.id===x.id); if(orig) orig.rank_strength = i+1; });
   // Endurance: desc
   const byEnd = [...r].filter(x=>x.endurance_score!=null).sort((a,b)=>b.endurance_score-a.endurance_score);
-  byEnd.forEach((x,i) => { r.find(o=>o.id===x.id).rank_endurance = i+1; });
+  byEnd.forEach((x,i) => { const orig = r.find(o=>o.id===x.id); if(orig) orig.rank_endurance = i+1; });
   // Metcon: asc (moins = mieux)
   const byMet = [...r].filter(x=>x.metcon_score!=null).sort((a,b)=>a.metcon_score-b.metcon_score);
-  byMet.forEach((x,i) => { r.find(o=>o.id===x.id).rank_metcon = i+1; });
+  byMet.forEach((x,i) => { const orig = r.find(o=>o.id===x.id); if(orig) orig.rank_metcon = i+1; });
+
   r.forEach(x => {
     x.rank_strength = x.rank_strength || r.length;
     x.rank_endurance = x.rank_endurance || r.length;
     x.rank_metcon = x.rank_metcon || r.length;
     x.total_rank = x.rank_strength + x.rank_endurance + x.rank_metcon;
   });
-  return r;
+  return r.sort((a,b) => a.total_rank - b.total_rank);
 }
 
 function formatMetcon(sec) {
   const m = Math.floor(sec/60);
   const s = sec % 60;
-  return m + 'min' + (s>0 ? s+'s' : '');
+  return m + 'min' + (s>0?s+'s':'');
 }
 
-function openAthxModal() {
-  populateAthxWarriorSelects();
+function openAthxAdmin() {
   document.getElementById('athxModal').style.display = 'block';
+  populateAthxResCompSelect();
+  populateWarriorSelects();
 }
 
 function closeAthxModal() {
   document.getElementById('athxModal').style.display = 'none';
 }
 
-function populateAthxWarriorSelects() {
-  ['athxInputWarrior','athxInputMember1','athxInputMember2'].forEach(id => {
+function populateAthxResCompSelect() {
+  const sel = document.getElementById('athxResComp');
+  sel.innerHTML = '<option value="">-- Compétition --</option>';
+  athxCompetitions.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.dataset.type = c.type;
+    opt.textContent = c.name + ' (' + c.type + ' / ' + c.level + ')';
+    sel.appendChild(opt);
+  });
+}
+
+function populateWarriorSelects() {
+  ['athxMember1','athxMember2','athxSoloWarrior'].forEach(id => {
     const sel = document.getElementById(id);
-    const placeholder = id === 'athxInputWarrior' ? '-- Qui es-tu ? --' : id === 'athxInputMember1' ? '-- Membre 1 --' : '-- Membre 2 --';
-    sel.innerHTML = '<option value="">' + placeholder + '</option>';
+    sel.innerHTML = '<option value="">-- Guerrier --</option>';
     athxWarriorsList.forEach(w => {
       const opt = document.createElement('option');
       opt.value = w.id;
@@ -2198,12 +2234,17 @@ function populateAthxWarriorSelects() {
   });
 }
 
-function onAthxInputTypeChange() {
-  const type = document.getElementById('athxInputType').value;
-  document.getElementById('athxInputSoloSection').style.display = type === 'solo' ? 'block' : 'none';
-  document.getElementById('athxInputDuoSection').style.display = type === 'duo' ? 'block' : 'none';
-  // Solo = ATHX seulement
-  const levelSel = document.getElementById('athxInputLevel');
+function onAthxResCompChange() {
+  const sel = document.getElementById('athxResComp');
+  const opt = sel.options[sel.selectedIndex];
+  const type = opt ? opt.dataset.type : 'solo';
+  document.getElementById('athxTeamSection').style.display = type === 'duo' ? 'block' : 'none';
+  document.getElementById('athxSoloSection').style.display = type === 'solo' ? 'block' : 'none';
+}
+
+function toggleAthxCompType() {
+  const type = document.getElementById('athxCompType').value;
+  const levelSel = document.getElementById('athxCompLevel');
   if (type === 'solo') {
     levelSel.innerHTML = '<option value="athx">ATHX</option>';
   } else {
@@ -2211,63 +2252,77 @@ function onAthxInputTypeChange() {
   }
 }
 
-async function saveAthxScore() {
-  const type = document.getElementById('athxInputType').value;
-  const level = document.getElementById('athxInputLevel').value;
-  const strength = parseFloat(document.getElementById('athxInputStrength').value) || null;
-  const endurance = parseFloat(document.getElementById('athxInputEndurance').value) || null;
-  const metcon = parseFloat(document.getElementById('athxInputMetcon').value) || null;
-
-  if (!strength && !endurance && !metcon) { alert('Entre au moins un score'); return; }
-
-  let payload = {
-    id: 'athx_' + Date.now(),
-    participant_type: type,
-    level: level,
-    strength_score: strength,
-    endurance_score: endurance,
-    metcon_score: metcon,
-    submitted_at: new Date().toISOString()
-  };
-
-  if (type === 'solo') {
-    const wId = document.getElementById('athxInputWarrior').value;
-    if (!wId) { alert('Sélectionne ton profil'); return; }
-    payload.participant_key = wId;
-    payload.member1_id = null;
-    payload.member2_id = null;
-    payload.category = null;
-  } else {
-    const m1 = document.getElementById('athxInputMember1').value;
-    const m2 = document.getElementById('athxInputMember2').value;
-    const cat = document.getElementById('athxInputCat').value;
-    if (!m1 || !m2) { alert('Sélectionne les deux membres'); return; }
-    if (m1 === m2) { alert('Les deux membres doivent être différents'); return; }
-    // Clé duo : toujours les IDs triés pour éviter les doublons
-    const sorted = [m1, m2].sort();
-    payload.participant_key = sorted[0] + '_' + sorted[1];
-    payload.member1_id = sorted[0];
-    payload.member2_id = sorted[1];
-    payload.category = cat;
-  }
-
+async function createAthxCompetition() {
+  const name = document.getElementById('athxCompName').value.trim();
+  const date = document.getElementById('athxCompDate').value;
+  const type = document.getElementById('athxCompType').value;
+  const level = document.getElementById('athxCompLevel').value;
+  if (!name || !date) { alert('Remplis le nom et la date'); return; }
+  const id = 'comp_' + Date.now();
   try {
-    await sbFetch('athx_results', {
+    await sbFetch('athx_competitions', {
       method: 'POST',
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ id, name, date, type, level })
     });
-    // Reset
-    ['athxInputStrength','athxInputEndurance','athxInputMetcon'].forEach(id => {
-      document.getElementById(id).value = '';
-    });
-    closeAthxModal();
-    alert('Score enregistré !');
-    loadAthxLeaderboard();
-  } catch(e) {
-    alert('Erreur: ' + e.message);
-  }
+    document.getElementById('athxCompName').value = '';
+    document.getElementById('athxCompDate').value = '';
+    await loadAthxCompetitions();
+    populateAthxResCompSelect();
+    populateAthxCompSelect();
+    alert('Compétition créée !');
+  } catch(e) { alert('Erreur: ' + e.message); }
 }
 
+async function saveAthxResult() {
+  const compId = document.getElementById('athxResComp').value;
+  if (!compId) { alert('Sélectionne une compétition'); return; }
+  const comp = athxCompetitions.find(c => c.id === compId);
+  const type = comp ? comp.type : 'solo';
+  const strength = parseFloat(document.getElementById('athxStrength').value) || null;
+  const endurance = parseFloat(document.getElementById('athxEndurance').value) || null;
+  const metcon = parseFloat(document.getElementById('athxMetcon').value) || null;
+
+  let participantId;
+  try {
+    if (type === 'duo') {
+      const teamName = document.getElementById('athxTeamName').value.trim();
+      const m1 = document.getElementById('athxMember1').value;
+      const m2 = document.getElementById('athxMember2').value;
+      const category = document.getElementById('athxTeamCat').value;
+      if (!teamName || !m1 || !m2) { alert('Remplis le nom et les membres'); return; }
+      const teamId = 'team_' + Date.now();
+      await sbFetch('athx_teams', {
+        method: 'POST',
+        body: JSON.stringify({ id: teamId, competition_id: compId, team_name: teamName, member1_id: m1, member2_id: m2, category })
+      });
+      participantId = teamId;
+    } else {
+      participantId = document.getElementById('athxSoloWarrior').value;
+      if (!participantId) { alert('Sélectionne un guerrier'); return; }
+    }
+
+    await sbFetch('athx_results', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: 'res_' + Date.now(),
+        competition_id: compId,
+        participant_id: participantId,
+        participant_type: type,
+        strength_score: strength,
+        endurance_score: endurance,
+        metcon_score: metcon
+      })
+    });
+
+    // Reset champs
+    ['athxStrength','athxEndurance','athxMetcon','athxTeamName'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    alert('Résultat enregistré !');
+    loadAthxLeaderboard();
+  } catch(e) { alert('Erreur: ' + e.message); }
+}
 
 </script>
 </body>
