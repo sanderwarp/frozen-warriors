@@ -705,45 +705,79 @@ select.fi option{background:var(--dark);}
       <div style="margin-bottom:20px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <span style="font-size:18px;">🏅</span>
-          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">SOLO — HOMME</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">SOLO — HOMME · ATHX</span>
         </div>
-        <div id="athxBoard_solo_M"></div>
+        <div id="athxBoard_solo_M_athx"></div>
       </div>
 
       <!-- Solo Femme -->
       <div style="margin-bottom:20px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <span style="font-size:18px;">🏅</span>
-          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">SOLO — FEMME</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">SOLO — FEMME · ATHX</span>
         </div>
-        <div id="athxBoard_solo_F"></div>
+        <div id="athxBoard_solo_F_athx"></div>
       </div>
 
-      <!-- Duo H/H -->
+      <!-- Duo H/H ATHX -->
       <div style="margin-bottom:20px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <span style="font-size:18px;">🏅</span>
-          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">DUO — H / H</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">DUO — H / H · ATHX</span>
         </div>
-        <div id="athxBoard_duo_HH"></div>
+        <div id="athxBoard_duo_HH_athx"></div>
       </div>
 
-      <!-- Duo F/F -->
+      <!-- Duo F/F ATHX -->
       <div style="margin-bottom:20px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <span style="font-size:18px;">🏅</span>
-          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">DUO — F / F</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">DUO — F / F · ATHX</span>
         </div>
-        <div id="athxBoard_duo_FF"></div>
+        <div id="athxBoard_duo_FF_athx"></div>
       </div>
 
-      <!-- Duo Mixte -->
+      <!-- Duo Mixte ATHX -->
       <div style="margin-bottom:20px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <span style="font-size:18px;">🏅</span>
-          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">DUO — MIXTE</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">DUO — MIXTE · ATHX</span>
         </div>
-        <div id="athxBoard_duo_Mixte"></div>
+        <div id="athxBoard_duo_Mixte_athx"></div>
+      </div>
+
+      <!-- Séparateur Light -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="flex:1;height:1px;background:var(--border);"></div>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--dim);letter-spacing:2px;">LIGHT</span>
+        <div style="flex:1;height:1px;background:var(--border);"></div>
+      </div>
+
+      <!-- Duo H/H Light -->
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:18px;">🏅</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">DUO — H / H · LIGHT</span>
+        </div>
+        <div id="athxBoard_duo_HH_light"></div>
+      </div>
+
+      <!-- Duo F/F Light -->
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:18px;">🏅</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">DUO — F / F · LIGHT</span>
+        </div>
+        <div id="athxBoard_duo_FF_light"></div>
+      </div>
+
+      <!-- Duo Mixte Light -->
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:18px;">🏅</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--accent);letter-spacing:1px;">DUO — MIXTE · LIGHT</span>
+        </div>
+        <div id="athxBoard_duo_Mixte_light"></div>
       </div>
 
       <!-- Bouton soumettre -->
@@ -3267,11 +3301,14 @@ async function loadAllAthxBoards() {
   }
 
   // Rendre chaque classement
-  renderAthxBoard('athxBoard_solo_M', results.filter(function(r){ return r.participant_type==='solo' && r.gender==='M'; }), 'solo');
-  renderAthxBoard('athxBoard_solo_F', results.filter(function(r){ return r.participant_type==='solo' && r.gender==='F'; }), 'solo');
-  renderAthxBoard('athxBoard_duo_HH', results.filter(function(r){ return r.participant_type==='duo' && r.category==='HH'; }), 'duo');
-  renderAthxBoard('athxBoard_duo_FF', results.filter(function(r){ return r.participant_type==='duo' && r.category==='FF'; }), 'duo');
-  renderAthxBoard('athxBoard_duo_Mixte', results.filter(function(r){ return r.participant_type==='duo' && r.category==='Mixte'; }), 'duo');
+  renderAthxBoard('athxBoard_solo_M_athx', results.filter(function(r){ return r.participant_type==='solo' && r.gender==='M' && r.level==='athx'; }), 'solo');
+  renderAthxBoard('athxBoard_solo_F_athx', results.filter(function(r){ return r.participant_type==='solo' && r.gender==='F' && r.level==='athx'; }), 'solo');
+  renderAthxBoard('athxBoard_duo_HH_athx', results.filter(function(r){ return r.participant_type==='duo' && r.category==='HH' && r.level==='athx'; }), 'duo');
+  renderAthxBoard('athxBoard_duo_FF_athx', results.filter(function(r){ return r.participant_type==='duo' && r.category==='FF' && r.level==='athx'; }), 'duo');
+  renderAthxBoard('athxBoard_duo_Mixte_athx', results.filter(function(r){ return r.participant_type==='duo' && r.category==='Mixte' && r.level==='athx'; }), 'duo');
+  renderAthxBoard('athxBoard_duo_HH_light', results.filter(function(r){ return r.participant_type==='duo' && r.category==='HH' && r.level==='light'; }), 'duo');
+  renderAthxBoard('athxBoard_duo_FF_light', results.filter(function(r){ return r.participant_type==='duo' && r.category==='FF' && r.level==='light'; }), 'duo');
+  renderAthxBoard('athxBoard_duo_Mixte_light', results.filter(function(r){ return r.participant_type==='duo' && r.category==='Mixte' && r.level==='light'; }), 'duo');
 }
 
 function renderAthxBoard(boardId, results, type) {
