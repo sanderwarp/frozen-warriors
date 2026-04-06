@@ -784,8 +784,12 @@ select.fi option{background:var(--dark);}
           </div>
           <div style="text-align:center;">
             <div style="font-size:10px;color:var(--dim);margin-bottom:2px;">METCON</div>
-            <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">secondes</div>
-            <input id="athxInputMetcon" type="number" placeholder="0" style="width:100%;box-sizing:border-box;background:var(--deep);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:13px;text-align:center;">
+            <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">min : sec</div>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <input id="athxInputMetconMin" type="number" placeholder="0" min="0" style="flex:1;box-sizing:border-box;background:var(--deep);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:13px;text-align:center;">
+              <span style="color:var(--dim);font-weight:700;">:</span>
+              <input id="athxInputMetconSec" type="number" placeholder="00" min="0" max="59" style="flex:1;box-sizing:border-box;background:var(--deep);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-size:13px;text-align:center;">
+            </div>
           </div>
         </div>
 
@@ -3369,7 +3373,9 @@ async function saveAthxScore() {
   const level = document.getElementById('athxInputLevel').value;
   const strength = parseFloat(document.getElementById('athxInputStrength').value) || null;
   const endurance = parseFloat(document.getElementById('athxInputEndurance').value) || null;
-  const metcon = parseFloat(document.getElementById('athxInputMetcon').value) || null;
+  const metconMin = parseInt(document.getElementById('athxInputMetconMin').value) || 0;
+  const metconSec = parseInt(document.getElementById('athxInputMetconSec').value) || 0;
+  const metcon = (metconMin > 0 || metconSec > 0) ? metconMin * 60 + metconSec : null;
 
   if (!strength && !endurance && !metcon) { alert('Entre au moins un score'); return; }
 
@@ -3405,7 +3411,7 @@ async function saveAthxScore() {
 
   try {
     await sbFetch('athx_results', { method: 'POST', body: JSON.stringify(payload) });
-    ['athxInputStrength','athxInputEndurance','athxInputMetcon'].forEach(function(id) {
+    ['athxInputStrength','athxInputEndurance','athxInputMetconMin','athxInputMetconSec'].forEach(function(id) {
       document.getElementById(id).value = '';
     });
     closeAthxModal();
