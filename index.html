@@ -1707,7 +1707,8 @@ async function saveResult() {
   const warrior = d.warriors.find(w => w.id === wid);
   const tests = TESTS[warrior.gender||'homme'];
   // Réutilise l'ID existant si un résultat existe déjà pour ce guerrier à cette date
-  const existingResult = d.results.find(r => r.warriorId === wid && r.date === date);
+  const existingResult = d.results.find(r => r.warriorId === wid && (r.date === date || (r.date||"").startsWith(date)));
+  console.log("[PR] existingResult:", existingResult ? existingResult.id + " date=" + existingResult.date : "NULL", "date cherchée:", date);
   const result = {id: existingResult ? existingResult.id : 'r'+Date.now(), warriorId:wid, date};
   tests.forEach(t => {
     if (t.id === 'legext') {
@@ -1732,7 +1733,7 @@ async function saveResult() {
     if (btn) btn.textContent = '💾 Enregistrer';
 
     // Détecter et annoncer les records
-    const prs = detectPersonalRecords(result, prevBest, warrior.gender||'homme');
+    const prs = detectPersonalRecords(result, prevBest, warrior.gender||'homme', existingResult);
     console.log('[PR] Records détectés:', prs.length, prs);
     if (prs.length > 0) {
       for (const pr of prs) {
@@ -1786,7 +1787,7 @@ function getPreviousBests(warriorId, gender, excludeId, existingResult) {
   return bests;
 }
 
-function detectPersonalRecords(result, prevBests, gender) {
+function detectPersonalRecords(result, prevBests, gender, existingResult) {
   const tests = TESTS[gender] || TESTS.homme;
   const prs = [];
   const unitMap = {
@@ -1797,6 +1798,11 @@ function detectPersonalRecords(result, prevBests, gender) {
     if (t.id === 'legext') return; // géré via backsquat/legext séparément
     const newVal = parseFloat(result[t.id]);
     if (isNaN(newVal)) return;
+    // Si on met à jour un résultat existant, ignorer les champs dont la valeur n'a pas changé
+    if (existingResult) {
+      const oldVal = parseFloat(existingResult[t.id]);
+      if (!isNaN(oldVal) && newVal <= oldVal) return;
+    }
     const prev = prevBests[t.id];
     if (prev === undefined || newVal > prev) {
       prs.push({ id: t.id, label: t.label, val: newVal, prev: prev || null, unit: unitMap[t.id] ? ' ' + unitMap[t.id] : '' });
