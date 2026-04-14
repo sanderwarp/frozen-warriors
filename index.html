@@ -1722,7 +1722,7 @@ async function saveResult() {
   result.bp = document.getElementById('f-bp').value || null;
 
   // Détecter les records AVANT sauvegarde — en excluant le résultat existant à cette date
-  const prevBest = getPreviousBests(wid, warrior.gender||'homme', existingResult ? existingResult.id : null);
+  const prevBest = getPreviousBests(wid, warrior.gender||'homme', existingResult ? existingResult.id : null, existingResult);
 
   try {
     await upsertResult(result);
@@ -1759,10 +1759,10 @@ async function saveResult() {
   }
 }
 
-function getPreviousBests(warriorId, gender, excludeId) {
+function getPreviousBests(warriorId, gender, excludeId, existingResult) {
   const d = getData();
+  // Exclut le résultat qu'on va écraser (même date), mais inclut ses valeurs comme "prev"
   const allResults = d.results.filter(function(r){ return r.warriorId === warriorId && r.id !== excludeId; });
-  if (allResults.length === 0) return {};
   // Dédoublonnage : pour chaque date, on garde le résultat le plus récent
   const byDate = {};
   allResults.forEach(function(r) {
@@ -1773,11 +1773,15 @@ function getPreviousBests(warriorId, gender, excludeId) {
   const bests = {};
   tests.forEach(function(t) {
     const vals = dedupedResults.map(function(r){ return parseFloat(r[t.id]); }).filter(function(v){ return !isNaN(v); });
+    // Inclut aussi la valeur du résultat existant de ce jour (avant modif) comme référence
+    if (existingResult) { const ev = parseFloat(existingResult[t.id]); if (!isNaN(ev)) vals.push(ev); }
     if (vals.length > 0) bests[t.id] = Math.max.apply(null, vals);
   });
   const bpVals = dedupedResults.map(function(r){ return parseFloat(r.bp); }).filter(function(v){ return !isNaN(v); });
+  if (existingResult) { const ev = parseFloat(existingResult.bp); if (!isNaN(ev)) bpVals.push(ev); }
   if (bpVals.length > 0) bests["bp"] = Math.min.apply(null, bpVals);
   const bsVals = dedupedResults.map(function(r){ return parseFloat(r.backsquat); }).filter(function(v){ return !isNaN(v); });
+  if (existingResult) { const ev = parseFloat(existingResult.backsquat); if (!isNaN(ev)) bsVals.push(ev); }
   if (bsVals.length > 0) bests["backsquat"] = Math.max.apply(null, bsVals);
   return bests;
 }
