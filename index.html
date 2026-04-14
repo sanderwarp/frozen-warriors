@@ -675,7 +675,11 @@ select.fi option{background:var(--dark);}
         <div class="stitle">Gestion des données</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-p" onclick="exportData()">📤 Exporter JSON</button>
+          <button class="btn btn-p" onclick="cleanDuplicates()" style="background:#e67e22;">🧹 Nettoyer les doublons</button>
           <button class="btn btn-d" onclick="clearAllData()">🗑 Réinitialiser toutes les données</button>
+        </div>
+        <div id="clean-msg" style="margin-top:8px;"></div>
+        <div style="display:none;">
         </div>
         <div style="margin-top:20px;">
           <div class="stitle">Importer des données</div>
@@ -1702,7 +1706,9 @@ async function saveResult() {
   const d = getData();
   const warrior = d.warriors.find(w => w.id === wid);
   const tests = TESTS[warrior.gender||'homme'];
-  const result = {id:'r'+Date.now(), warriorId:wid, date};
+  // Réutilise l'ID existant si un résultat existe déjà pour ce guerrier à cette date
+  const existingResult = d.results.find(r => r.warriorId === wid && r.date === date);
+  const result = {id: existingResult ? existingResult.id : 'r'+Date.now(), warriorId:wid, date};
   tests.forEach(t => {
     if (t.id === 'legext') {
       result.legext_mode = document.getElementById('ft-legext_mode')?.value || 'legext';
@@ -1715,8 +1721,8 @@ async function saveResult() {
   });
   result.bp = document.getElementById('f-bp').value || null;
 
-  // Détecter les records AVANT sauvegarde
-  const prevBest = getPreviousBests(wid, warrior.gender||'homme');
+  // Détecter les records AVANT sauvegarde — en excluant le résultat existant à cette date
+  const prevBest = getPreviousBests(wid, warrior.gender||'homme', existingResult ? existingResult.id : null);
 
   try {
     await upsertResult(result);
@@ -1753,22 +1759,26 @@ async function saveResult() {
   }
 }
 
-function getPreviousBests(warriorId, gender) {
+function getPreviousBests(warriorId, gender, excludeId) {
   const d = getData();
-  // On prend TOUS les résultats existants — le nouveau n'est pas encore sauvé
-  const allResults = d.results.filter(function(r){ return r.warriorId === warriorId; });
-  if (allResults.length === 0) return {}; // Aucun historique = pas de record possible
+  const allResults = d.results.filter(function(r){ return r.warriorId === warriorId && r.id !== excludeId; });
+  if (allResults.length === 0) return {};
+  // Dédoublonnage : pour chaque date, on garde le résultat le plus récent
+  const byDate = {};
+  allResults.forEach(function(r) {
+    if (!byDate[r.date] || r.id > byDate[r.date].id) byDate[r.date] = r;
+  });
+  const dedupedResults = Object.values(byDate);
   const tests = TESTS[gender] || TESTS.homme;
   const bests = {};
   tests.forEach(function(t) {
-    const vals = allResults.map(function(r){ return parseFloat(r[t.id]); }).filter(function(v){ return !isNaN(v); });
+    const vals = dedupedResults.map(function(r){ return parseFloat(r[t.id]); }).filter(function(v){ return !isNaN(v); });
     if (vals.length > 0) bests[t.id] = Math.max.apply(null, vals);
   });
-  const bpVals = allResults.map(function(r){ return parseFloat(r.bp); }).filter(function(v){ return !isNaN(v); });
-  if (bpVals.length > 0) bests['bp'] = Math.min.apply(null, bpVals);
-  // Backsquat
-  const bsVals = allResults.map(function(r){ return parseFloat(r.backsquat); }).filter(function(v){ return !isNaN(v); });
-  if (bsVals.length > 0) bests['backsquat'] = Math.max.apply(null, bsVals);
+  const bpVals = dedupedResults.map(function(r){ return parseFloat(r.bp); }).filter(function(v){ return !isNaN(v); });
+  if (bpVals.length > 0) bests["bp"] = Math.min.apply(null, bpVals);
+  const bsVals = dedupedResults.map(function(r){ return parseFloat(r.backsquat); }).filter(function(v){ return !isNaN(v); });
+  if (bsVals.length > 0) bests["backsquat"] = Math.max.apply(null, bsVals);
   return bests;
 }
 
@@ -2650,6 +2660,40 @@ async function importData() {
   }
 }
 
+
+async function cleanDuplicates() {
+  const d = getData();
+  const toDelete = [];
+  // Pour chaque guerrier, on groupe les résultats par date
+  const warriors = d.warriors.map(function(w){ return w.id; });
+  warriors.forEach(function(wid) {
+    const results = d.results.filter(function(r){ return r.warriorId === wid; });
+    const byDate = {};
+    results.forEach(function(r) {
+      if (!byDate[r.date]) byDate[r.date] = [];
+      byDate[r.date].push(r);
+    });
+    Object.values(byDate).forEach(function(group) {
+      if (group.length <= 1) return;
+      // Garde le plus récent (ID le plus grand), supprime les autres
+      group.sort(function(a,b){ return b.id > a.id ? 1 : -1; });
+      for (var i = 1; i < group.length; i++) toDelete.push(group[i].id);
+    });
+  });
+  if (toDelete.length === 0) {
+    showMsg("clean-msg", "✅ Aucun doublon trouvé !", "ok");
+    return;
+  }
+  if (!confirm("Supprimer " + toDelete.length + " doublon(s) ?")) return;
+  try {
+    for (const rid of toDelete) await deleteResultDb(rid);
+    await loadFromDb();
+    renderLeaderboard();
+    showMsg("clean-msg", "✅ " + toDelete.length + " doublon(s) supprimé(s) !", "ok");
+  } catch(e) {
+    showMsg("clean-msg", "Erreur : " + e.message, "err");
+  }
+}
 async function clearAllData() {
   if (!confirm('⚠️ Supprimer TOUTES les données ? Cette action est irréversible.')) return;
   if (!confirm('Es-tu vraiment sûr ?')) return;
