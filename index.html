@@ -1762,7 +1762,8 @@ async function saveResult() {
 
 function getPreviousBests(warriorId, gender, excludeId, existingResult) {
   const d = getData();
-  // Exclut le résultat qu'on va écraser (même date), mais inclut ses valeurs comme "prev"
+  // Exclut le résultat qu'on va écraser (même date) — on ne réinjecte PAS ses valeurs
+  // pour éviter que la nouvelle valeur soit comparée à elle-même
   const allResults = d.results.filter(function(r){ return r.warriorId === warriorId && r.id !== excludeId; });
   // Dédoublonnage : pour chaque date, on garde le résultat le plus récent
   const byDate = {};
@@ -1774,15 +1775,11 @@ function getPreviousBests(warriorId, gender, excludeId, existingResult) {
   const bests = {};
   tests.forEach(function(t) {
     const vals = dedupedResults.map(function(r){ return parseFloat(r[t.id]); }).filter(function(v){ return !isNaN(v); });
-    // Inclut aussi la valeur du résultat existant de ce jour (avant modif) comme référence
-    if (existingResult) { const ev = parseFloat(existingResult[t.id]); if (!isNaN(ev)) vals.push(ev); }
     if (vals.length > 0) bests[t.id] = Math.max.apply(null, vals);
   });
   const bpVals = dedupedResults.map(function(r){ return parseFloat(r.bp); }).filter(function(v){ return !isNaN(v); });
-  if (existingResult) { const ev = parseFloat(existingResult.bp); if (!isNaN(ev)) bpVals.push(ev); }
   if (bpVals.length > 0) bests["bp"] = Math.min.apply(null, bpVals);
   const bsVals = dedupedResults.map(function(r){ return parseFloat(r.backsquat); }).filter(function(v){ return !isNaN(v); });
-  if (existingResult) { const ev = parseFloat(existingResult.backsquat); if (!isNaN(ev)) bsVals.push(ev); }
   if (bsVals.length > 0) bests["backsquat"] = Math.max.apply(null, bsVals);
   return bests;
 }
@@ -1798,11 +1795,6 @@ function detectPersonalRecords(result, prevBests, gender, existingResult) {
     if (t.id === 'legext') return; // géré via backsquat/legext séparément
     const newVal = parseFloat(result[t.id]);
     if (isNaN(newVal)) return;
-    // Si on met à jour un résultat existant, ignorer les champs dont la valeur n'a pas changé
-    if (existingResult) {
-      const oldVal = parseFloat(existingResult[t.id]);
-      if (!isNaN(oldVal) && newVal <= oldVal) return;
-    }
     const prev = prevBests[t.id];
     if (prev === undefined || newVal > prev) {
       prs.push({ id: t.id, label: t.label, val: newVal, prev: prev || null, unit: unitMap[t.id] ? ' ' + unitMap[t.id] : '' });
