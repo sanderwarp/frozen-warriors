@@ -1740,14 +1740,12 @@ async function saveResult() {
         const msg = '🏆 <strong style="color:#FFD700;">' + warrior.name + '</strong> bat son record personnel — <span style="color:#FFD700;">' + pr.label + ' : ' + pr.val + pr.unit + '</span> 🏆';
         console.log('[PR] Envoi feed event:', msg);
         try {
-          await insertFeedEvent('personal_record', wid, msg, msg);
+          await triggerFeedEvent('personal_record', wid, msg, msg);
           console.log('[PR] Feed event inseré avec succès');
         } catch(feedErr) {
           console.error('[PR] Erreur feed event:', feedErr);
         }
       }
-      await loadFromDb();
-      renderFeed();
       renderHomeHabits();
     }
 
