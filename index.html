@@ -309,6 +309,7 @@ select.fi option{background:var(--dark);}
       <button class="nav-btn" onclick="nav('levels')">🐉 Niveaux</button>
       <button class="nav-btn" onclick="nav('admin')">🔐 Admin</button>
       <button class="nav-btn" onclick="nav('athx')">🏅 ATHX</button>
+      <button class="nav-btn" onclick="nav('rankings')">📊 Rankings</button>
     </div>
   </header>
 
@@ -695,6 +696,19 @@ select.fi option{background:var(--dark);}
       </div>
     </div>
   </div>
+  <!-- RANKINGS -->
+  <div class="section" id="s-rankings">
+    <div style="padding:12px 8px 8px;">
+      <div class="stitle">Classement par discipline</div>
+
+      <!-- Sélecteur de discipline -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;" id="rankings-tabs"></div>
+
+      <!-- Classement -->
+      <div id="rankings-board"></div>
+    </div>
+  </div>
+
   <!-- ATHX -->
   <div class="section" id="s-athx">
     <div style="padding:12px 8px 8px;">
@@ -2726,7 +2740,7 @@ function nav(name) {
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
   const section = document.getElementById('s-'+name);
   if (section) section.classList.add('active');
-  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx'].indexOf(name);
+  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx','rankings'].indexOf(name);
   const btns = document.querySelectorAll('.nav-btn');
   if (btns[idx]) btns[idx].classList.add('active');
   if (name === 'add') {
@@ -2739,6 +2753,7 @@ function nav(name) {
   if (name === 'challenge') { renderChallengePage(); }
   if (name === 'admin') { renderChallengeAdmin(); }
   if (name === 'athx') { initAthxPage(); }
+  if (name === 'rankings') { renderRankings(); }
   if (name === 'encode-habits') {
     const myId = getMyProfile();
     if (!myId) { showProfileModal(); }
@@ -3522,6 +3537,101 @@ async function saveAthxScore() {
     alert('Score enregistré !');
     loadAllAthxBoards();
   } catch(e) { alert('Erreur: ' + e.message); }
+}
+
+// ======== RANKINGS ========
+const RANKINGS_DISCIPLINES = [
+  { id: 'vo2max',    label: 'VO2 Max',         unit: '',     asc: false },
+  { id: 'pushups',   label: 'Push-ups',         unit: 'reps', asc: false },
+  { id: 'deadhang',  label: 'Dead Hang',        unit: 'sec',  asc: false },
+  { id: 'wimhof',    label: 'Wim Hof',          unit: 'sec',  asc: false },
+  { id: 'broadjump', label: 'Broad Jump',       unit: 'cm',   asc: false },
+  { id: 'plank_f',   label: 'Front Plank',      unit: 'sec',  asc: false },
+  { id: 'plank_s',   label: 'Side Plank',       unit: 'sec',  asc: false },
+  { id: 'grip_g',    label: 'Grip Gauche',      unit: 'kg',   asc: false },
+  { id: 'grip_d',    label: 'Grip Droit',       unit: 'kg',   asc: false },
+  { id: 'backsquat', label: 'Back Squat',       unit: 'kg',   asc: false },
+  { id: 'bp',        label: 'Tension artérielle', unit: 'mmHg', asc: true  },
+];
+
+let _rankingsActive = 'vo2max';
+
+function renderRankings() {
+  const tabsEl = document.getElementById('rankings-tabs');
+  const boardEl = document.getElementById('rankings-board');
+  if (!tabsEl || !boardEl) return;
+
+  // Render tabs
+  tabsEl.innerHTML = RANKINGS_DISCIPLINES.map(function(d) {
+    const active = d.id === _rankingsActive;
+    return '<button onclick="selectRankingTab(\'' + d.id + '\')" style="'
+      + 'font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;'
+      + 'letter-spacing:1px;text-transform:uppercase;padding:8px 14px;border-radius:4px;'
+      + 'cursor:pointer;border:1px solid ' + (active ? 'var(--accent)' : 'rgba(0,180,216,.2)') + ';'
+      + 'background:' + (active ? 'var(--accent)' : 'rgba(13,31,56,.8)') + ';'
+      + 'color:' + (active ? 'var(--deep)' : 'var(--muted)') + ';transition:all .2s;">'
+      + d.label + '</button>';
+  }).join('');
+
+  // Compute best per warrior for selected discipline
+  const disc = RANKINGS_DISCIPLINES.find(function(d){ return d.id === _rankingsActive; });
+  if (!disc) return;
+
+  const data = getData();
+  const byWarrior = {};
+
+  data.warriors.forEach(function(w) {
+    const results = data.results.filter(function(r){ return r.warriorId === w.id; });
+    const vals = results.map(function(r){ return parseFloat(r[disc.id]); }).filter(function(v){ return !isNaN(v); });
+    if (vals.length === 0) return;
+    const best = disc.asc ? Math.min.apply(null, vals) : Math.max.apply(null, vals);
+    byWarrior[w.id] = { warrior: w, best: best };
+  });
+
+  const ranked = Object.values(byWarrior).sort(function(a, b) {
+    return disc.asc ? a.best - b.best : b.best - a.best;
+  });
+
+  if (ranked.length === 0) {
+    boardEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px;">Aucun résultat pour cette discipline.</div>';
+    return;
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  const borderColors = ['rgba(255,209,102,.4)', 'rgba(192,200,216,.3)', 'rgba(205,127,50,.3)'];
+
+  let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+  ranked.forEach(function(entry, i) {
+    const medal = i < 3 ? medals[i] : (i + 1) + '.';
+    const border = i < 3 ? borderColors[i] : 'rgba(0,180,216,.08)';
+    const stripe = i === 0 ? 'var(--gold)' : i === 1 ? 'var(--silver)' : i === 2 ? 'var(--bronze)' : 'rgba(0,180,216,.3)';
+    const scoreColor = i === 0 ? 'var(--gold)' : i === 1 ? 'var(--silver)' : i === 2 ? 'var(--bronze)' : 'var(--accent)';
+    const last = getLatestResult(entry.warrior.id);
+    const score = last ? calcScore(entry.warrior, last).total : 0;
+    const animal = getAnimal(score);
+
+    html += '<div style="background:rgba(15,30,51,.8);border:1px solid ' + border + ';border-radius:8px;'
+      + 'overflow:hidden;position:relative;display:grid;grid-template-columns:52px 1fr auto;'
+      + 'align-items:center;gap:14px;padding:16px 20px;">'
+      + '<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:' + stripe + ';"></div>'
+      + '<div style="font-family:\'Black Ops One\',cursive;font-size:22px;text-align:center;color:' + scoreColor + ';">' + medal + '</div>'
+      + '<div>'
+      + '<div style="font-family:Barlow Condensed,sans-serif;font-size:19px;font-weight:900;text-transform:uppercase;line-height:1;">' + entry.warrior.name + '</div>'
+      + '<div style="font-size:11px;color:var(--accent);margin-top:3px;letter-spacing:1px;">' + animal.emoji + ' ' + animal.name + '</div>'
+      + '</div>'
+      + '<div style="text-align:right;">'
+      + '<div style="font-family:\'Black Ops One\',cursive;font-size:32px;line-height:1;color:' + scoreColor + ';">' + entry.best + '</div>'
+      + '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">' + disc.unit + '</div>'
+      + '</div>'
+      + '</div>';
+  });
+  html += '</div>';
+  boardEl.innerHTML = html;
+}
+
+function selectRankingTab(id) {
+  _rankingsActive = id;
+  renderRankings();
 }
 
 </script>
