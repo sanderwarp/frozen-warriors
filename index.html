@@ -1723,7 +1723,7 @@ async function saveResult() {
   result.bp = document.getElementById('f-bp').value || null;
 
   // Détecter les records AVANT sauvegarde — en excluant le résultat existant à cette date
-  const prevBest = getPreviousBests(wid, warrior.gender||'homme', existingResult ? existingResult.id : null, existingResult);
+  const prevBest = getPreviousBests(wid, warrior.gender||'homme', existingResult ? existingResult.id : null);
 
   try {
     await upsertResult(result);
@@ -1760,10 +1760,9 @@ async function saveResult() {
   }
 }
 
-function getPreviousBests(warriorId, gender, excludeId, existingResult) {
+function getPreviousBests(warriorId, gender, excludeId) {
   const d = getData();
-  // Exclut le résultat qu'on va écraser (même date) — on ne réinjecte PAS ses valeurs
-  // pour éviter que la nouvelle valeur soit comparée à elle-même
+  // Exclut le résultat du jour qu'on va écraser
   const allResults = d.results.filter(function(r){ return r.warriorId === warriorId && r.id !== excludeId; });
   // Dédoublonnage : pour chaque date, on garde le résultat le plus récent
   const byDate = {};
@@ -1795,6 +1794,13 @@ function detectPersonalRecords(result, prevBests, gender, existingResult) {
     if (t.id === 'legext') return; // géré via backsquat/legext séparément
     const newVal = parseFloat(result[t.id]);
     if (isNaN(newVal)) return;
+    // Si on met à jour un résultat existant (même jour), n'annoncer PR que si la valeur
+    // a strictement augmenté par rapport à l'ancienne valeur du jour
+    if (existingResult) {
+      const oldVal = parseFloat(existingResult[t.id]);
+      if (!isNaN(oldVal) && newVal <= oldVal) return; // pas d'amélioration ce jour
+      // newVal > oldVal : on continue pour vérifier si c'est un record all-time
+    }
     const prev = prevBests[t.id];
     if (prev === undefined || newVal > prev) {
       prs.push({ id: t.id, label: t.label, val: newVal, prev: prev || null, unit: unitMap[t.id] ? ' ' + unitMap[t.id] : '' });
