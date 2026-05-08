@@ -309,7 +309,6 @@ select.fi option{background:var(--dark);}
       <button class="nav-btn" onclick="nav('levels')">🐉 Niveaux</button>
       <button class="nav-btn" onclick="nav('admin')">🔐 Admin</button>
       <button class="nav-btn" onclick="nav('athx')">🏅 ATHX</button>
-      <button class="nav-btn" onclick="nav('rankings')">📊 Rankings</button>
     </div>
   </header>
 
@@ -404,7 +403,7 @@ select.fi option{background:var(--dark);}
           <label class="habit-check"><input type="checkbox" id="h2-mixte" onchange="updateDayPreview2()"> ⚡ Mixte</label>
           <label class="habit-check"><input type="checkbox" id="h2-sauna" onchange="updateDayPreview2()"> 🧖 Sauna</label>
           <label class="habit-check"><input type="checkbox" id="h2-bain_froid" onchange="updateDayPreview2()"> 🧊 Bain froid</label>
-          <label class="habit-check"><input type="checkbox" id="h2-wim_hof" onchange="updateDayPreview2()"> 🫁 Respiration (>15 min)</label>
+          <label class="habit-check"><input type="checkbox" id="h2-wim_hof" onchange="updateDayPreview2()"> 🫁 Wim Hof (3 sets min)</label>
           <label class="habit-check"><input type="checkbox" id="h2-yoga" onchange="updateDayPreview2()"> 🧘 Yoga / Étirements 30min</label>
           <label class="habit-check"><input type="checkbox" id="h2-point_faible" onchange="updateDayPreview2()"> 🎯 Travail point faible</label>
         </div>
@@ -564,7 +563,7 @@ select.fi option{background:var(--dark);}
             <label class="habit-check"><input type="checkbox" id="h-mixte"> ⚡ Mixte</label>
             <label class="habit-check"><input type="checkbox" id="h-sauna"> 🧖 Sauna</label>
             <label class="habit-check"><input type="checkbox" id="h-bain_froid"> 🧊 Bain froid</label>
-            <label class="habit-check"><input type="checkbox" id="h-wim_hof"> 🫁 Respiration (>15 min)</label>
+            <label class="habit-check"><input type="checkbox" id="h-wim_hof"> 🫁 Wim Hof (3 sets min)</label>
             <label class="habit-check"><input type="checkbox" id="h-yoga"> 🧘 Yoga / Étirements 30min</label>
             <label class="habit-check"><input type="checkbox" id="h-point_faible"> 🎯 Travail point faible</label>
           </div>
@@ -592,6 +591,13 @@ select.fi option{background:var(--dark);}
       <div class="card">
         <div class="stitle" id="week-title">Classement — Semaine en cours</div>
         <div id="week-lb"></div>
+        <div style="margin-top:20px;border-top:1px solid rgba(0,180,216,.15);padding-top:16px;">
+          <div class="stitle" style="margin-bottom:10px;">📸 Générer mon rapport</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <select class="fi" id="rapport-week-warrior" style="flex:1;min-width:160px;"></select>
+            <button class="btn btn-p" onclick="generateRapportImage('week')" style="white-space:nowrap;">⬇️ Télécharger story</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -600,6 +606,13 @@ select.fi option{background:var(--dark);}
       <div class="card">
         <div class="stitle" id="month-title">Classement — Mois en cours</div>
         <div id="month-lb"></div>
+        <div style="margin-top:20px;border-top:1px solid rgba(0,180,216,.15);padding-top:16px;">
+          <div class="stitle" style="margin-bottom:10px;">📸 Générer mon rapport</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <select class="fi" id="rapport-month-warrior" style="flex:1;min-width:160px;"></select>
+            <button class="btn btn-p" onclick="generateRapportImage('month')" style="white-space:nowrap;">⬇️ Télécharger story</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -696,19 +709,6 @@ select.fi option{background:var(--dark);}
       </div>
     </div>
   </div>
-  <!-- RANKINGS -->
-  <div class="section" id="s-rankings">
-    <div style="padding:12px 8px 8px;">
-      <div class="stitle">Classement par discipline</div>
-
-      <!-- Sélecteur de discipline -->
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;" id="rankings-tabs"></div>
-
-      <!-- Classement -->
-      <div id="rankings-board"></div>
-    </div>
-  </div>
-
   <!-- ATHX -->
   <div class="section" id="s-athx">
     <div style="padding:12px 8px 8px;">
@@ -1754,12 +1754,14 @@ async function saveResult() {
         const msg = '🏆 <strong style="color:#FFD700;">' + warrior.name + '</strong> bat son record personnel — <span style="color:#FFD700;">' + pr.label + ' : ' + pr.val + pr.unit + '</span> 🏆';
         console.log('[PR] Envoi feed event:', msg);
         try {
-          await triggerFeedEvent('personal_record', wid, msg, msg);
+          await insertFeedEvent('personal_record', wid, msg, msg);
           console.log('[PR] Feed event inseré avec succès');
         } catch(feedErr) {
           console.error('[PR] Erreur feed event:', feedErr);
         }
       }
+      await loadFromDb();
+      renderFeed();
       renderHomeHabits();
     }
 
@@ -2740,7 +2742,7 @@ function nav(name) {
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
   const section = document.getElementById('s-'+name);
   if (section) section.classList.add('active');
-  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx','rankings'].indexOf(name);
+  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx'].indexOf(name);
   const btns = document.querySelectorAll('.nav-btn');
   if (btns[idx]) btns[idx].classList.add('active');
   if (name === 'add') {
@@ -2753,7 +2755,6 @@ function nav(name) {
   if (name === 'challenge') { renderChallengePage(); }
   if (name === 'admin') { renderChallengeAdmin(); }
   if (name === 'athx') { initAthxPage(); }
-  if (name === 'rankings') { renderRankings(); }
   if (name === 'encode-habits') {
     const myId = getMyProfile();
     if (!myId) { showProfileModal(); }
@@ -3145,6 +3146,8 @@ function renderHabitsLb(period) {
 
   if (lb.every(e => e.pts === 0)) {
     container.innerHTML = '<div class="no-history">Aucune habitude encodée pour cette période.</div>';
+    // Still populate select
+    populateRapportSelect(period, lb);
     return;
   }
 
@@ -3160,6 +3163,245 @@ function renderHabitsLb(period) {
       </div>
     </div>`;
   }).join('');
+
+  populateRapportSelect(period, lb);
+
+function populateRapportSelect(period, lb) {
+  const sel = document.getElementById('rapport-'+period+'-warrior');
+  if (!sel) return;
+  const myId = getMyProfile();
+  sel.innerHTML = lb.map(e =>
+    `<option value="${e.w.id}" ${e.w.id===myId?'selected':''}>${e.w.name}</option>`
+  ).join('');
+}
+
+function generateRapportImage(period) {
+  const today = new Date().toISOString().split('T')[0];
+  const bounds = period === 'week' ? getWeekBounds(today) : getMonthBounds(today);
+  const selId = 'rapport-'+period+'-warrior';
+  const sel = document.getElementById(selId);
+  if (!sel || !sel.value) { alert('Sélectionne un guerrier'); return; }
+  const wid = sel.value;
+
+  const d = getData();
+  const warrior = d.warriors.find(w => w.id === wid);
+  if (!warrior) return;
+
+  const habits = d.habits.filter(h => h.warriorId === wid && h.date >= bounds.start && h.date <= bounds.end);
+  if (habits.length === 0) { alert('Aucune habitude encodée pour cette période.'); return; }
+
+  const HABIT_DEFS = [
+    { key:'cardio',       label:'Cardio',          emoji:'🏃' },
+    { key:'force',        label:'Force',            emoji:'💪' },
+    { key:'mixte',        label:'Mixte',            emoji:'⚡' },
+    { key:'sauna',        label:'Sauna',            emoji:'🧖' },
+    { key:'bain_froid',   label:'Bain froid',       emoji:'🧊' },
+    { key:'wim_hof',      label:'Respiration',      emoji:'🫁' },
+    { key:'yoga',         label:'Yoga / Étirements',emoji:'🧘' },
+    { key:'point_faible', label:'Point faible',     emoji:'🎯' },
+  ];
+
+  const counts = {};
+  let totalDouches = 0;
+  HABIT_DEFS.forEach(h => { counts[h.key] = 0; });
+  habits.forEach(h => {
+    HABIT_DEFS.forEach(def => { if (h[def.key]) counts[def.key]++; });
+    totalDouches += (h.douches_froides || 0);
+  });
+
+  const totalPts = habits.reduce((s, h) => s + calcHabitPoints(h), 0);
+  const latest = getLatestResult(wid);
+  const score = latest ? calcScore(warrior, latest).total : 0;
+  const animal = getAnimal(score);
+
+  // Build canvas 1080x1920
+  const W = 1080, H = 1920;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Background gradient
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#020d1a');
+  bg.addColorStop(0.5, '#0a1e36');
+  bg.addColorStop(1, '#020d1a');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle grid lines
+  ctx.strokeStyle = 'rgba(0,180,216,0.04)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Accent glow top
+  const glow = ctx.createRadialGradient(W/2, 0, 0, W/2, 0, 600);
+  glow.addColorStop(0, 'rgba(0,180,216,0.18)');
+  glow.addColorStop(1, 'rgba(0,180,216,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Logo / Brand
+  ctx.font = '900 54px "Arial Black", Arial';
+  ctx.fillStyle = '#00b4d8';
+  ctx.letterSpacing = '8px';
+  ctx.textAlign = 'center';
+  ctx.fillText('FROZEN WARRIORS', W/2, 120);
+
+  // Thin line under brand
+  ctx.strokeStyle = 'rgba(0,180,216,0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(120, 145); ctx.lineTo(W-120, 145); ctx.stroke();
+
+  // Period label
+  const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  let periodLabel = '';
+  if (period === 'week') {
+    const s = bounds.start.split('-'); const e = bounds.end.split('-');
+    periodLabel = `Semaine du ${parseInt(s[2])} au ${parseInt(e[2])} ${MONTHS[parseInt(e[1])-1]} ${e[0]}`;
+  } else {
+    const s = bounds.start.split('-');
+    periodLabel = `${MONTHS[parseInt(s[1])-1]} ${s[0]}`;
+  }
+  ctx.font = '400 36px Arial';
+  ctx.fillStyle = 'rgba(200,220,255,0.6)';
+  ctx.fillText(periodLabel.toUpperCase(), W/2, 195);
+
+  // Warrior name
+  ctx.font = '900 96px "Arial Black", Arial';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(warrior.name.toUpperCase(), W/2, 340);
+
+  // Animal totem
+  ctx.font = '52px Arial';
+  ctx.fillText(animal.emoji, W/2 - 80, 420);
+  ctx.font = '700 38px Arial';
+  ctx.fillStyle = '#00b4d8';
+  ctx.fillText(animal.name, W/2 + 40, 420);
+
+  // Divider
+  ctx.strokeStyle = 'rgba(0,180,216,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(120, 460); ctx.lineTo(W-120, 460); ctx.stroke();
+
+  // Total pts big display
+  ctx.font = '900 52px "Arial Black", Arial';
+  ctx.fillStyle = 'rgba(200,220,255,0.55)';
+  ctx.fillText('POINTS TOTAUX', W/2, 540);
+  ctx.font = '900 160px "Arial Black", Arial';
+  ctx.fillStyle = '#00b4d8';
+  ctx.fillText(totalPts.toFixed(1), W/2, 700);
+
+  ctx.font = '400 32px Arial';
+  ctx.fillStyle = 'rgba(200,220,255,0.5)';
+  ctx.fillText(`${habits.length} jour${habits.length>1?'s':''} d'activité`, W/2, 760);
+
+  // Divider
+  ctx.strokeStyle = 'rgba(0,180,216,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(120, 800); ctx.lineTo(W-120, 800); ctx.stroke();
+
+  // Section title
+  ctx.font = '700 40px Arial';
+  ctx.fillStyle = 'rgba(200,220,255,0.7)';
+  ctx.fillText('ACTIVITÉS RÉALISÉES', W/2, 870);
+
+  // Habit rows — only those with count > 0
+  const activeHabits = HABIT_DEFS.filter(h => counts[h.key] > 0);
+  const rowH = 88;
+  const startY = 940;
+  const barMaxW = 480;
+
+  activeHabits.forEach((h, i) => {
+    const y = startY + i * rowH;
+    const count = counts[h.key];
+    const maxCount = period === 'week' ? 7 : 31;
+    const barW = Math.round((count / maxCount) * barMaxW);
+
+    // Row bg
+    ctx.fillStyle = 'rgba(0,180,216,0.06)';
+    roundRect(ctx, 80, y - 28, W - 160, rowH - 8, 12);
+
+    // Emoji
+    ctx.font = '42px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(h.emoji, 110, y + 22);
+
+    // Label
+    ctx.font = '700 36px Arial';
+    ctx.fillStyle = '#e0f0ff';
+    ctx.fillText(h.label, 170, y + 22);
+
+    // Bar background
+    ctx.fillStyle = 'rgba(0,180,216,0.12)';
+    roundRect(ctx, 170, y + 30, barMaxW, 14, 7);
+
+    // Bar fill
+    const barGrad = ctx.createLinearGradient(170, 0, 170 + barW, 0);
+    barGrad.addColorStop(0, '#00b4d8');
+    barGrad.addColorStop(1, '#0077a8');
+    ctx.fillStyle = barGrad;
+    if (barW > 0) roundRect(ctx, 170, y + 30, barW, 14, 7);
+
+    // Count
+    ctx.font = '900 40px "Arial Black", Arial';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#00b4d8';
+    ctx.fillText('×' + count, W - 90, y + 24);
+
+    ctx.textAlign = 'center';
+  });
+
+  // Douches froides
+  if (totalDouches > 0) {
+    const y = startY + activeHabits.length * rowH;
+    ctx.fillStyle = 'rgba(0,180,216,0.06)';
+    roundRect(ctx, 80, y - 28, W - 160, rowH - 8, 12);
+    ctx.font = '42px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText('🚿', 110, y + 22);
+    ctx.font = '700 36px Arial';
+    ctx.fillStyle = '#e0f0ff';
+    ctx.fillText('Douches froides', 170, y + 22);
+    ctx.font = '900 40px "Arial Black", Arial';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#00b4d8';
+    ctx.fillText('×' + totalDouches, W - 90, y + 24);
+    ctx.textAlign = 'center';
+  }
+
+  // Bottom branding
+  ctx.strokeStyle = 'rgba(0,180,216,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(120, H - 160); ctx.lineTo(W-120, H - 160); ctx.stroke();
+  ctx.font = '500 34px Arial';
+  ctx.fillStyle = 'rgba(0,180,216,0.7)';
+  ctx.fillText('frozenwarriors.be', W/2, H - 100);
+  ctx.font = '400 26px Arial';
+  ctx.fillStyle = 'rgba(200,220,255,0.35)';
+  ctx.fillText('Stronger in discomfort.', W/2, H - 55);
+
+  // Download
+  const link = document.createElement('a');
+  link.download = `FrozenWarriors_${warrior.name}_${period}_${today}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function renderWinnersBanner() {
@@ -3537,101 +3779,6 @@ async function saveAthxScore() {
     alert('Score enregistré !');
     loadAllAthxBoards();
   } catch(e) { alert('Erreur: ' + e.message); }
-}
-
-// ======== RANKINGS ========
-const RANKINGS_DISCIPLINES = [
-  { id: 'vo2max',    label: 'VO2 Max',         unit: '',     asc: false },
-  { id: 'pushups',   label: 'Push-ups',         unit: 'reps', asc: false },
-  { id: 'deadhang',  label: 'Dead Hang',        unit: 'sec',  asc: false },
-  { id: 'wimhof',    label: 'Wim Hof',          unit: 'sec',  asc: false },
-  { id: 'broadjump', label: 'Broad Jump',       unit: 'cm',   asc: false },
-  { id: 'plank_f',   label: 'Front Plank',      unit: 'sec',  asc: false },
-  { id: 'plank_s',   label: 'Side Plank',       unit: 'sec',  asc: false },
-  { id: 'grip_g',    label: 'Grip Gauche',      unit: 'kg',   asc: false },
-  { id: 'grip_d',    label: 'Grip Droit',       unit: 'kg',   asc: false },
-  { id: 'backsquat', label: 'Back Squat',       unit: 'kg',   asc: false },
-  { id: 'bp',        label: 'Tension artérielle', unit: 'mmHg', asc: true  },
-];
-
-let _rankingsActive = 'vo2max';
-
-function renderRankings() {
-  const tabsEl = document.getElementById('rankings-tabs');
-  const boardEl = document.getElementById('rankings-board');
-  if (!tabsEl || !boardEl) return;
-
-  // Render tabs
-  tabsEl.innerHTML = RANKINGS_DISCIPLINES.map(function(d) {
-    const active = d.id === _rankingsActive;
-    return '<button onclick="selectRankingTab(\'' + d.id + '\')" style="'
-      + 'font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;'
-      + 'letter-spacing:1px;text-transform:uppercase;padding:8px 14px;border-radius:4px;'
-      + 'cursor:pointer;border:1px solid ' + (active ? 'var(--accent)' : 'rgba(0,180,216,.2)') + ';'
-      + 'background:' + (active ? 'var(--accent)' : 'rgba(13,31,56,.8)') + ';'
-      + 'color:' + (active ? 'var(--deep)' : 'var(--muted)') + ';transition:all .2s;">'
-      + d.label + '</button>';
-  }).join('');
-
-  // Compute best per warrior for selected discipline
-  const disc = RANKINGS_DISCIPLINES.find(function(d){ return d.id === _rankingsActive; });
-  if (!disc) return;
-
-  const data = getData();
-  const byWarrior = {};
-
-  data.warriors.forEach(function(w) {
-    const results = data.results.filter(function(r){ return r.warriorId === w.id; });
-    const vals = results.map(function(r){ return parseFloat(r[disc.id]); }).filter(function(v){ return !isNaN(v); });
-    if (vals.length === 0) return;
-    const best = disc.asc ? Math.min.apply(null, vals) : Math.max.apply(null, vals);
-    byWarrior[w.id] = { warrior: w, best: best };
-  });
-
-  const ranked = Object.values(byWarrior).sort(function(a, b) {
-    return disc.asc ? a.best - b.best : b.best - a.best;
-  });
-
-  if (ranked.length === 0) {
-    boardEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px;">Aucun résultat pour cette discipline.</div>';
-    return;
-  }
-
-  const medals = ['🥇','🥈','🥉'];
-  const borderColors = ['rgba(255,209,102,.4)', 'rgba(192,200,216,.3)', 'rgba(205,127,50,.3)'];
-
-  let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
-  ranked.forEach(function(entry, i) {
-    const medal = i < 3 ? medals[i] : (i + 1) + '.';
-    const border = i < 3 ? borderColors[i] : 'rgba(0,180,216,.08)';
-    const stripe = i === 0 ? 'var(--gold)' : i === 1 ? 'var(--silver)' : i === 2 ? 'var(--bronze)' : 'rgba(0,180,216,.3)';
-    const scoreColor = i === 0 ? 'var(--gold)' : i === 1 ? 'var(--silver)' : i === 2 ? 'var(--bronze)' : 'var(--accent)';
-    const last = getLatestResult(entry.warrior.id);
-    const score = last ? calcScore(entry.warrior, last).total : 0;
-    const animal = getAnimal(score);
-
-    html += '<div style="background:rgba(15,30,51,.8);border:1px solid ' + border + ';border-radius:8px;'
-      + 'overflow:hidden;position:relative;display:grid;grid-template-columns:52px 1fr auto;'
-      + 'align-items:center;gap:14px;padding:16px 20px;">'
-      + '<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:' + stripe + ';"></div>'
-      + '<div style="font-family:\'Black Ops One\',cursive;font-size:22px;text-align:center;color:' + scoreColor + ';">' + medal + '</div>'
-      + '<div>'
-      + '<div style="font-family:Barlow Condensed,sans-serif;font-size:19px;font-weight:900;text-transform:uppercase;line-height:1;">' + entry.warrior.name + '</div>'
-      + '<div style="font-size:11px;color:var(--accent);margin-top:3px;letter-spacing:1px;">' + animal.emoji + ' ' + animal.name + '</div>'
-      + '</div>'
-      + '<div style="text-align:right;">'
-      + '<div style="font-family:\'Black Ops One\',cursive;font-size:32px;line-height:1;color:' + scoreColor + ';">' + entry.best + '</div>'
-      + '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">' + disc.unit + '</div>'
-      + '</div>'
-      + '</div>';
-  });
-  html += '</div>';
-  boardEl.innerHTML = html;
-}
-
-function selectRankingTab(id) {
-  _rankingsActive = id;
-  renderRankings();
 }
 
 </script>
