@@ -369,6 +369,16 @@ select.fi option{background:var(--dark);}
 
   <!-- ENCODE HABITS -->
   <div class="section" id="s-encode-habits">
+
+    <!-- TABS -->
+    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;padding:0 4px;">
+      <button class="nav-btn active" id="ehtab-encode" onclick="switchEncodeHabitsTab('encode')">✏️ Encoder</button>
+      <button class="nav-btn" id="ehtab-week" onclick="switchEncodeHabitsTab('week')">📅 Semaine</button>
+      <button class="nav-btn" id="ehtab-month" onclick="switchEncodeHabitsTab('month')">📆 Mois</button>
+    </div>
+
+    <!-- ENCODE TAB -->
+    <div id="ehcontent-encode">
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
         <div style="display:flex;align-items:center;gap:12px;">
@@ -425,6 +435,38 @@ select.fi option{background:var(--dark);}
       </div>
       <div id="habit-msg2"></div>
     </div>
+    </div><!-- end ehcontent-encode -->
+
+    <!-- WEEK TAB -->
+    <div id="ehcontent-week" style="display:none;">
+      <div class="card">
+        <div class="stitle" id="eh-week-title">Semaine en cours</div>
+        <div id="eh-week-lb"></div>
+        <div style="margin-top:20px;border-top:1px solid rgba(0,180,216,.15);padding-top:16px;">
+          <div class="stitle" style="margin-bottom:10px;">📸 Générer mon rapport</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <select class="fi" id="rapport2-week-warrior" style="flex:1;min-width:160px;"></select>
+            <button class="btn btn-p" onclick="generateRapportImage2('week')" style="white-space:nowrap;">⬇️ Télécharger story</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MONTH TAB -->
+    <div id="ehcontent-month" style="display:none;">
+      <div class="card">
+        <div class="stitle" id="eh-month-title">Mois en cours</div>
+        <div id="eh-month-lb"></div>
+        <div style="margin-top:20px;border-top:1px solid rgba(0,180,216,.15);padding-top:16px;">
+          <div class="stitle" style="margin-bottom:10px;">📸 Générer mon rapport</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <select class="fi" id="rapport2-month-warrior" style="flex:1;min-width:160px;"></select>
+            <button class="btn btn-p" onclick="generateRapportImage2('month')" style="white-space:nowrap;">⬇️ Télécharger story</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ADD RESULT -->
@@ -3883,6 +3925,183 @@ function renderRankings() {
 function selectRankingTab(id) {
   _rankingsActive = id;
   renderRankings();
+}
+
+function switchEncodeHabitsTab(tab) {
+  ['encode','week','month'].forEach(t => {
+    document.getElementById('ehcontent-'+t).style.display = t===tab?'block':'none';
+    document.getElementById('ehtab-'+t).classList.toggle('active', t===tab);
+  });
+  if (tab==='week') renderEncodeHabitsLb('week');
+  if (tab==='month') renderEncodeHabitsLb('month');
+}
+
+function renderEncodeHabitsLb(period) {
+  const today = new Date().toISOString().split('T')[0];
+  const bounds = period === 'week' ? getWeekBounds(today) : getMonthBounds(today);
+  const lb = getHabitsLeaderboard(bounds.start, bounds.end);
+  const container = document.getElementById('eh-'+period+'-lb');
+  const title = document.getElementById('eh-'+period+'-title');
+  const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  if (period === 'week') {
+    title.textContent = `Semaine du ${bounds.start} au ${bounds.end}`;
+  } else {
+    title.textContent = `${MONTHS[new Date(bounds.start).getMonth()]} ${new Date(bounds.start).getFullYear()}`;
+  }
+  if (lb.every(e => e.pts === 0)) {
+    container.innerHTML = '<div class="no-history">Aucune habitude encodée pour cette période.</div>';
+  } else {
+    container.innerHTML = lb.map((entry, i) => {
+      const rankColor = i===0?'var(--gold)':i===1?'var(--silver)':i===2?'var(--bronze)':'var(--muted)';
+      return `<div class="hrow">
+        <div class="hrow-rank" style="color:${rankColor}">${i+1}</div>
+        <div class="hrow-animal">${entry.animal.emoji}</div>
+        <div class="hrow-name">${entry.w.name}</div>
+        <div>
+          <div class="hrow-score">${entry.pts.toFixed(1)}</div>
+          <div class="hrow-days">${entry.days} jour${entry.days>1?'s':''}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  // Populate warrior select
+  const sel = document.getElementById('rapport2-'+period+'-warrior');
+  if (sel) {
+    const myId = getMyProfile();
+    sel.innerHTML = lb.map(e =>
+      `<option value="${e.w.id}" ${e.w.id===myId?'selected':''}>${e.w.name}</option>`
+    ).join('');
+  }
+}
+
+function generateRapportImage2(period) {
+  const today = new Date().toISOString().split('T')[0];
+  const bounds = period === 'week' ? getWeekBounds(today) : getMonthBounds(today);
+  const sel = document.getElementById('rapport2-'+period+'-warrior');
+  if (!sel || !sel.value) { alert('Sélectionne un guerrier'); return; }
+  const wid = sel.value;
+  const d = getData();
+  const warrior = d.warriors.find(w => w.id === wid);
+  if (!warrior) return;
+  const habits = d.habits.filter(h => h.warriorId === wid && h.date >= bounds.start && h.date <= bounds.end);
+  if (habits.length === 0) { alert('Aucune habitude encodée pour cette période.'); return; }
+
+  const HABIT_DEFS = [
+    { key:'cardio',       label:'Cardio',           emoji:'🏃' },
+    { key:'force',        label:'Force',             emoji:'💪' },
+    { key:'mixte',        label:'Mixte',             emoji:'⚡' },
+    { key:'sauna',        label:'Sauna',             emoji:'🧖' },
+    { key:'bain_froid',   label:'Bain froid',        emoji:'🧊' },
+    { key:'wim_hof',      label:'Respiration',       emoji:'🫁' },
+    { key:'yoga',         label:'Yoga / Étirements', emoji:'🧘' },
+    { key:'point_faible', label:'Point faible',      emoji:'🎯' },
+  ];
+
+  const counts = {};
+  let totalDouches = 0;
+  HABIT_DEFS.forEach(h => { counts[h.key] = 0; });
+  habits.forEach(h => {
+    HABIT_DEFS.forEach(def => { if (h[def.key]) counts[def.key]++; });
+    totalDouches += (h.douches_froides || 0);
+  });
+
+  const totalPts = habits.reduce((s, h) => s + calcHabitPoints(h), 0);
+  const latest = getLatestResult(wid);
+  const score = latest ? calcScore(warrior, latest).total : 0;
+  const animal = getAnimal(score);
+
+  const W = 1080, H = 1920;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#020d1a'); bg.addColorStop(0.5, '#0a1e36'); bg.addColorStop(1, '#020d1a');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(0,180,216,0.04)'; ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  const glow = ctx.createRadialGradient(W/2, 0, 0, W/2, 0, 600);
+  glow.addColorStop(0, 'rgba(0,180,216,0.18)'); glow.addColorStop(1, 'rgba(0,180,216,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'center';
+  ctx.font = '900 54px Arial'; ctx.fillStyle = '#00b4d8'; ctx.fillText('FROZEN WARRIORS', W/2, 120);
+  ctx.strokeStyle = 'rgba(0,180,216,0.5)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(120, 145); ctx.lineTo(W-120, 145); ctx.stroke();
+
+  const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  let periodLabel = '';
+  if (period === 'week') {
+    const s = bounds.start.split('-'), e = bounds.end.split('-');
+    periodLabel = `Semaine du ${parseInt(s[2])} au ${parseInt(e[2])} ${MONTHS[parseInt(e[1])-1]} ${e[0]}`;
+  } else {
+    const s = bounds.start.split('-');
+    periodLabel = `${MONTHS[parseInt(s[1])-1]} ${s[0]}`;
+  }
+  ctx.font = '400 36px Arial'; ctx.fillStyle = 'rgba(200,220,255,0.6)';
+  ctx.fillText(periodLabel.toUpperCase(), W/2, 195);
+
+  ctx.font = '900 96px Arial'; ctx.fillStyle = '#ffffff';
+  ctx.fillText(warrior.name.toUpperCase(), W/2, 340);
+  ctx.font = '52px Arial'; ctx.fillText(animal.emoji, W/2 - 80, 420);
+  ctx.font = '700 38px Arial'; ctx.fillStyle = '#00b4d8'; ctx.fillText(animal.name, W/2 + 40, 420);
+
+  ctx.strokeStyle = 'rgba(0,180,216,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(120, 460); ctx.lineTo(W-120, 460); ctx.stroke();
+
+  ctx.font = '900 52px Arial'; ctx.fillStyle = 'rgba(200,220,255,0.55)'; ctx.fillText('POINTS TOTAUX', W/2, 540);
+  ctx.font = '900 160px Arial'; ctx.fillStyle = '#00b4d8'; ctx.fillText(totalPts.toFixed(1), W/2, 700);
+  ctx.font = '400 32px Arial'; ctx.fillStyle = 'rgba(200,220,255,0.5)';
+  ctx.fillText(`${habits.length} jour${habits.length>1?'s':''} d'activité`, W/2, 760);
+
+  ctx.strokeStyle = 'rgba(0,180,216,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(120, 800); ctx.lineTo(W-120, 800); ctx.stroke();
+
+  ctx.font = '700 40px Arial'; ctx.fillStyle = 'rgba(200,220,255,0.7)';
+  ctx.fillText('ACTIVITÉS RÉALISÉES', W/2, 870);
+
+  const activeHabits = HABIT_DEFS.filter(h => counts[h.key] > 0);
+  const rowH = 88, startY = 940, barMaxW = 480;
+
+  activeHabits.forEach((h, i) => {
+    const y = startY + i * rowH;
+    const count = counts[h.key];
+    const maxCount = period === 'week' ? 7 : 31;
+    const barW = Math.round((count / maxCount) * barMaxW);
+    ctx.fillStyle = 'rgba(0,180,216,0.06)'; roundRect(ctx, 80, y-28, W-160, rowH-8, 12);
+    ctx.font = '42px Arial'; ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.fillText(h.emoji, 110, y+22);
+    ctx.font = '700 36px Arial'; ctx.fillStyle = '#e0f0ff'; ctx.fillText(h.label, 170, y+22);
+    ctx.fillStyle = 'rgba(0,180,216,0.12)'; roundRect(ctx, 170, y+30, barMaxW, 14, 7);
+    if (barW > 0) {
+      const barGrad = ctx.createLinearGradient(170, 0, 170+barW, 0);
+      barGrad.addColorStop(0, '#00b4d8'); barGrad.addColorStop(1, '#0077a8');
+      ctx.fillStyle = barGrad; roundRect(ctx, 170, y+30, barW, 14, 7);
+    }
+    ctx.font = '900 40px Arial'; ctx.textAlign = 'right'; ctx.fillStyle = '#00b4d8';
+    ctx.fillText('×'+count, W-90, y+24); ctx.textAlign = 'center';
+  });
+
+  if (totalDouches > 0) {
+    const y = startY + activeHabits.length * rowH;
+    ctx.fillStyle = 'rgba(0,180,216,0.06)'; roundRect(ctx, 80, y-28, W-160, rowH-8, 12);
+    ctx.font = '42px Arial'; ctx.textAlign = 'left'; ctx.fillText('🚿', 110, y+22);
+    ctx.font = '700 36px Arial'; ctx.fillStyle = '#e0f0ff'; ctx.fillText('Douches froides', 170, y+22);
+    ctx.font = '900 40px Arial'; ctx.textAlign = 'right'; ctx.fillStyle = '#00b4d8';
+    ctx.fillText('×'+totalDouches, W-90, y+24); ctx.textAlign = 'center';
+  }
+
+  ctx.strokeStyle = 'rgba(0,180,216,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(120, H-160); ctx.lineTo(W-120, H-160); ctx.stroke();
+  ctx.font = '500 34px Arial'; ctx.fillStyle = 'rgba(0,180,216,0.7)'; ctx.fillText('frozenwarriors.be', W/2, H-100);
+  ctx.font = '400 26px Arial'; ctx.fillStyle = 'rgba(200,220,255,0.35)'; ctx.fillText('Stronger in discomfort.', W/2, H-55);
+
+  const link = document.createElement('a');
+  link.download = `FrozenWarriors_${warrior.name}_${period}_${today}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
 }
 
 </script>
