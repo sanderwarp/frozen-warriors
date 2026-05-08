@@ -442,12 +442,8 @@ select.fi option{background:var(--dark);}
       <div class="card">
         <div class="stitle" id="eh-week-title">Semaine en cours</div>
         <div id="eh-week-lb"></div>
-        <div style="margin-top:20px;border-top:1px solid rgba(0,180,216,.15);padding-top:16px;">
-          <div class="stitle" style="margin-bottom:10px;">📸 Générer mon rapport</div>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <select class="fi" id="rapport2-week-warrior" style="flex:1;min-width:160px;"></select>
-            <button class="btn btn-p" onclick="generateRapportImage2('week')" style="white-space:nowrap;">⬇️ Télécharger story</button>
-          </div>
+        <div style="margin-top:16px;text-align:right;">
+          <button class="btn btn-p" onclick="generateRapportImage2('week')" style="white-space:nowrap;">⬇️ Télécharger story</button>
         </div>
       </div>
     </div>
@@ -457,12 +453,8 @@ select.fi option{background:var(--dark);}
       <div class="card">
         <div class="stitle" id="eh-month-title">Mois en cours</div>
         <div id="eh-month-lb"></div>
-        <div style="margin-top:20px;border-top:1px solid rgba(0,180,216,.15);padding-top:16px;">
-          <div class="stitle" style="margin-bottom:10px;">📸 Générer mon rapport</div>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <select class="fi" id="rapport2-month-warrior" style="flex:1;min-width:160px;"></select>
-            <button class="btn btn-p" onclick="generateRapportImage2('month')" style="white-space:nowrap;">⬇️ Télécharger story</button>
-          </div>
+        <div style="margin-top:16px;text-align:right;">
+          <button class="btn btn-p" onclick="generateRapportImage2('month')" style="white-space:nowrap;">⬇️ Télécharger story</button>
         </div>
       </div>
     </div>
@@ -3939,47 +3931,94 @@ function switchEncodeHabitsTab(tab) {
 function renderEncodeHabitsLb(period) {
   const today = new Date().toISOString().split('T')[0];
   const bounds = period === 'week' ? getWeekBounds(today) : getMonthBounds(today);
-  const lb = getHabitsLeaderboard(bounds.start, bounds.end);
   const container = document.getElementById('eh-'+period+'-lb');
   const title = document.getElementById('eh-'+period+'-title');
   const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
   if (period === 'week') {
-    title.textContent = `Semaine du ${bounds.start} au ${bounds.end}`;
+    const s = bounds.start.split('-'), e = bounds.end.split('-');
+    title.textContent = `Semaine du ${parseInt(s[2])} au ${parseInt(e[2])} ${MONTHS[parseInt(e[1])-1]} ${e[0]}`;
   } else {
     title.textContent = `${MONTHS[new Date(bounds.start).getMonth()]} ${new Date(bounds.start).getFullYear()}`;
   }
-  if (lb.every(e => e.pts === 0)) {
+
+  const wid = getMyProfile();
+  const d = getData();
+  const warrior = wid ? d.warriors.find(w => w.id === wid) : null;
+
+  if (!warrior) {
+    container.innerHTML = '<div class="no-history">Sélectionne ton profil pour voir ton bilan.</div>';
+    return;
+  }
+
+  const habits = d.habits.filter(h => h.warriorId === wid && h.date >= bounds.start && h.date <= bounds.end);
+
+  const HABIT_DEFS = [
+    { key:'cardio',       label:'Cardio',           emoji:'🏃' },
+    { key:'force',        label:'Force',             emoji:'💪' },
+    { key:'mixte',        label:'Mixte',             emoji:'⚡' },
+    { key:'sauna',        label:'Sauna',             emoji:'🧖' },
+    { key:'bain_froid',   label:'Bain froid',        emoji:'🧊' },
+    { key:'wim_hof',      label:'Respiration',       emoji:'🫁' },
+    { key:'yoga',         label:'Yoga / Étirements', emoji:'🧘' },
+    { key:'point_faible', label:'Point faible',      emoji:'🎯' },
+  ];
+
+  const counts = {};
+  let totalDouches = 0;
+  HABIT_DEFS.forEach(h => { counts[h.key] = 0; });
+  habits.forEach(h => {
+    HABIT_DEFS.forEach(def => { if (h[def.key]) counts[def.key]++; });
+    totalDouches += (h.douches_froides || 0);
+  });
+
+  const totalPts = habits.reduce((s, h) => s + calcHabitPoints(h), 0);
+  const maxCount = period === 'week' ? 7 : 31;
+  const activeHabits = HABIT_DEFS.filter(h => counts[h.key] > 0);
+
+  if (habits.length === 0) {
     container.innerHTML = '<div class="no-history">Aucune habitude encodée pour cette période.</div>';
-  } else {
-    container.innerHTML = lb.map((entry, i) => {
-      const rankColor = i===0?'var(--gold)':i===1?'var(--silver)':i===2?'var(--bronze)':'var(--muted)';
-      return `<div class="hrow">
-        <div class="hrow-rank" style="color:${rankColor}">${i+1}</div>
-        <div class="hrow-animal">${entry.animal.emoji}</div>
-        <div class="hrow-name">${entry.w.name}</div>
-        <div>
-          <div class="hrow-score">${entry.pts.toFixed(1)}</div>
-          <div class="hrow-days">${entry.days} jour${entry.days>1?'s':''}</div>
-        </div>
-      </div>`;
-    }).join('');
+    return;
   }
-  // Populate warrior select
-  const sel = document.getElementById('rapport2-'+period+'-warrior');
-  if (sel) {
-    const myId = getMyProfile();
-    sel.innerHTML = lb.map(e =>
-      `<option value="${e.w.id}" ${e.w.id===myId?'selected':''}>${e.w.name}</option>`
-    ).join('');
+
+  let html = `<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-family:'Black Ops One',cursive;font-size:36px;color:var(--accent);">${totalPts.toFixed(1)} pts</div>
+    <div style="font-size:13px;color:var(--muted);">${habits.length} jour${habits.length>1?'s':''} · ${warrior.name}</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;">`;
+
+  activeHabits.forEach(h => {
+    const count = counts[h.key];
+    const pct = Math.round((count / maxCount) * 100);
+    html += `<div style="background:rgba(0,180,216,0.06);border:1px solid rgba(0,180,216,0.1);border-radius:8px;padding:12px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:15px;font-weight:700;">${h.emoji} ${h.label}</div>
+        <div style="font-family:'Black Ops One',cursive;font-size:20px;color:var(--accent);">×${count}</div>
+      </div>
+      <div style="background:rgba(0,180,216,0.12);border-radius:4px;height:8px;">
+        <div style="background:var(--accent);border-radius:4px;height:8px;width:${pct}%;transition:width .3s;"></div>
+      </div>
+    </div>`;
+  });
+
+  if (totalDouches > 0) {
+    html += `<div style="background:rgba(0,180,216,0.06);border:1px solid rgba(0,180,216,0.1);border-radius:8px;padding:12px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:15px;font-weight:700;">🚿 Douches froides</div>
+        <div style="font-family:'Black Ops One',cursive;font-size:20px;color:var(--accent);">×${totalDouches}</div>
+      </div>
+    </div>`;
   }
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 function generateRapportImage2(period) {
   const today = new Date().toISOString().split('T')[0];
   const bounds = period === 'week' ? getWeekBounds(today) : getMonthBounds(today);
-  const sel = document.getElementById('rapport2-'+period+'-warrior');
-  if (!sel || !sel.value) { alert('Sélectionne un guerrier'); return; }
-  const wid = sel.value;
+  const wid = getMyProfile();
+  if (!wid) { alert('Sélectionne ton profil d\'abord'); return; }
   const d = getData();
   const warrior = d.warriors.find(w => w.id === wid);
   if (!warrior) return;
