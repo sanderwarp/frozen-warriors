@@ -425,6 +425,24 @@ select.fi option{background:var(--dark);}
           <button class="btn btn-p" style="padding:6px 16px;font-size:18px;" onclick="adjustShowers2(1)">+</button>
           <span style="font-size:12px;color:var(--muted);">douches froides</span>
         </div>
+
+        <!-- HYDRATATION -->
+        <div class="stitle" style="margin-top:4px;">💧 Hydratation (+1 pt si objectif atteint)</div>
+        <div style="margin-bottom:8px;" id="hydration-target-label"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+          <button class="btn btn-d" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(-250)">−250ml</button>
+          <button class="btn btn-d" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(-1)">−🥛</button>
+          <span id="hydration-count2" style="font-family:'Black Ops One',cursive;font-size:28px;color:#38bdf8;min-width:60px;text-align:center;">0</span>
+          <span style="font-size:12px;color:var(--muted);">ml</span>
+          <button class="btn btn-p" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(1)">+🥛</button>
+          <button class="btn btn-p" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(250)">+250ml</button>
+        </div>
+        <!-- Jauge -->
+        <div style="position:relative;background:rgba(56,189,248,0.12);border-radius:8px;height:28px;margin-bottom:6px;overflow:hidden;">
+          <div id="hydration-bar2" style="height:100%;border-radius:8px;background:linear-gradient(90deg,#0ea5e9,#38bdf8);width:0%;transition:width .4s;"></div>
+          <div id="hydration-pct2" style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-family:'Black Ops One',cursive;font-size:14px;color:#fff;">0%</div>
+        </div>
+        <div id="hydration-status2" style="font-size:12px;color:var(--muted);margin-bottom:16px;text-align:center;"></div>
         <div style="background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
           <span style="font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Points du jour : </span>
           <span id="day-preview2" style="font-family:'Black Ops One',cursive;font-size:24px;color:var(--accent);">0</span>
@@ -1965,15 +1983,69 @@ function populateHabitWarriorSelect2() {
 }
 
 let showerCount2 = 0;
+let hydrationMl2 = 0;
+
+function getHydrationTarget(wid) {
+  const d = getData();
+  const w = d.warriors.find(w => w.id === wid);
+  if (!w || !w.weight) return 2500; // default 2.5L
+  return Math.round((w.weight / 23) * 10) / 10 * 1000; // in ml, 1 decimal
+}
+
 function adjustShowers2(delta) {
   showerCount2 = Math.max(0, showerCount2 + delta);
   document.getElementById('shower-count2').textContent = showerCount2;
   updateDayPreview2();
 }
+
+function adjustHydration2(delta) {
+  // delta: positive int = glasses (+250ml each), negative int = glasses, or ±250 for ml buttons
+  if (delta === 250 || delta === -250) {
+    hydrationMl2 = Math.max(0, hydrationMl2 + delta);
+  } else {
+    hydrationMl2 = Math.max(0, hydrationMl2 + delta * 250);
+  }
+  updateHydrationDisplay2();
+  updateDayPreview2();
+}
+
+function updateHydrationDisplay2() {
+  const wid = getMyProfile();
+  const target = wid ? getHydrationTarget(wid) : 2500;
+  const targetL = (target / 1000).toFixed(1);
+  const pct = Math.min(100, Math.round((hydrationMl2 / target) * 100));
+  const reached = hydrationMl2 >= target;
+
+  const lbl = document.getElementById('hydration-target-label');
+  if (lbl) lbl.innerHTML = `<span style="font-size:12px;color:var(--muted);">Objectif : <strong style="color:#38bdf8;">${targetL}L</strong> · Actuel : <strong style="color:#38bdf8;">${(hydrationMl2/1000).toFixed(2)}L</strong> (${Math.floor(hydrationMl2/250)} verres)</span>`;
+
+  const bar = document.getElementById('hydration-bar2');
+  if (bar) bar.style.width = pct + '%';
+
+  const pctEl = document.getElementById('hydration-pct2');
+  if (pctEl) pctEl.textContent = pct + '%';
+
+  const status = document.getElementById('hydration-status2');
+  if (status) {
+    if (reached) {
+      status.innerHTML = '✅ <span style="color:#4ade80;">Objectif atteint ! +1 pt</span>';
+    } else {
+      const remaining = ((target - hydrationMl2) / 1000).toFixed(2);
+      status.innerHTML = `<span style="color:var(--muted);">Il manque ${remaining}L (${Math.ceil((target - hydrationMl2)/250)} verres)</span>`;
+    }
+  }
+
+  const cnt = document.getElementById('hydration-count2');
+  if (cnt) cnt.textContent = hydrationMl2;
+}
+
 function updateDayPreview2() {
   const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
   let pts = checks.filter(id => document.getElementById('h2-'+id)?.checked).length;
   pts += showerCount2 * 0.2;
+  const wid = getMyProfile();
+  const target = wid ? getHydrationTarget(wid) : 2500;
+  if (hydrationMl2 >= target) pts += 1;
   document.getElementById('day-preview2').textContent = pts.toFixed(1);
 }
 
@@ -1983,7 +2055,7 @@ async function saveHabits2() {
   if (!wid) { showProfileModal(); return; }
   if (!date) return showMsg('habit-msg2','Entre une date','err');
   const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
-  const habit = { id:'h_'+wid+'_'+date, warriorId:wid, date, douches_froides:showerCount2 };
+  const habit = { id:'h_'+wid+'_'+date, warriorId:wid, date, douches_froides:showerCount2, hydration_ml:hydrationMl2 };
   checks.forEach(k => { habit[k] = document.getElementById('h2-'+k)?.checked||false; });
   try {
     await upsertHabit(habit);
@@ -2002,6 +2074,7 @@ async function saveHabits2() {
       if (habit.yoga) habitIcons.push('🧘 Yoga');
       if (habit.point_faible) habitIcons.push('🎯 Point faible');
       if (habit.douches_froides > 0) habitIcons.push('🚿×'+habit.douches_froides);
+      if (habit.hydration_ml > 0) habitIcons.push('💧'+(habit.hydration_ml/1000).toFixed(1)+'L');
       const details = habitIcons.join(' · ');
       await triggerFeedEvent('habit_entry', wid, '<strong>'+wFeedH.name+'</strong> a encode ses habitudes — '+pts2.toFixed(1)+' pts 🔥', details);
     }
@@ -2349,15 +2422,18 @@ function onHabitDateChange() {
       if (el) el.checked = habitEntry[k] || false;
     });
     showerCount2 = habitEntry.douches_froides || 0;
+    hydrationMl2 = habitEntry.hydration_ml || 0;
   } else {
     checks.forEach(function(k) {
       const el = document.getElementById('h2-'+k);
       if (el) el.checked = false;
     });
     showerCount2 = 0;
+    hydrationMl2 = 0;
   }
   const sc = document.getElementById('shower-count2');
   if (sc) sc.textContent = showerCount2;
+  updateHydrationDisplay2();
   updateDayPreview2();
   renderWeekCalendar();
 }
@@ -2377,8 +2453,10 @@ function loadTodayHabits() {
     if (el) el.checked = habitEntry[k] || false;
   });
   showerCount2 = habitEntry.douches_froides || 0;
+  hydrationMl2 = habitEntry.hydration_ml || 0;
   const sc = document.getElementById('shower-count2');
   if (sc) sc.textContent = showerCount2;
+  updateHydrationDisplay2();
   updateDayPreview2();
   renderWeekCalendar();
 }
@@ -2806,6 +2884,7 @@ function nav(name) {
     else { updateProfileDisplay(); }
     document.getElementById('h-date2').value = new Date().toISOString().split('T')[0];
     loadTodayHabits();
+    updateHydrationDisplay2();
   }
   if (name === 'leaderboard') { renderLeaderboard(); renderHomeHabits(); renderHomeWinners(); renderFeed(); }
 }
@@ -3112,6 +3191,13 @@ function calcHabitPoints(h) {
   const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
   let pts = checks.filter(k => h[k]).length;
   pts += (h.douches_froides||0) * 0.2;
+  // Hydration: 1 pt if target reached (target = weight/23 * 1000 ml)
+  if (h.hydration_ml > 0) {
+    const d = getData();
+    const w = d.warriors.find(w => w.id === h.warriorId);
+    const target = w && w.weight ? Math.round((w.weight / 23) * 10) / 10 * 1000 : 2500;
+    if (h.hydration_ml >= target) pts += 1;
+  }
   return pts;
 }
 
@@ -4010,6 +4096,17 @@ function renderEncodeHabitsLb(period) {
     </div>`;
   }
 
+  if (totalHydrationMl > 0) {
+    const avgL = (totalHydrationMl / habits.length / 1000).toFixed(1);
+    html += `<div style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:8px;padding:12px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:15px;font-weight:700;">💧 Hydratation</div>
+        <div style="font-family:'Black Ops One',cursive;font-size:20px;color:#38bdf8;">${hydrationDaysReached}j ✅</div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);">Moy. ${avgL}L/jour · Total ${(totalHydrationMl/1000).toFixed(1)}L</div>
+    </div>`;
+  }
+
   html += '</div>';
   container.innerHTML = html;
 }
@@ -4038,10 +4135,15 @@ function generateRapportImage2(period) {
 
   const counts = {};
   let totalDouches = 0;
+  let totalHydrationMl2 = 0;
+  let hydrationDaysReached2 = 0;
+  const hydTarget = warrior.weight ? Math.round((warrior.weight / 23) * 10) / 10 * 1000 : 2500;
   HABIT_DEFS.forEach(h => { counts[h.key] = 0; });
   habits.forEach(h => {
     HABIT_DEFS.forEach(def => { if (h[def.key]) counts[def.key]++; });
     totalDouches += (h.douches_froides || 0);
+    totalHydrationMl2 += (h.hydration_ml || 0);
+    if ((h.hydration_ml || 0) >= hydTarget) hydrationDaysReached2++;
   });
 
   const totalPts = habits.reduce((s, h) => s + calcHabitPoints(h), 0);
@@ -4130,6 +4232,18 @@ function generateRapportImage2(period) {
     ctx.font = '700 36px Arial'; ctx.fillStyle = '#e0f0ff'; ctx.fillText('Douches froides', 170, y+22);
     ctx.font = '900 40px Arial'; ctx.textAlign = 'right'; ctx.fillStyle = '#00b4d8';
     ctx.fillText('×'+totalDouches, W-90, y+24); ctx.textAlign = 'center';
+  }
+
+  if (totalHydrationMl2 > 0) {
+    const rowIdx = activeHabits.length + (totalDouches > 0 ? 1 : 0);
+    const y = startY + rowIdx * rowH;
+    const avgL = (totalHydrationMl2 / habits.length / 1000).toFixed(1);
+    ctx.fillStyle = 'rgba(56,189,248,0.08)'; roundRect(ctx, 80, y-28, W-160, rowH-8, 12);
+    ctx.font = '42px Arial'; ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.fillText('💧', 110, y+22);
+    ctx.font = '700 36px Arial'; ctx.fillStyle = '#e0f0ff'; ctx.fillText('Hydratation', 170, y+22);
+    ctx.font = '700 28px Arial'; ctx.fillStyle = '#38bdf8'; ctx.fillText(`${hydrationDaysReached2}j ✅ · moy ${avgL}L/j`, 170, y+55);
+    ctx.font = '900 40px Arial'; ctx.textAlign = 'right'; ctx.fillStyle = '#38bdf8';
+    ctx.fillText((totalHydrationMl2/1000).toFixed(1)+'L', W-90, y+24); ctx.textAlign = 'center';
   }
 
   ctx.strokeStyle = 'rgba(0,180,216,0.3)'; ctx.lineWidth = 1;
