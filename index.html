@@ -430,12 +430,15 @@ select.fi option{background:var(--dark);}
         <div class="stitle" style="margin-top:4px;">💧 Hydratation (+1 pt si objectif atteint)</div>
         <div style="margin-bottom:8px;" id="hydration-target-label"></div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-          <button class="btn btn-d" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(-250)">−250ml</button>
-          <button class="btn btn-d" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(-1)">−🥛</button>
+          <button class="btn btn-p" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(1)">+🥛 250ml</button>
+          <button class="btn btn-p" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(500)">+500ml</button>
           <span id="hydration-count2" style="font-family:'Black Ops One',cursive;font-size:28px;color:#38bdf8;min-width:60px;text-align:center;">0</span>
           <span style="font-size:12px;color:var(--muted);">ml</span>
-          <button class="btn btn-p" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(1)">+🥛</button>
-          <button class="btn btn-p" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(250)">+250ml</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+          <input class="fi" id="hydration-manual-ml" type="number" min="0" max="2000" placeholder="ml (ex: 200)" style="width:140px;font-size:15px;">
+          <button class="btn btn-p" style="padding:6px 14px;font-size:15px;" onclick="addHydrationManual()">+ Ajouter</button>
+          <button class="btn btn-d" style="padding:6px 14px;font-size:15px;" onclick="resetHydration2()">🗑️ Reset</button>
         </div>
         <!-- Jauge -->
         <div style="position:relative;background:rgba(56,189,248,0.12);border-radius:8px;height:28px;margin-bottom:6px;overflow:hidden;">
@@ -1999,12 +2002,27 @@ function adjustShowers2(delta) {
 }
 
 function adjustHydration2(delta) {
-  // delta: positive int = glasses (+250ml each), negative int = glasses, or ±250 for ml buttons
-  if (delta === 250 || delta === -250) {
-    hydrationMl2 = Math.max(0, hydrationMl2 + delta);
+  if (delta === 500) {
+    hydrationMl2 = Math.max(0, hydrationMl2 + 500);
   } else {
     hydrationMl2 = Math.max(0, hydrationMl2 + delta * 250);
   }
+  updateHydrationDisplay2();
+  updateDayPreview2();
+}
+
+function addHydrationManual() {
+  const input = document.getElementById('hydration-manual-ml');
+  const val = parseInt(input.value);
+  if (!val || val <= 0) return;
+  hydrationMl2 += val;
+  input.value = '';
+  updateHydrationDisplay2();
+  updateDayPreview2();
+}
+
+function resetHydration2() {
+  hydrationMl2 = 0;
   updateHydrationDisplay2();
   updateDayPreview2();
 }
