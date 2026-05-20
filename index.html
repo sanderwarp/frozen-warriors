@@ -1215,7 +1215,8 @@ async function loadFromDb() {
       cardio: h.cardio, force: h.force, mixte: h.mixte,
       sauna: h.sauna, bain_froid: h.bain_froid, wim_hof: h.wim_hof,
       yoga: h.yoga, point_faible: h.point_faible,
-      douches_froides: h.douches_froides||0
+      douches_froides: h.douches_froides||0,
+      hydration_ml: h.hydration_ml||0
     }));
   _cache.results = results.map(r => ({
       id: r.id, warriorId: r.warrior_id, date: r.date,
