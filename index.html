@@ -228,6 +228,22 @@ select.fi option{background:var(--dark);}
 .habit-check:hover{border-color:rgba(0,180,216,.3);}
 .habit-check input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
 .habit-check input:checked ~ *{color:var(--accent);}
+@keyframes skullFly {
+  0%   { transform: translateX(-60px) scale(0.5) rotate(-20deg); opacity:0; }
+  20%  { opacity: 1; transform: translateX(0px) scale(1.3) rotate(5deg); }
+  60%  { transform: translateX(30px) scale(1) rotate(-5deg); opacity:1; }
+  100% { transform: translateX(120px) scale(0.6) rotate(15deg); opacity:0; }
+}
+@keyframes rowFlash {
+  0%   { background: rgba(0,180,216,0); }
+  25%  { background: rgba(0,180,216,0.18); }
+  100% { background: rgba(0,180,216,0); }
+}
+.row-flash { animation: rowFlash 0.5s ease-out; }
+.skull-fly {
+  position: absolute; pointer-events: none; font-size: 22px; top: 50%; transform: translateY(-50%);
+  animation: skullFly 0.7s ease-out forwards; z-index: 99;
+}
 
 /* WINNER BANNER */
 .winner-banner{border-radius:8px;padding:16px 20px;margin-bottom:10px;
@@ -309,7 +325,6 @@ select.fi option{background:var(--dark);}
       <button class="nav-btn" onclick="nav('levels')">🐉 Niveaux</button>
       <button class="nav-btn" onclick="nav('admin')">🔐 Admin</button>
       <button class="nav-btn" onclick="nav('athx')">🏅 ATHX</button>
-      <button class="nav-btn" onclick="nav('rankings')">📊 Rankings</button>
     </div>
   </header>
 
@@ -369,16 +384,6 @@ select.fi option{background:var(--dark);}
 
   <!-- ENCODE HABITS -->
   <div class="section" id="s-encode-habits">
-
-    <!-- TABS -->
-    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;padding:0 4px;">
-      <button class="nav-btn active" id="ehtab-encode" onclick="switchEncodeHabitsTab('encode')">✏️ Encoder</button>
-      <button class="nav-btn" id="ehtab-week" onclick="switchEncodeHabitsTab('week')">📅 Semaine</button>
-      <button class="nav-btn" id="ehtab-month" onclick="switchEncodeHabitsTab('month')">📆 Mois</button>
-    </div>
-
-    <!-- ENCODE TAB -->
-    <div id="ehcontent-encode">
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
         <div style="display:flex;align-items:center;gap:12px;">
@@ -409,14 +414,14 @@ select.fi option{background:var(--dark);}
       <div style="margin-top:20px;">
         <div class="stitle">Activités du jour (+1 pt chacune)</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px;">
-          <label class="habit-check"><input type="checkbox" id="h2-cardio" onchange="updateDayPreview2()"> 🏃 Cardio</label>
-          <label class="habit-check"><input type="checkbox" id="h2-force" onchange="updateDayPreview2()"> 💪 Force</label>
-          <label class="habit-check"><input type="checkbox" id="h2-mixte" onchange="updateDayPreview2()"> ⚡ Mixte</label>
-          <label class="habit-check"><input type="checkbox" id="h2-sauna" onchange="updateDayPreview2()"> 🧖 Sauna</label>
-          <label class="habit-check"><input type="checkbox" id="h2-bain_froid" onchange="updateDayPreview2()"> 🧊 Bain froid</label>
-          <label class="habit-check"><input type="checkbox" id="h2-wim_hof" onchange="updateDayPreview2()"> 🫁 Respiration (>15 min)</label>
-          <label class="habit-check"><input type="checkbox" id="h2-yoga" onchange="updateDayPreview2()"> 🧘 Yoga / Étirements 30min</label>
-          <label class="habit-check"><input type="checkbox" id="h2-point_faible" onchange="updateDayPreview2()"> 🎯 Travail point faible</label>
+          <label class="habit-check" id="row-h2-cardio"><input type="checkbox" id="h2-cardio" onchange="habitSound(this,'row-h2-cardio');updateDayPreview2()"> 🏃 Cardio</label>
+          <label class="habit-check" id="row-h2-force"><input type="checkbox" id="h2-force" onchange="habitSound(this,'row-h2-force');updateDayPreview2()"> 💪 Force</label>
+          <label class="habit-check" id="row-h2-mixte"><input type="checkbox" id="h2-mixte" onchange="habitSound(this,'row-h2-mixte');updateDayPreview2()"> ⚡ Mixte</label>
+          <label class="habit-check" id="row-h2-sauna"><input type="checkbox" id="h2-sauna" onchange="habitSound(this,'row-h2-sauna');updateDayPreview2()"> 🧖 Sauna</label>
+          <label class="habit-check" id="row-h2-bain_froid"><input type="checkbox" id="h2-bain_froid" onchange="habitSound(this,'row-h2-bain_froid');updateDayPreview2()"> 🧊 Bain froid</label>
+          <label class="habit-check" id="row-h2-wim_hof"><input type="checkbox" id="h2-wim_hof" onchange="habitSound(this,'row-h2-wim_hof');updateDayPreview2()"> 🫁 Respiration (&gt;15 min)</label>
+          <label class="habit-check" id="row-h2-yoga"><input type="checkbox" id="h2-yoga" onchange="habitSound(this,'row-h2-yoga');updateDayPreview2()"> 🧘 Yoga / Étirements 30min</label>
+          <label class="habit-check" id="row-h2-point_faible"><input type="checkbox" id="h2-point_faible" onchange="habitSound(this,'row-h2-point_faible');updateDayPreview2()"> 🎯 Travail point faible</label>
         </div>
         <div class="stitle">Douches froides (+0,2 pt chacune)</div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
@@ -425,27 +430,6 @@ select.fi option{background:var(--dark);}
           <button class="btn btn-p" style="padding:6px 16px;font-size:18px;" onclick="adjustShowers2(1)">+</button>
           <span style="font-size:12px;color:var(--muted);">douches froides</span>
         </div>
-
-        <!-- HYDRATATION -->
-        <div class="stitle" style="margin-top:4px;">💧 Hydratation (+1 pt si objectif atteint)</div>
-        <div style="margin-bottom:8px;" id="hydration-target-label"></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-          <button class="btn btn-p" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(1)">+🥛 250ml</button>
-          <button class="btn btn-p" style="padding:6px 14px;font-size:16px;" onclick="adjustHydration2(500)">+500ml</button>
-          <span id="hydration-count2" style="font-family:'Black Ops One',cursive;font-size:28px;color:#38bdf8;min-width:60px;text-align:center;">0</span>
-          <span style="font-size:12px;color:var(--muted);">ml</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-          <input class="fi" id="hydration-manual-ml" type="number" min="0" max="2000" placeholder="ml (ex: 200)" style="width:140px;font-size:15px;">
-          <button class="btn btn-p" style="padding:6px 14px;font-size:15px;" onclick="addHydrationManual()">+ Ajouter</button>
-          <button class="btn btn-d" style="padding:6px 14px;font-size:15px;" onclick="resetHydration2()">🗑️ Reset</button>
-        </div>
-        <!-- Jauge -->
-        <div style="position:relative;background:rgba(56,189,248,0.12);border-radius:8px;height:28px;margin-bottom:6px;overflow:hidden;">
-          <div id="hydration-bar2" style="height:100%;border-radius:8px;background:linear-gradient(90deg,#0ea5e9,#38bdf8);width:0%;transition:width .4s;"></div>
-          <div id="hydration-pct2" style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-family:'Black Ops One',cursive;font-size:14px;color:#fff;">0%</div>
-        </div>
-        <div id="hydration-status2" style="font-size:12px;color:var(--muted);margin-bottom:16px;text-align:center;"></div>
         <div style="background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
           <span style="font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Points du jour : </span>
           <span id="day-preview2" style="font-family:'Black Ops One',cursive;font-size:24px;color:var(--accent);">0</span>
@@ -456,30 +440,6 @@ select.fi option{background:var(--dark);}
       </div>
       <div id="habit-msg2"></div>
     </div>
-    </div><!-- end ehcontent-encode -->
-
-    <!-- WEEK TAB -->
-    <div id="ehcontent-week" style="display:none;">
-      <div class="card">
-        <div class="stitle" id="eh-week-title">Semaine en cours</div>
-        <div id="eh-week-lb"></div>
-        <div style="margin-top:16px;text-align:right;">
-          <button class="btn btn-p" onclick="generateRapportImage2('week')" style="white-space:nowrap;">⬇️ Télécharger story</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MONTH TAB -->
-    <div id="ehcontent-month" style="display:none;">
-      <div class="card">
-        <div class="stitle" id="eh-month-title">Mois en cours</div>
-        <div id="eh-month-lb"></div>
-        <div style="margin-top:16px;text-align:right;">
-          <button class="btn btn-p" onclick="generateRapportImage2('month')" style="white-space:nowrap;">⬇️ Télécharger story</button>
-        </div>
-      </div>
-    </div>
-
   </div>
 
   <!-- ADD RESULT -->
@@ -619,7 +579,7 @@ select.fi option{background:var(--dark);}
             <label class="habit-check"><input type="checkbox" id="h-mixte"> ⚡ Mixte</label>
             <label class="habit-check"><input type="checkbox" id="h-sauna"> 🧖 Sauna</label>
             <label class="habit-check"><input type="checkbox" id="h-bain_froid"> 🧊 Bain froid</label>
-            <label class="habit-check"><input type="checkbox" id="h-wim_hof"> 🫁 Respiration (>15 min)</label>
+            <label class="habit-check"><input type="checkbox" id="h-wim_hof"> 🫁 Wim Hof (3 sets min)</label>
             <label class="habit-check"><input type="checkbox" id="h-yoga"> 🧘 Yoga / Étirements 30min</label>
             <label class="habit-check"><input type="checkbox" id="h-point_faible"> 🎯 Travail point faible</label>
           </div>
@@ -765,15 +725,6 @@ select.fi option{background:var(--dark);}
       </div>
     </div>
   </div>
-  <!-- RANKINGS -->
-  <div class="section" id="s-rankings">
-    <div style="padding:12px 8px 8px;">
-      <div class="stitle">Classement par discipline</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;" id="rankings-tabs"></div>
-      <div id="rankings-board"></div>
-    </div>
-  </div>
-
   <!-- ATHX -->
   <div class="section" id="s-athx">
     <div style="padding:12px 8px 8px;">
@@ -1050,8 +1001,7 @@ async function upsertHabit(h) {
       mixte: h.mixte||false, sauna: h.sauna||false,
       bain_froid: h.bain_froid||false, wim_hof: h.wim_hof||false,
       yoga: h.yoga||false, point_faible: h.point_faible||false,
-      douches_froides: h.douches_froides||0,
-      hydration_ml: h.hydration_ml||0
+      douches_froides: h.douches_froides||0
     })
   });
 }
@@ -1215,8 +1165,7 @@ async function loadFromDb() {
       cardio: h.cardio, force: h.force, mixte: h.mixte,
       sauna: h.sauna, bain_froid: h.bain_froid, wim_hof: h.wim_hof,
       yoga: h.yoga, point_faible: h.point_faible,
-      douches_froides: h.douches_froides||0,
-      hydration_ml: h.hydration_ml||0
+      douches_froides: h.douches_froides||0
     }));
   _cache.results = results.map(r => ({
       id: r.id, warriorId: r.warrior_id, date: r.date,
@@ -1988,84 +1937,15 @@ function populateHabitWarriorSelect2() {
 }
 
 let showerCount2 = 0;
-let hydrationMl2 = 0;
-
-function getHydrationTarget(wid) {
-  const d = getData();
-  const w = d.warriors.find(w => w.id === wid);
-  if (!w || !w.weight) return 2500; // default 2.5L
-  return Math.round((w.weight / 23) * 10) / 10 * 1000; // in ml, 1 decimal
-}
-
 function adjustShowers2(delta) {
   showerCount2 = Math.max(0, showerCount2 + delta);
   document.getElementById('shower-count2').textContent = showerCount2;
   updateDayPreview2();
 }
-
-function adjustHydration2(delta) {
-  if (delta === 500) {
-    hydrationMl2 = Math.max(0, hydrationMl2 + 500);
-  } else {
-    hydrationMl2 = Math.max(0, hydrationMl2 + delta * 250);
-  }
-  updateHydrationDisplay2();
-  updateDayPreview2();
-}
-
-function addHydrationManual() {
-  const input = document.getElementById('hydration-manual-ml');
-  const val = parseInt(input.value);
-  if (!val || val <= 0) return;
-  hydrationMl2 += val;
-  input.value = '';
-  updateHydrationDisplay2();
-  updateDayPreview2();
-}
-
-function resetHydration2() {
-  hydrationMl2 = 0;
-  updateHydrationDisplay2();
-  updateDayPreview2();
-}
-
-function updateHydrationDisplay2() {
-  const wid = getMyProfile();
-  const target = wid ? getHydrationTarget(wid) : 2500;
-  const targetL = (target / 1000).toFixed(1);
-  const pct = Math.min(100, Math.round((hydrationMl2 / target) * 100));
-  const reached = hydrationMl2 >= target;
-
-  const lbl = document.getElementById('hydration-target-label');
-  if (lbl) lbl.innerHTML = `<span style="font-size:12px;color:var(--muted);">Objectif : <strong style="color:#38bdf8;">${targetL}L</strong> · Actuel : <strong style="color:#38bdf8;">${(hydrationMl2/1000).toFixed(2)}L</strong> (${Math.floor(hydrationMl2/250)} verres)</span>`;
-
-  const bar = document.getElementById('hydration-bar2');
-  if (bar) bar.style.width = pct + '%';
-
-  const pctEl = document.getElementById('hydration-pct2');
-  if (pctEl) pctEl.textContent = pct + '%';
-
-  const status = document.getElementById('hydration-status2');
-  if (status) {
-    if (reached) {
-      status.innerHTML = '✅ <span style="color:#4ade80;">Objectif atteint ! +1 pt</span>';
-    } else {
-      const remaining = ((target - hydrationMl2) / 1000).toFixed(2);
-      status.innerHTML = `<span style="color:var(--muted);">Il manque ${remaining}L (${Math.ceil((target - hydrationMl2)/250)} verres)</span>`;
-    }
-  }
-
-  const cnt = document.getElementById('hydration-count2');
-  if (cnt) cnt.textContent = hydrationMl2;
-}
-
 function updateDayPreview2() {
   const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
   let pts = checks.filter(id => document.getElementById('h2-'+id)?.checked).length;
   pts += showerCount2 * 0.2;
-  const wid = getMyProfile();
-  const target = wid ? getHydrationTarget(wid) : 2500;
-  if (hydrationMl2 >= target) pts += 1;
   document.getElementById('day-preview2').textContent = pts.toFixed(1);
 }
 
@@ -2075,7 +1955,7 @@ async function saveHabits2() {
   if (!wid) { showProfileModal(); return; }
   if (!date) return showMsg('habit-msg2','Entre une date','err');
   const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
-  const habit = { id:'h_'+wid+'_'+date, warriorId:wid, date, douches_froides:showerCount2, hydration_ml:hydrationMl2 };
+  const habit = { id:'h_'+wid+'_'+date, warriorId:wid, date, douches_froides:showerCount2 };
   checks.forEach(k => { habit[k] = document.getElementById('h2-'+k)?.checked||false; });
   try {
     await upsertHabit(habit);
@@ -2094,7 +1974,6 @@ async function saveHabits2() {
       if (habit.yoga) habitIcons.push('🧘 Yoga');
       if (habit.point_faible) habitIcons.push('🎯 Point faible');
       if (habit.douches_froides > 0) habitIcons.push('🚿×'+habit.douches_froides);
-      if (habit.hydration_ml > 0) habitIcons.push('💧'+(habit.hydration_ml/1000).toFixed(1)+'L');
       const details = habitIcons.join(' · ');
       await triggerFeedEvent('habit_entry', wid, '<strong>'+wFeedH.name+'</strong> a encode ses habitudes — '+pts2.toFixed(1)+' pts 🔥', details);
     }
@@ -2442,18 +2321,15 @@ function onHabitDateChange() {
       if (el) el.checked = habitEntry[k] || false;
     });
     showerCount2 = habitEntry.douches_froides || 0;
-    hydrationMl2 = habitEntry.hydration_ml || 0;
   } else {
     checks.forEach(function(k) {
       const el = document.getElementById('h2-'+k);
       if (el) el.checked = false;
     });
     showerCount2 = 0;
-    hydrationMl2 = 0;
   }
   const sc = document.getElementById('shower-count2');
   if (sc) sc.textContent = showerCount2;
-  updateHydrationDisplay2();
   updateDayPreview2();
   renderWeekCalendar();
 }
@@ -2473,10 +2349,8 @@ function loadTodayHabits() {
     if (el) el.checked = habitEntry[k] || false;
   });
   showerCount2 = habitEntry.douches_froides || 0;
-  hydrationMl2 = habitEntry.hydration_ml || 0;
   const sc = document.getElementById('shower-count2');
   if (sc) sc.textContent = showerCount2;
-  updateHydrationDisplay2();
   updateDayPreview2();
   renderWeekCalendar();
 }
@@ -2884,7 +2758,7 @@ function nav(name) {
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
   const section = document.getElementById('s-'+name);
   if (section) section.classList.add('active');
-  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx','rankings'].indexOf(name);
+  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx'].indexOf(name);
   const btns = document.querySelectorAll('.nav-btn');
   if (btns[idx]) btns[idx].classList.add('active');
   if (name === 'add') {
@@ -2897,14 +2771,12 @@ function nav(name) {
   if (name === 'challenge') { renderChallengePage(); }
   if (name === 'admin') { renderChallengeAdmin(); }
   if (name === 'athx') { initAthxPage(); }
-  if (name === 'rankings') { renderRankings(); }
   if (name === 'encode-habits') {
     const myId = getMyProfile();
     if (!myId) { showProfileModal(); }
     else { updateProfileDisplay(); }
     document.getElementById('h-date2').value = new Date().toISOString().split('T')[0];
     loadTodayHabits();
-    updateHydrationDisplay2();
   }
   if (name === 'leaderboard') { renderLeaderboard(); renderHomeHabits(); renderHomeWinners(); renderFeed(); }
 }
@@ -3211,13 +3083,6 @@ function calcHabitPoints(h) {
   const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
   let pts = checks.filter(k => h[k]).length;
   pts += (h.douches_froides||0) * 0.2;
-  // Hydration: 1 pt if target reached (target = weight/23 * 1000 ml)
-  if (h.hydration_ml > 0) {
-    const d = getData();
-    const w = d.warriors.find(w => w.id === h.warriorId);
-    const target = w && w.weight ? Math.round((w.weight / 23) * 10) / 10 * 1000 : 2500;
-    if (h.hydration_ml >= target) pts += 1;
-  }
   return pts;
 }
 
@@ -3316,7 +3181,6 @@ function renderHabitsLb(period) {
   }).join('');
 
   populateRapportSelect(period, lb);
-}
 
 function populateRapportSelect(period, lb) {
   const sel = document.getElementById('rapport-'+period+'-warrior');
@@ -3933,348 +3797,47 @@ async function saveAthxScore() {
   } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-// ======== RANKINGS ========
-const RANKINGS_DISCIPLINES = [
-  { id: 'vo2max',    label: 'VO2 Max',           unit: '',     asc: false },
-  { id: 'pushups',   label: 'Push-ups',           unit: 'reps', asc: false },
-  { id: 'deadhang',  label: 'Dead Hang',          unit: 'sec',  asc: false },
-  { id: 'wimhof',    label: 'Wim Hof',            unit: 'sec',  asc: false },
-  { id: 'broadjump', label: 'Broad Jump',         unit: 'cm',   asc: false },
-  { id: 'plank_f',   label: 'Front Plank',        unit: 'sec',  asc: false },
-  { id: 'plank_s',   label: 'Side Plank',         unit: 'sec',  asc: false },
-  { id: 'grip_g',    label: 'Grip Gauche',        unit: 'kg',   asc: false },
-  { id: 'grip_d',    label: 'Grip Droit',         unit: 'kg',   asc: false },
-  { id: 'backsquat', label: 'Back Squat',         unit: 'kg',   asc: false },
-  { id: 'bp',        label: 'Tension artérielle', unit: 'mmHg', asc: true  },
-];
-
-let _rankingsActive = 'vo2max';
-
-function renderRankings() {
-  const tabsEl = document.getElementById('rankings-tabs');
-  const boardEl = document.getElementById('rankings-board');
-  if (!tabsEl || !boardEl) return;
-
-  tabsEl.innerHTML = RANKINGS_DISCIPLINES.map(function(d) {
-    const active = d.id === _rankingsActive;
-    return '<button onclick="selectRankingTab(\'' + d.id + '\')" style="'
-      + 'font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;'
-      + 'letter-spacing:1px;text-transform:uppercase;padding:8px 14px;border-radius:4px;'
-      + 'cursor:pointer;border:1px solid ' + (active ? 'var(--accent)' : 'rgba(0,180,216,.2)') + ';'
-      + 'background:' + (active ? 'var(--accent)' : 'rgba(13,31,56,.8)') + ';'
-      + 'color:' + (active ? 'var(--deep)' : 'var(--muted)') + ';transition:all .2s;">'
-      + d.label + '</button>';
-  }).join('');
-
-  const disc = RANKINGS_DISCIPLINES.find(function(d){ return d.id === _rankingsActive; });
-  if (!disc) return;
-
-  const data = getData();
-  const byWarrior = {};
-
-  data.warriors.forEach(function(w) {
-    const results = data.results.filter(function(r){ return r.warriorId === w.id; });
-    const vals = results.map(function(r){ return parseFloat(r[disc.id]); }).filter(function(v){ return !isNaN(v); });
-    if (vals.length === 0) return;
-    const best = disc.asc ? Math.min.apply(null, vals) : Math.max.apply(null, vals);
-    byWarrior[w.id] = { warrior: w, best: best };
-  });
-
-  const ranked = Object.values(byWarrior).sort(function(a, b) {
-    return disc.asc ? a.best - b.best : b.best - a.best;
-  });
-
-  if (ranked.length === 0) {
-    boardEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px;">Aucun résultat pour cette discipline.</div>';
-    return;
-  }
-
-  const medals = ['🥇','🥈','🥉'];
-  const borderColors = ['rgba(255,209,102,.4)','rgba(192,200,216,.3)','rgba(205,127,50,.3)'];
-
-  let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
-  ranked.forEach(function(entry, i) {
-    const medal = i < 3 ? medals[i] : (i + 1) + '.';
-    const border = i < 3 ? borderColors[i] : 'rgba(0,180,216,.08)';
-    const stripe = i === 0 ? 'var(--gold)' : i === 1 ? 'var(--silver)' : i === 2 ? 'var(--bronze)' : 'rgba(0,180,216,.3)';
-    const scoreColor = i === 0 ? 'var(--gold)' : i === 1 ? 'var(--silver)' : i === 2 ? 'var(--bronze)' : 'var(--accent)';
-    const last = getLatestResult(entry.warrior.id);
-    const score = last ? calcScore(entry.warrior, last).total : 0;
-    const animal = getAnimal(score);
-    html += '<div style="background:rgba(15,30,51,.8);border:1px solid ' + border + ';border-radius:8px;'
-      + 'overflow:hidden;position:relative;display:grid;grid-template-columns:52px 1fr auto;'
-      + 'align-items:center;gap:14px;padding:16px 20px;">'
-      + '<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:' + stripe + ';"></div>'
-      + '<div style="font-family:\'Black Ops One\',cursive;font-size:22px;text-align:center;color:' + scoreColor + ';">' + medal + '</div>'
-      + '<div>'
-      + '<div style="font-family:Barlow Condensed,sans-serif;font-size:19px;font-weight:900;text-transform:uppercase;line-height:1;">' + entry.warrior.name + '</div>'
-      + '<div style="font-size:11px;color:var(--accent);margin-top:3px;letter-spacing:1px;">' + animal.emoji + ' ' + animal.name + '</div>'
-      + '</div>'
-      + '<div style="text-align:right;">'
-      + '<div style="font-family:\'Black Ops One\',cursive;font-size:32px;line-height:1;color:' + scoreColor + ';">' + entry.best + '</div>'
-      + '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">' + disc.unit + '</div>'
-      + '</div>'
-      + '</div>';
-  });
-  html += '</div>';
-  boardEl.innerHTML = html;
+// ======== HABIT SOUND + ANIMATION ========
+let _audioCtx = null;
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
 }
 
-function selectRankingTab(id) {
-  _rankingsActive = id;
-  renderRankings();
+function playCoinSound() {
+  try {
+    const ac = getAudioCtx();
+    const now = ac.currentTime;
+    const beep = (freq, start, dur) => {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'square';
+      o.frequency.setValueAtTime(freq, start);
+      g.gain.setValueAtTime(0.18, start);
+      g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      o.start(start); o.stop(start + dur + 0.01);
+    };
+    beep(988, now, 0.08);
+    beep(1319, now + 0.08, 0.2);
+  } catch(e) {}
 }
 
-function switchEncodeHabitsTab(tab) {
-  ['encode','week','month'].forEach(t => {
-    document.getElementById('ehcontent-'+t).style.display = t===tab?'block':'none';
-    document.getElementById('ehtab-'+t).classList.toggle('active', t===tab);
-  });
-  if (tab==='week') renderEncodeHabitsLb('week');
-  if (tab==='month') renderEncodeHabitsLb('month');
-}
-
-function renderEncodeHabitsLb(period) {
-  const today = new Date().toISOString().split('T')[0];
-  const bounds = period === 'week' ? getWeekBounds(today) : getMonthBounds(today);
-  const container = document.getElementById('eh-'+period+'-lb');
-  const title = document.getElementById('eh-'+period+'-title');
-  const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-
-  if (period === 'week') {
-    const s = bounds.start.split('-'), e = bounds.end.split('-');
-    title.textContent = `Semaine du ${parseInt(s[2])} au ${parseInt(e[2])} ${MONTHS[parseInt(e[1])-1]} ${e[0]}`;
-  } else {
-    title.textContent = `${MONTHS[new Date(bounds.start).getMonth()]} ${new Date(bounds.start).getFullYear()}`;
-  }
-
-  const wid = getMyProfile();
-  const d = getData();
-  const warrior = wid ? d.warriors.find(w => w.id === wid) : null;
-
-  if (!warrior) {
-    container.innerHTML = '<div class="no-history">Sélectionne ton profil pour voir ton bilan.</div>';
-    return;
-  }
-
-  const habits = d.habits.filter(h => h.warriorId === wid && h.date >= bounds.start && h.date <= bounds.end);
-
-  const HABIT_DEFS = [
-    { key:'cardio',       label:'Cardio',           emoji:'🏃' },
-    { key:'force',        label:'Force',             emoji:'💪' },
-    { key:'mixte',        label:'Mixte',             emoji:'⚡' },
-    { key:'sauna',        label:'Sauna',             emoji:'🧖' },
-    { key:'bain_froid',   label:'Bain froid',        emoji:'🧊' },
-    { key:'wim_hof',      label:'Respiration',       emoji:'🫁' },
-    { key:'yoga',         label:'Yoga / Étirements', emoji:'🧘' },
-    { key:'point_faible', label:'Point faible',      emoji:'🎯' },
-  ];
-
-  const counts = {};
-  let totalDouches = 0;
-  HABIT_DEFS.forEach(h => { counts[h.key] = 0; });
-  habits.forEach(h => {
-    HABIT_DEFS.forEach(def => { if (h[def.key]) counts[def.key]++; });
-    totalDouches += (h.douches_froides || 0);
-  });
-
-  const totalPts = habits.reduce((s, h) => s + calcHabitPoints(h), 0);
-  const maxCount = period === 'week' ? 7 : 31;
-  const activeHabits = HABIT_DEFS.filter(h => counts[h.key] > 0);
-
-  if (habits.length === 0) {
-    container.innerHTML = '<div class="no-history">Aucune habitude encodée pour cette période.</div>';
-    return;
-  }
-
-  let html = `<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
-    <div style="font-family:'Black Ops One',cursive;font-size:36px;color:var(--accent);">${totalPts.toFixed(1)} pts</div>
-    <div style="font-size:13px;color:var(--muted);">${habits.length} jour${habits.length>1?'s':''} · ${warrior.name}</div>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:10px;">`;
-
-  activeHabits.forEach(h => {
-    const count = counts[h.key];
-    const pct = Math.round((count / maxCount) * 100);
-    html += `<div style="background:rgba(0,180,216,0.06);border:1px solid rgba(0,180,216,0.1);border-radius:8px;padding:12px 16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div style="font-size:15px;font-weight:700;">${h.emoji} ${h.label}</div>
-        <div style="font-family:'Black Ops One',cursive;font-size:20px;color:var(--accent);">×${count}</div>
-      </div>
-      <div style="background:rgba(0,180,216,0.12);border-radius:4px;height:8px;">
-        <div style="background:var(--accent);border-radius:4px;height:8px;width:${pct}%;transition:width .3s;"></div>
-      </div>
-    </div>`;
-  });
-
-  if (totalDouches > 0) {
-    html += `<div style="background:rgba(0,180,216,0.06);border:1px solid rgba(0,180,216,0.1);border-radius:8px;padding:12px 16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:15px;font-weight:700;">🚿 Douches froides</div>
-        <div style="font-family:'Black Ops One',cursive;font-size:20px;color:var(--accent);">×${totalDouches}</div>
-      </div>
-    </div>`;
-  }
-
-  if (totalHydrationMl > 0) {
-    const avgL = (totalHydrationMl / habits.length / 1000).toFixed(1);
-    html += `<div style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:8px;padding:12px 16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <div style="font-size:15px;font-weight:700;">💧 Hydratation</div>
-        <div style="font-family:'Black Ops One',cursive;font-size:20px;color:#38bdf8;">${hydrationDaysReached}j ✅</div>
-      </div>
-      <div style="font-size:12px;color:var(--muted);">Moy. ${avgL}L/jour · Total ${(totalHydrationMl/1000).toFixed(1)}L</div>
-    </div>`;
-  }
-
-  html += '</div>';
-  container.innerHTML = html;
-}
-
-function generateRapportImage2(period) {
-  const today = new Date().toISOString().split('T')[0];
-  const bounds = period === 'week' ? getWeekBounds(today) : getMonthBounds(today);
-  const wid = getMyProfile();
-  if (!wid) { alert('Sélectionne ton profil d\'abord'); return; }
-  const d = getData();
-  const warrior = d.warriors.find(w => w.id === wid);
-  if (!warrior) return;
-  const habits = d.habits.filter(h => h.warriorId === wid && h.date >= bounds.start && h.date <= bounds.end);
-  if (habits.length === 0) { alert('Aucune habitude encodée pour cette période.'); return; }
-
-  const HABIT_DEFS = [
-    { key:'cardio',       label:'Cardio',           emoji:'🏃' },
-    { key:'force',        label:'Force',             emoji:'💪' },
-    { key:'mixte',        label:'Mixte',             emoji:'⚡' },
-    { key:'sauna',        label:'Sauna',             emoji:'🧖' },
-    { key:'bain_froid',   label:'Bain froid',        emoji:'🧊' },
-    { key:'wim_hof',      label:'Respiration',       emoji:'🫁' },
-    { key:'yoga',         label:'Yoga / Étirements', emoji:'🧘' },
-    { key:'point_faible', label:'Point faible',      emoji:'🎯' },
-  ];
-
-  const counts = {};
-  let totalDouches = 0;
-  let totalHydrationMl2 = 0;
-  let hydrationDaysReached2 = 0;
-  const hydTarget = warrior.weight ? Math.round((warrior.weight / 23) * 10) / 10 * 1000 : 2500;
-  HABIT_DEFS.forEach(h => { counts[h.key] = 0; });
-  habits.forEach(h => {
-    HABIT_DEFS.forEach(def => { if (h[def.key]) counts[def.key]++; });
-    totalDouches += (h.douches_froides || 0);
-    totalHydrationMl2 += (h.hydration_ml || 0);
-    if ((h.hydration_ml || 0) >= hydTarget) hydrationDaysReached2++;
-  });
-
-  const totalPts = habits.reduce((s, h) => s + calcHabitPoints(h), 0);
-  const latest = getLatestResult(wid);
-  const score = latest ? calcScore(warrior, latest).total : 0;
-  const animal = getAnimal(score);
-
-  const W = 1080, H = 1920;
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d');
-
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#020d1a'); bg.addColorStop(0.5, '#0a1e36'); bg.addColorStop(1, '#020d1a');
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-
-  ctx.strokeStyle = 'rgba(0,180,216,0.04)'; ctx.lineWidth = 1;
-  for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-  for (let y = 0; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
-
-  const glow = ctx.createRadialGradient(W/2, 0, 0, W/2, 0, 600);
-  glow.addColorStop(0, 'rgba(0,180,216,0.18)'); glow.addColorStop(1, 'rgba(0,180,216,0)');
-  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
-
-  ctx.textAlign = 'center';
-  ctx.font = '900 54px Arial'; ctx.fillStyle = '#00b4d8'; ctx.fillText('FROZEN WARRIORS', W/2, 120);
-  ctx.strokeStyle = 'rgba(0,180,216,0.5)'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(120, 145); ctx.lineTo(W-120, 145); ctx.stroke();
-
-  const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  let periodLabel = '';
-  if (period === 'week') {
-    const s = bounds.start.split('-'), e = bounds.end.split('-');
-    periodLabel = `Semaine du ${parseInt(s[2])} au ${parseInt(e[2])} ${MONTHS[parseInt(e[1])-1]} ${e[0]}`;
-  } else {
-    const s = bounds.start.split('-');
-    periodLabel = `${MONTHS[parseInt(s[1])-1]} ${s[0]}`;
-  }
-  ctx.font = '400 36px Arial'; ctx.fillStyle = 'rgba(200,220,255,0.6)';
-  ctx.fillText(periodLabel.toUpperCase(), W/2, 195);
-
-  ctx.font = '900 96px Arial'; ctx.fillStyle = '#ffffff';
-  ctx.fillText(warrior.name.toUpperCase(), W/2, 340);
-  ctx.font = '52px Arial'; ctx.fillText(animal.emoji, W/2 - 80, 420);
-  ctx.font = '700 38px Arial'; ctx.fillStyle = '#00b4d8'; ctx.fillText(animal.name, W/2 + 40, 420);
-
-  ctx.strokeStyle = 'rgba(0,180,216,0.3)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(120, 460); ctx.lineTo(W-120, 460); ctx.stroke();
-
-  ctx.font = '900 52px Arial'; ctx.fillStyle = 'rgba(200,220,255,0.55)'; ctx.fillText('POINTS TOTAUX', W/2, 540);
-  ctx.font = '900 160px Arial'; ctx.fillStyle = '#00b4d8'; ctx.fillText(totalPts.toFixed(1), W/2, 700);
-  ctx.font = '400 32px Arial'; ctx.fillStyle = 'rgba(200,220,255,0.5)';
-  ctx.fillText(`${habits.length} jour${habits.length>1?'s':''} d'activité`, W/2, 760);
-
-  ctx.strokeStyle = 'rgba(0,180,216,0.3)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(120, 800); ctx.lineTo(W-120, 800); ctx.stroke();
-
-  ctx.font = '700 40px Arial'; ctx.fillStyle = 'rgba(200,220,255,0.7)';
-  ctx.fillText('ACTIVITÉS RÉALISÉES', W/2, 870);
-
-  const activeHabits = HABIT_DEFS.filter(h => counts[h.key] > 0);
-  const rowH = 88, startY = 940, barMaxW = 480;
-
-  activeHabits.forEach((h, i) => {
-    const y = startY + i * rowH;
-    const count = counts[h.key];
-    const maxCount = period === 'week' ? 7 : 31;
-    const barW = Math.round((count / maxCount) * barMaxW);
-    ctx.fillStyle = 'rgba(0,180,216,0.06)'; roundRect(ctx, 80, y-28, W-160, rowH-8, 12);
-    ctx.font = '42px Arial'; ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.fillText(h.emoji, 110, y+22);
-    ctx.font = '700 36px Arial'; ctx.fillStyle = '#e0f0ff'; ctx.fillText(h.label, 170, y+22);
-    ctx.fillStyle = 'rgba(0,180,216,0.12)'; roundRect(ctx, 170, y+30, barMaxW, 14, 7);
-    if (barW > 0) {
-      const barGrad = ctx.createLinearGradient(170, 0, 170+barW, 0);
-      barGrad.addColorStop(0, '#00b4d8'); barGrad.addColorStop(1, '#0077a8');
-      ctx.fillStyle = barGrad; roundRect(ctx, 170, y+30, barW, 14, 7);
-    }
-    ctx.font = '900 40px Arial'; ctx.textAlign = 'right'; ctx.fillStyle = '#00b4d8';
-    ctx.fillText('×'+count, W-90, y+24); ctx.textAlign = 'center';
-  });
-
-  if (totalDouches > 0) {
-    const y = startY + activeHabits.length * rowH;
-    ctx.fillStyle = 'rgba(0,180,216,0.06)'; roundRect(ctx, 80, y-28, W-160, rowH-8, 12);
-    ctx.font = '42px Arial'; ctx.textAlign = 'left'; ctx.fillText('🚿', 110, y+22);
-    ctx.font = '700 36px Arial'; ctx.fillStyle = '#e0f0ff'; ctx.fillText('Douches froides', 170, y+22);
-    ctx.font = '900 40px Arial'; ctx.textAlign = 'right'; ctx.fillStyle = '#00b4d8';
-    ctx.fillText('×'+totalDouches, W-90, y+24); ctx.textAlign = 'center';
-  }
-
-  if (totalHydrationMl2 > 0) {
-    const rowIdx = activeHabits.length + (totalDouches > 0 ? 1 : 0);
-    const y = startY + rowIdx * rowH;
-    const avgL = (totalHydrationMl2 / habits.length / 1000).toFixed(1);
-    ctx.fillStyle = 'rgba(56,189,248,0.08)'; roundRect(ctx, 80, y-28, W-160, rowH-8, 12);
-    ctx.font = '42px Arial'; ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff'; ctx.fillText('💧', 110, y+22);
-    ctx.font = '700 36px Arial'; ctx.fillStyle = '#e0f0ff'; ctx.fillText('Hydratation', 170, y+22);
-    ctx.font = '700 28px Arial'; ctx.fillStyle = '#38bdf8'; ctx.fillText(`${hydrationDaysReached2}j ✅ · moy ${avgL}L/j`, 170, y+55);
-    ctx.font = '900 40px Arial'; ctx.textAlign = 'right'; ctx.fillStyle = '#38bdf8';
-    ctx.fillText((totalHydrationMl2/1000).toFixed(1)+'L', W-90, y+24); ctx.textAlign = 'center';
-  }
-
-  ctx.strokeStyle = 'rgba(0,180,216,0.3)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(120, H-160); ctx.lineTo(W-120, H-160); ctx.stroke();
-  ctx.font = '500 34px Arial'; ctx.fillStyle = 'rgba(0,180,216,0.7)'; ctx.fillText('frozenwarriors.be', W/2, H-100);
-  ctx.font = '400 26px Arial'; ctx.fillStyle = 'rgba(200,220,255,0.35)'; ctx.fillText('Stronger in discomfort.', W/2, H-55);
-
-  const link = document.createElement('a');
-  link.download = `FrozenWarriors_${warrior.name}_${period}_${today}.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+function habitSound(checkbox, rowId) {
+  if (!checkbox.checked) return; // son + anim seulement au cochage
+  playCoinSound();
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  row.style.position = 'relative';
+  row.classList.remove('row-flash');
+  void row.offsetWidth; // force reflow
+  row.classList.add('row-flash');
+  const skull = document.createElement('span');
+  skull.className = 'skull-fly';
+  skull.textContent = '💀';
+  row.appendChild(skull);
+  setTimeout(() => { skull.remove(); row.classList.remove('row-flash'); }, 750);
 }
 
 </script>
