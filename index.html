@@ -228,6 +228,10 @@ select.fi option{background:var(--dark);}
 .habit-check:hover{border-color:rgba(0,180,216,.3);}
 .habit-check input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
 .habit-check input:checked ~ *{color:var(--accent);}
+@keyframes rowFlash{0%{background:rgba(0,180,216,.35);}100%{background:rgba(7,17,30,.6);}}
+.row-flash{animation:rowFlash .55s ease-out forwards;}
+@keyframes skullFly{0%{opacity:1;transform:translateX(0) scale(1.4) rotate(-10deg);}80%{opacity:1;}100%{opacity:0;transform:translateX(120px) scale(.8) rotate(15deg);}}
+.skull-fly{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:20px;pointer-events:none;animation:skullFly .75s ease-out forwards;z-index:99;}
 
 /* WINNER BANNER */
 .winner-banner{border-radius:8px;padding:16px 20px;margin-bottom:10px;
@@ -4276,6 +4280,56 @@ function generateRapportImage2(period) {
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
+
+// ======== HABIT SOUND + ANIMATION ========
+let _audioCtx = null;
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+function playCoinSound() {
+  try {
+    const ac = getAudioCtx();
+    const now = ac.currentTime;
+    const beep = (freq, start, dur) => {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'square';
+      o.frequency.setValueAtTime(freq, start);
+      g.gain.setValueAtTime(0.18, start);
+      g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      o.start(start); o.stop(start + dur + 0.01);
+    };
+    beep(988, now, 0.08);
+    beep(1319, now + 0.08, 0.2);
+  } catch(e) {}
+}
+function habitSound(checkbox) {
+  if (!checkbox.checked) return;
+  playCoinSound();
+  const row = checkbox.closest('label');
+  if (!row) return;
+  row.style.position = 'relative';
+  row.classList.remove('row-flash');
+  void row.offsetWidth;
+  row.classList.add('row-flash');
+  const skull = document.createElement('span');
+  skull.className = 'skull-fly';
+  skull.textContent = '💀';
+  row.appendChild(skull);
+  setTimeout(() => { skull.remove(); row.classList.remove('row-flash'); }, 800);
+}
+// Brancher sur toutes les checkboxes d'habitudes (section principale + section encode)
+document.addEventListener('DOMContentLoaded', () => {
+  const ids = ['h-cardio','h-force','h-mixte','h-sauna','h-bain_froid','h-wim_hof','h-yoga','h-point_faible',
+                'h2-cardio','h2-force','h2-mixte','h2-sauna','h2-bain_froid','h2-wim_hof','h2-yoga','h2-point_faible'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', () => habitSound(el));
+  });
+});
 
 </script>
 </body>
