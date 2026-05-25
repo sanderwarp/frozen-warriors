@@ -230,8 +230,8 @@ select.fi option{background:var(--dark);}
 .habit-check input:checked ~ *{color:var(--accent);}
 @keyframes rowFlash{0%{background:rgba(0,180,216,.35);}100%{background:rgba(7,17,30,.6);}}
 .row-flash{animation:rowFlash .55s ease-out forwards;}
-@keyframes skullFly{0%{opacity:1;transform:translateX(0) scale(1.4) rotate(-10deg);}80%{opacity:1;}100%{opacity:0;transform:translateX(120px) scale(.8) rotate(15deg);}}
-.skull-fly{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:20px;pointer-events:none;animation:skullFly .75s ease-out forwards;z-index:99;}
+@keyframes skullFloat{0%{opacity:1;transform:translateY(0) scale(1) rotate(var(--rot));}60%{opacity:1;}100%{opacity:0;transform:translateY(-80px) scale(1.3) rotate(var(--rot2));}}
+.skull-float{position:fixed;font-size:22px;pointer-events:none;animation:skullFloat 0.9s ease-out forwards;z-index:9999;}
 
 /* WINNER BANNER */
 .winner-banner{border-radius:8px;padding:16px 20px;margin-bottom:10px;
@@ -4310,16 +4310,31 @@ function habitSound(checkbox) {
   if (!checkbox.checked) return;
   playCoinSound();
   const row = checkbox.closest('label');
-  if (!row) return;
-  row.style.position = 'relative';
-  row.classList.remove('row-flash');
-  void row.offsetWidth;
-  row.classList.add('row-flash');
-  const skull = document.createElement('span');
-  skull.className = 'skull-fly';
-  skull.textContent = '💀';
-  row.appendChild(skull);
-  setTimeout(() => { skull.remove(); row.classList.remove('row-flash'); }, 800);
+  if (row) {
+    row.classList.remove('row-flash');
+    void row.offsetWidth;
+    row.classList.add('row-flash');
+  }
+  // Spawn 3 crânes flottants depuis la position de la checkbox
+  const rect = checkbox.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const count = 3;
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const skull = document.createElement('span');
+      skull.className = 'skull-float';
+      const rot = (Math.random() * 40 - 20) + 'deg';
+      const rot2 = (Math.random() * 60 - 30) + 'deg';
+      skull.style.setProperty('--rot', rot);
+      skull.style.setProperty('--rot2', rot2);
+      skull.style.left = (cx + (Math.random() * 40 - 20)) + 'px';
+      skull.style.top = (cy + (Math.random() * 10 - 5)) + 'px';
+      skull.textContent = '💀';
+      document.body.appendChild(skull);
+      setTimeout(() => skull.remove(), 950);
+    }, i * 80);
+  }
 }
 // Brancher sur toutes les checkboxes d'habitudes (section principale + section encode)
 document.addEventListener('DOMContentLoaded', () => {
