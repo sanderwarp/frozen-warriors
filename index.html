@@ -1176,6 +1176,7 @@ async function upsertBodyEntry(e) {
       weight: e.weight, sport_hours: e.sportHours||null,
       avg_steps: e.avgSteps||null, energy_score: e.energyScore||null,
       food_cravings_score: e.foodCravingsScore||null,
+      motivation_score: e.motivationScore||null,
       calories: e.calories||null, proteins: e.proteins||null
     })
   });
@@ -1323,6 +1324,7 @@ async function loadFromDb() {
       id: e.id, warriorId: e.warrior_id, entryDate: e.entry_date,
       weight: e.weight, sportHours: e.sport_hours, avgSteps: e.avg_steps,
       energyScore: e.energy_score, foodCravingsScore: e.food_cravings_score,
+      motivationScore: e.motivation_score,
       calories: e.calories, proteins: e.proteins, createdAt: e.created_at
     }));
   } catch(e2) { console.log('Body tables not ready yet:', e2.message); }
@@ -3951,7 +3953,10 @@ function renderCorpsCard(w, profile, entries, canEdit) {
       ${energyAlert?`<div class="corps-alert">⚡ Énergie basse 2 sem. — calories peut-être trop basses ?</div>`:''}
       ${status==='red'&&entries.length>=2?`<div class="corps-alert">📉 Hors direction cette semaine</div>`:''}
       ${last?`<div style="font-size:10px;color:var(--muted);margin-top:8px;">Dernier encodage : ${new Date(last.entryDate).toLocaleDateString('fr-BE')}</div>`:'<div style="font-size:11px;color:var(--muted);margin-top:8px;">Aucun encodage encore</div>'}
-      ${showEncode?`<div style="margin-top:12px;"><button class="btn btn-p" style="padding:7px 16px;font-size:11px;" onclick="showCorpsEncode('${w.id}')">⚖️ Encoder</button></div>`:''}
+      ${showEncode?`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-p" style="padding:7px 16px;font-size:11px;" onclick="showCorpsEncode('${w.id}')">⚖️ Encoder</button>
+        <button class="btn" style="padding:7px 16px;font-size:11px;background:rgba(0,180,216,.1);color:var(--accent);border:1px solid rgba(0,180,216,.2);" onclick="showCorpsCharts('${w.id}')">📈 Graphiques</button>
+      </div>`:`<button class="btn" style="margin-top:12px;padding:7px 16px;font-size:11px;background:rgba(0,180,216,.1);color:var(--accent);border:1px solid rgba(0,180,216,.2);" onclick="showCorpsCharts('${w.id}')">📈 Graphiques</button>`}
     </div>
   </div>`;
 }
@@ -4062,11 +4067,141 @@ function showCorpsEncode(warriorId) {
     <div class="score-row"><span class="score-label">😋 Envies alim.</span>
       <div class="score-btns">${[1,2,3,4,5].map(n=>`<button class="score-btn" onclick="selScore('enc-cr',${n},this)">${n}</button>`).join('')}</div>
       <input type="hidden" id="enc-cr" value=""></div>
+    <div class="score-row"><span class="score-label">💪 Envie de s'entraîner</span>
+      <div class="score-btns">${[1,2,3,4,5].map(n=>`<button class="score-btn" onclick="selScore('enc-mo',${n},this)">${n}</button>`).join('')}</div>
+      <input type="hidden" id="enc-mo" value=""></div>
     ${profile.calorieTarget?`<div class="stitle" style="margin-top:14px;">Nutrition</div><div class="form-grid"><div class="fg"><label class="fl">Calories moy/jour</label><input class="fi" id="enc-cal" type="number" placeholder="Cible: ${profile.calorieTarget}"></div>${profile.proteinTarget?`<div class="fg"><label class="fl">Protéines moy/jour (g)</label><input class="fi" id="enc-prot" type="number" placeholder="Cible: ${profile.proteinTarget}g"></div>`:''}</div>`:profile.proteinTarget?`<div class="stitle" style="margin-top:14px;">Nutrition</div><div class="form-grid"><div class="fg"><label class="fl">Protéines moy/jour (g)</label><input class="fi" id="enc-prot" type="number" placeholder="Cible: ${profile.proteinTarget}g"></div></div>`:''}
     <div id="enc-fb" style="margin-top:14px;min-height:36px;"></div>
     <div class="form-actions"><button class="btn btn-p" onclick="saveCorpsEntry('${warriorId}')">💾 Enregistrer</button></div>
   </div>`;
   document.body.appendChild(m);
+}
+
+function showCorpsCharts(warriorId) {
+  const d = getData();
+  const w = d.warriors.find(x => x.id === warriorId);
+  const profile = getBodyProfile(warriorId);
+  const entries = getBodyEntriesForWarrior(warriorId);
+  if (!w || !profile) return;
+
+  const m = document.createElement('div');
+  m.id = 'corps-chart-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9000;overflow-y:auto;padding:16px;';
+
+  const proj = getProjectionDate(profile, entries);
+  const labels = entries.map(e => new Date(e.entryDate).toLocaleDateString('fr-BE',{day:'numeric',month:'short'}));
+
+  m.innerHTML = `<div style="max-width:680px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-top:8px;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:900;text-transform:uppercase;color:var(--text);">📈 ${w.name} — Évolution</div>
+      <button onclick="document.getElementById('corps-chart-modal').remove()" style="background:transparent;border:none;color:var(--muted);font-size:26px;cursor:pointer;">✕</button>
+    </div>
+
+    ${entries.length < 2 ? `<div style="text-align:center;padding:60px 20px;color:var(--muted);font-size:14px;">Pas encore assez de données (minimum 2 encodages).</div>` : `
+
+    ${proj ? `<div style="background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:8px;padding:12px 18px;margin-bottom:16px;font-size:13px;">
+      🎯 À ta cadence actuelle, objectif atteint le <strong style="color:var(--accent);">${proj}</strong>
+    </div>` : ''}
+
+    <!-- Poids -->
+    <div style="background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.12);border-radius:8px;padding:16px;margin-bottom:12px;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">⚖️ Poids (kg)</div>
+      <div style="position:relative;height:220px;"><canvas id="chart-weight"></canvas></div>
+    </div>
+
+    <!-- Sport + Pas -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div style="background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.12);border-radius:8px;padding:16px;">
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">🏃 Sport (h/sem)</div>
+        <div style="position:relative;height:140px;"><canvas id="chart-sport"></canvas></div>
+      </div>
+      <div style="background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.12);border-radius:8px;padding:16px;">
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">👟 Pas/jour</div>
+        <div style="position:relative;height:140px;"><canvas id="chart-steps"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Bien-être -->
+    <div style="background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.12);border-radius:8px;padding:16px;margin-bottom:12px;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">⚡ Bien-être (scores 1-5)</div>
+      <div style="position:relative;height:160px;"><canvas id="chart-wellbeing"></canvas></div>
+    </div>
+
+    `}
+  </div>`;
+
+  document.body.appendChild(m);
+
+  if (entries.length < 2) return;
+
+  // ---- Calcul moyenne mobile 4 semaines ----
+  const weights = entries.map(e => e.weight);
+  const movingAvg = weights.map((_, i) => {
+    const slice = weights.slice(Math.max(0, i-3), i+1);
+    return +(slice.reduce((a,b) => a+b, 0) / slice.length).toFixed(2);
+  });
+
+  // Zone cible : bande entre pace-range et pace+range autour de la trajectoire idéale
+  const startW = profile.startWeight;
+  const paceKg = profile.weeklyPace / 1000 * (profile.goalType === 'perte' ? -1 : 1);
+  const idealLine = entries.map((e, i) => +(startW + paceKg * i).toFixed(2));
+  const rangeKg = profile.paceRange / 1000;
+  const zoneUpper = idealLine.map(v => +(v + rangeKg).toFixed(2));
+  const zoneLower = idealLine.map(v => +(v - rangeKg).toFixed(2));
+  const targetLine = Array(entries.length).fill(profile.targetWeight);
+
+  const chartDefaults = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#5a7a96', font: { size: 10 } } } },
+    scales: {
+      x: { ticks: { color: '#5a7a96', font: { size: 9 }, maxRotation: 45 }, grid: { color: 'rgba(0,180,216,.05)' } },
+      y: { ticks: { color: '#5a7a96', font: { size: 9 } }, grid: { color: 'rgba(0,180,216,.08)' } }
+    }
+  };
+
+  // CHART POIDS
+  new Chart(document.getElementById('chart-weight'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Poids', data: weights, borderColor: '#00b4d8', backgroundColor: 'rgba(0,180,216,.08)', borderWidth: 2, pointRadius: 4, pointBackgroundColor: '#00b4d8', tension: 0.3, fill: false, order: 1 },
+        { label: 'Moy. mobile 4 sem.', data: movingAvg, borderColor: '#ffd166', borderWidth: 2, borderDash: [4,3], pointRadius: 0, tension: 0.4, fill: false, order: 2 },
+        { label: 'Zone cible', data: zoneUpper, borderColor: 'transparent', backgroundColor: 'rgba(34,197,94,.12)', pointRadius: 0, fill: '+1', tension: 0.3, order: 3 },
+        { label: '', data: zoneLower, borderColor: 'transparent', backgroundColor: 'rgba(34,197,94,.12)', pointRadius: 0, fill: false, tension: 0.3, order: 4 },
+        { label: 'Objectif', data: targetLine, borderColor: 'rgba(34,197,94,.6)', borderWidth: 1, borderDash: [6,4], pointRadius: 0, fill: false, order: 5 }
+      ]
+    },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { labels: { color: '#5a7a96', font: { size: 10 }, filter: item => item.text !== '' } } } }
+  });
+
+  // CHART SPORT
+  new Chart(document.getElementById('chart-sport'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Heures', data: entries.map(e => e.sportHours), backgroundColor: 'rgba(0,180,216,.4)', borderColor: '#00b4d8', borderWidth: 1 }] },
+    options: { ...chartDefaults, plugins: { legend: { display: false } } }
+  });
+
+  // CHART PAS
+  new Chart(document.getElementById('chart-steps'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Pas/jour', data: entries.map(e => e.avgSteps), backgroundColor: 'rgba(255,209,102,.35)', borderColor: '#ffd166', borderWidth: 1 }] },
+    options: { ...chartDefaults, plugins: { legend: { display: false } } }
+  });
+
+  // CHART BIEN-ÊTRE
+  new Chart(document.getElementById('chart-wellbeing'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: '⚡ Énergie', data: entries.map(e => e.energyScore), borderColor: '#00b4d8', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 3, tension: 0.3 },
+        { label: '😋 Envies alim.', data: entries.map(e => e.foodCravingsScore), borderColor: '#ffd166', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 3, tension: 0.3 },
+        { label: '💪 Motivation', data: entries.map(e => e.motivationScore), borderColor: '#22c55e', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 3, tension: 0.3 }
+      ]
+    },
+    options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 5, ticks: { color: '#5a7a96', font: { size: 9 }, stepSize: 1 } } } }
+  });
 }
 
 function selScore(fieldId, val, btn) {
@@ -4084,6 +4219,7 @@ async function saveCorpsEntry(warriorId) {
   const avgSteps = document.getElementById('enc-steps').value ? parseInt(document.getElementById('enc-steps').value) : null;
   const energyScore = document.getElementById('enc-en').value ? parseInt(document.getElementById('enc-en').value) : null;
   const foodCravingsScore = document.getElementById('enc-cr').value ? parseInt(document.getElementById('enc-cr').value) : null;
+  const motivationScore = document.getElementById('enc-mo').value ? parseInt(document.getElementById('enc-mo').value) : null;
   const calEl = document.getElementById('enc-cal'), protEl = document.getElementById('enc-prot');
   const calories = calEl && calEl.value ? parseInt(calEl.value) : null;
   const proteins = protEl && protEl.value ? parseInt(protEl.value) : null;
@@ -4091,7 +4227,7 @@ async function saveCorpsEntry(warriorId) {
   const prevEntry = prevEntries.length > 0 ? prevEntries[prevEntries.length-1] : null;
   const id = 'be_'+warriorId+'_'+entryDate.replace(/-/g,'');
   try {
-    await upsertBodyEntry({id, warriorId, entryDate, weight, sportHours, avgSteps, energyScore, foodCravingsScore, calories, proteins});
+    await upsertBodyEntry({id, warriorId, entryDate, weight, sportHours, avgSteps, energyScore, foodCravingsScore, motivationScore, calories, proteins});
     await loadFromDb();
     const newEntries = getBodyEntriesForWarrior(warriorId);
     let msg = '', soundType = 'good';
