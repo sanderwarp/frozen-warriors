@@ -4006,9 +4006,66 @@ function renderCorpsCard(w, profile, entries, canEdit) {
       ${showEncode?`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-p" style="padding:7px 16px;font-size:11px;" onclick="showCorpsEncode('${w.id}')">⚖️ Encoder</button>
         <button class="btn" style="padding:7px 16px;font-size:11px;background:rgba(0,180,216,.1);color:var(--accent);border:1px solid rgba(0,180,216,.2);" onclick="showCorpsCharts('${w.id}')">📈 Graphiques</button>
+        ${w.id === myId && !coach ? `<button class="btn" style="padding:7px 16px;font-size:11px;background:rgba(255,209,102,.08);color:var(--gold);border:1px solid rgba(255,209,102,.2);" onclick="showCorpsSettings('${w.id}')">⚙️ Mes paramètres</button>` : ''}
       </div>`:`<button class="btn" style="margin-top:12px;padding:7px 16px;font-size:11px;background:rgba(0,180,216,.1);color:var(--accent);border:1px solid rgba(0,180,216,.2);" onclick="showCorpsCharts('${w.id}')">📈 Graphiques</button>`}
     </div>
   </div>`;
+}
+
+function showCorpsSettings(warriorId) {
+  const d = getData();
+  const w = d.warriors.find(x => x.id === warriorId);
+  const ex = getBodyProfile(warriorId);
+  if (!w || !ex) return;
+  const m = document.createElement('div');
+  m.id = 'corps-settings-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  m.innerHTML = `<div style="background:#0d1f38;border:1px solid rgba(0,180,216,.25);border-radius:12px;padding:24px;max-width:420px;width:100%;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:900;text-transform:uppercase;">⚙️ Mes paramètres</div>
+      <button onclick="document.getElementById('corps-settings-modal').remove()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
+    </div>
+    <div class="stitle">Cadence hebdomadaire</div>
+    <div class="form-grid">
+      <div class="fg"><label class="fl">Cible (g/semaine)</label><input class="fi" id="set-pace" type="number" step="50" value="${ex.weeklyPace}" placeholder="600"></div>
+      <div class="fg"><label class="fl">Marge ± (g)</label><input class="fi" id="set-range" type="number" step="50" value="${ex.paceRange}" placeholder="100"></div>
+    </div>
+    <div class="stitle" style="margin-top:14px;">Nutrition</div>
+    <div class="form-grid">
+      <div class="fg"><label class="fl">Calories cibles/jour</label><input class="fi" id="set-cal" type="number" value="${ex.calorieTarget||''}" placeholder="ex: 1800"></div>
+      <div class="fg"><label class="fl">Protéines cibles/jour (g)</label><input class="fi" id="set-prot" type="number" value="${ex.proteinTarget||''}" placeholder="ex: 150"></div>
+    </div>
+    <div class="stitle" style="margin-top:14px;">Visibilité</div>
+    <div class="vis-opts">
+      <button class="vis-opt ${(ex.visibility||'public')==='public'?'selected':''}" onclick="corpsSel('vis','public',this)">🌍 Public</button>
+      <button class="vis-opt ${ex.visibility==='discreet'?'selected':''}" onclick="corpsSel('vis','discreet',this)">👁️ Discret</button>
+      <button class="vis-opt ${ex.visibility==='private'?'selected':''}" onclick="corpsSel('vis','private',this)">🔒 Privé</button>
+    </div>
+    <input type="hidden" id="ob-vis" value="${ex.visibility||'public'}">
+    <div id="set-msg" style="margin-top:10px;"></div>
+    <div class="form-actions"><button class="btn btn-p" onclick="saveCorpsSettings('${warriorId}')">💾 Enregistrer</button></div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+async function saveCorpsSettings(warriorId) {
+  const ex = getBodyProfile(warriorId);
+  if (!ex) return;
+  const weeklyPace = parseInt(document.getElementById('set-pace').value);
+  const paceRange = parseInt(document.getElementById('set-range').value);
+  const calorieTarget = document.getElementById('set-cal').value ? parseInt(document.getElementById('set-cal').value) : null;
+  const proteinTarget = document.getElementById('set-prot').value ? parseInt(document.getElementById('set-prot').value) : null;
+  const visibility = document.getElementById('ob-vis').value || ex.visibility;
+  const msgEl = document.getElementById('set-msg');
+  if (isNaN(weeklyPace) || isNaN(paceRange)) {
+    msgEl.innerHTML = '<div class="msg msg-err">Cadence et marge obligatoires.</div>'; return;
+  }
+  try {
+    await upsertBodyProfile({ ...ex, weeklyPace, paceRange, calorieTarget, proteinTarget, visibility });
+    msgEl.innerHTML = '<div class="msg msg-ok">✅ Paramètres mis à jour !</div>';
+    await loadFromDb();
+    setTimeout(() => { const m = document.getElementById('corps-settings-modal'); if(m) m.remove(); renderCorpsPage(); }, 1000);
+  } catch(e) { msgEl.innerHTML = `<div class="msg msg-err">Erreur : ${e.message}</div>`; }
 }
 
 function showCorpsOnboarding(warriorId) {
