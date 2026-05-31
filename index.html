@@ -280,7 +280,46 @@ select.fi option{background:var(--dark);}
 .hrow-score{font-family:'Black Ops One',cursive;font-size:22px;color:var(--accent);}
 .hrow-days{font-size:10px;color:var(--muted);text-align:right;}
 
-/* PRINT */
+/* CORPS / BODY TRACKING */
+.corps-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:700px){.corps-grid{grid-template-columns:1fr;}}
+.corps-warrior-card{background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.12);border-radius:8px;overflow:hidden;cursor:pointer;transition:all .25s;}
+.corps-warrior-card:hover{border-color:rgba(0,180,216,.35);}
+.corps-warrior-header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid rgba(0,180,216,.08);}
+.corps-warrior-name{font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:900;text-transform:uppercase;}
+.corps-status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.corps-status-green{background:var(--green);box-shadow:0 0 6px rgba(34,197,94,.6);}
+.corps-status-orange{background:#f97316;box-shadow:0 0 6px rgba(249,115,22,.6);}
+.corps-status-red{background:var(--red);box-shadow:0 0 6px rgba(239,68,68,.6);}
+.corps-status-grey{background:var(--muted);}
+.corps-body{padding:16px 20px;}
+.corps-kpi-row{display:flex;gap:16px;margin-bottom:12px;}
+.corps-kpi{flex:1;text-align:center;}
+.corps-kpi-val{font-family:'Black Ops One',cursive;font-size:22px;color:var(--accent);}
+.corps-kpi-lbl{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.corps-delta-positive{color:var(--green);}
+.corps-delta-negative{color:var(--red);}
+.corps-delta-neutral{color:var(--muted);}
+.corps-alert{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:5px;font-size:11px;color:var(--red);margin-top:8px;}
+.corps-onboarding-card{background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.2);border-radius:8px;padding:24px;margin-bottom:16px;}
+.score-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.score-row:last-child{border:none;}
+.score-label{font-size:12px;color:var(--muted);flex:1;}
+.score-btns{display:flex;gap:6px;}
+.score-btn{width:36px;height:36px;border-radius:50%;border:1px solid rgba(0,180,216,.2);background:transparent;color:var(--muted);font-family:'Black Ops One',cursive;font-size:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;}
+.score-btn.selected{background:var(--accent);color:var(--deep);border-color:var(--accent);}
+.corps-section-title{font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:10px;margin:20px 0 14px;}
+.corps-section-title::after{content:'';flex:1;height:1px;background:rgba(0,180,216,.15);}
+.visibility-opts{display:flex;gap:8px;flex-wrap:wrap;}
+.vis-opt{flex:1;min-width:100px;padding:10px;border-radius:6px;border:1px solid rgba(0,180,216,.15);background:transparent;color:var(--muted);font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-align:center;transition:all .2s;}
+.vis-opt.selected{border-color:var(--accent);background:rgba(0,180,216,.15);color:var(--accent);}
+.goal-opts{display:flex;gap:8px;flex-wrap:wrap;}
+.goal-opt{flex:1;min-width:110px;padding:10px;border-radius:6px;border:1px solid rgba(0,180,216,.15);background:transparent;color:var(--muted);font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-align:center;transition:all .2s;}
+.goal-opt.selected{border-color:var(--accent);background:rgba(0,180,216,.15);color:var(--accent);}
+.corps-profile-detail{padding:16px 20px;}
+.corps-chart-section{padding:0 20px 20px;}
+
+
 @media print{
   .bg,.bg-grid,.snow,.nav,header .brand-tag,.det-tabs,.pdf-btn,.wcard-stripe{display:none!important;}
   body{background:#fff;color:#000;}
@@ -316,6 +355,7 @@ select.fi option{background:var(--dark);}
       <button class="nav-btn" onclick="nav('admin')">🔐 Admin</button>
       <button class="nav-btn" onclick="nav('athx')">🏅 ATHX</button>
       <button class="nav-btn" onclick="nav('rankings')">📊 Rankings</button>
+      <button class="nav-btn" onclick="nav('corps')">⚖️ Corps</button>
     </div>
   </header>
 
@@ -780,6 +820,11 @@ select.fi option{background:var(--dark);}
     </div>
   </div>
 
+  <!-- CORPS / BODY TRACKING -->
+  <div class="section" id="s-corps">
+    <div id="corps-main"></div>
+  </div>
+
   <!-- ATHX -->
   <div class="section" id="s-athx">
     <div style="padding:12px 8px 8px;">
@@ -1108,7 +1153,53 @@ async function insertFeedEvent(type, warriorId, message, details) {
   } catch(e) {}
 }
 
-async function addReaction(feedId, reactionType) {
+// ======== BODY TRACKING — SUPABASE ========
+async function getBodyProfiles() {
+  try { return await sbFetch('body_profiles?order=created_at.asc'); }
+  catch(e) { return []; }
+}
+async function getBodyEntries() {
+  try { return await sbFetch('body_entries?order=entry_date.desc'); }
+  catch(e) { return []; }
+}
+async function upsertBodyProfile(p) {
+  return await sbFetch('body_profiles', {
+    method: 'POST',
+    headers: {'Prefer': 'resolution=merge-duplicates,return=representation'},
+    body: JSON.stringify({
+      id: p.id, warrior_id: p.warriorId,
+      goal_type: p.goalType,
+      start_weight: p.startWeight,
+      target_weight: p.targetWeight,
+      weekly_pace: p.weeklyPace,
+      pace_range: p.paceRange,
+      calorie_target: p.calorieTarget || null,
+      protein_target: p.proteinTarget || null,
+      visibility: p.visibility || 'public',
+      phase_label: p.phaseLabel || null,
+      phase_start_date: p.phaseStartDate || null
+    })
+  });
+}
+async function upsertBodyEntry(e) {
+  return await sbFetch('body_entries', {
+    method: 'POST',
+    headers: {'Prefer': 'resolution=merge-duplicates,return=representation'},
+    body: JSON.stringify({
+      id: e.id, warrior_id: e.warriorId,
+      entry_date: e.entryDate,
+      weight: e.weight,
+      sport_hours: e.sportHours || null,
+      avg_steps: e.avgSteps || null,
+      energy_score: e.energyScore || null,
+      food_cravings_score: e.foodCravingsScore || null,
+      calories: e.calories || null,
+      proteins: e.proteins || null
+    })
+  });
+}
+
+
   const d = getData();
   const item = d.feed && d.feed.find(function(f){ return f.id === feedId; });
   if (!item) return;
@@ -1195,12 +1286,12 @@ async function deleteResultDb(rid) {
 }
 
 // ======== LOCAL CACHE ========
-let _cache = { warriors: [], results: [], habits: [], feed: [], reactions: [] };
+let _cache = { warriors: [], results: [], habits: [], feed: [], reactions: [], bodyProfiles: [], bodyEntries: [] };
 
 async function loadFromDb() {
   showLoading(true);
   try {
-    const [warriors, results, habits, feed, reactions] = await Promise.all([getWarriors(), getResults(), getHabits(), getFeed(), getFeedReactions()]);
+    const [warriors, results, habits, feed, reactions, bodyProfiles, bodyEntries] = await Promise.all([getWarriors(), getResults(), getHabits(), getFeed(), getFeedReactions(), getBodyProfiles(), getBodyEntries()]);
     _cache.warriors = warriors.map(w => ({
       id: w.id, name: w.name, gender: w.gender,
       weight: w.weight, height: w.height
@@ -1234,6 +1325,32 @@ async function loadFromDb() {
       plank_f: r.plank_f, plank_s: r.plank_s,
       bp: r.bp
     }));
+  _cache.bodyProfiles = (bodyProfiles||[]).map(p => ({
+    id: p.id, warriorId: p.warrior_id,
+    goalType: p.goal_type,
+    startWeight: p.start_weight,
+    targetWeight: p.target_weight,
+    weeklyPace: p.weekly_pace,
+    paceRange: p.pace_range,
+    calorieTarget: p.calorie_target,
+    proteinTarget: p.protein_target,
+    visibility: p.visibility || 'public',
+    phaseLabel: p.phase_label,
+    phaseStartDate: p.phase_start_date,
+    createdAt: p.created_at
+  }));
+  _cache.bodyEntries = (bodyEntries||[]).map(e => ({
+    id: e.id, warriorId: e.warrior_id,
+    entryDate: e.entry_date,
+    weight: e.weight,
+    sportHours: e.sport_hours,
+    avgSteps: e.avg_steps,
+    energyScore: e.energy_score,
+    foodCravingsScore: e.food_cravings_score,
+    calories: e.calories,
+    proteins: e.proteins,
+    createdAt: e.created_at
+  }));
   } catch(e) {
     console.error('DB error:', e);
   }
@@ -2890,7 +3007,7 @@ function nav(name) {
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
   const section = document.getElementById('s-'+name);
   if (section) section.classList.add('active');
-  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx','rankings'].indexOf(name);
+  const idx = ['leaderboard','encode-habits','challenge','add','warriors','criteres','levels','admin','athx','rankings','corps'].indexOf(name);
   const btns = document.querySelectorAll('.nav-btn');
   if (btns[idx]) btns[idx].classList.add('active');
   if (name === 'add') {
@@ -2904,6 +3021,7 @@ function nav(name) {
   if (name === 'admin') { renderChallengeAdmin(); }
   if (name === 'athx') { initAthxPage(); }
   if (name === 'rankings') { renderRankings(); }
+  if (name === 'corps') { renderCorpsPage(); }
   if (name === 'encode-habits') {
     const myId = getMyProfile();
     if (!myId) { showProfileModal(); }
@@ -4283,7 +4401,580 @@ function generateRapportImage2(period) {
   link.click();
 }
 
-// ======== HABIT SOUND + ANIMATION ========
+
+// ======== CORPS / BODY TRACKING ========
+
+function getBodyProfile(warriorId) {
+  const d = getData();
+  return (d.bodyProfiles||[]).find(p => p.warriorId === warriorId) || null;
+}
+
+function getBodyEntriesForWarrior(warriorId) {
+  const d = getData();
+  return (d.bodyEntries||[]).filter(e => e.warriorId === warriorId).sort((a,b) => a.entryDate.localeCompare(b.entryDate));
+}
+
+function getBodyStatus(profile, entries) {
+  // Returns 'green', 'orange', 'red', 'grey'
+  if (!profile || entries.length === 0) return 'grey';
+  const last2 = entries.slice(-2);
+  if (last2.length < 2) return 'grey';
+  const prev = last2[0].weight;
+  const curr = last2[1].weight;
+  const delta = curr - prev;
+  const isLoss = profile.goalType === 'perte';
+  const isGain = profile.goalType === 'prise';
+  const pace = profile.weeklyPace;
+  const range = profile.paceRange;
+  // Check direction
+  const goodDirection = (isLoss && delta < 0) || (isGain && delta > 0) || (profile.goalType === 'recompo');
+  if (!goodDirection) return 'red';
+  // Check if in range
+  const absDelta = Math.abs(delta) * 1000; // grams
+  const inRange = absDelta >= (pace - range) && absDelta <= (pace + range);
+  if (inRange) return 'green';
+  return 'orange';
+}
+
+function getEnergyAlertMsg(entries) {
+  const last2 = entries.slice(-2);
+  if (last2.length < 2) return null;
+  const lowEnergy = last2.every(e => e.energyScore !== null && e.energyScore <= 2);
+  if (lowEnergy) return '⚡ Énergie basse 2 semaines — peut-être trop bas en calories ?';
+  return null;
+}
+
+function getAvgPace(profile, entries) {
+  if (!entries || entries.length < 2) return null;
+  const first = entries[0];
+  const last = entries[entries.length - 1];
+  const weeks = Math.max(1, Math.round(
+    (new Date(last.entryDate) - new Date(first.entryDate)) / (7 * 24 * 3600 * 1000)
+  ));
+  const totalDelta = last.weight - first.weight;
+  return totalDelta / weeks;
+}
+
+function getProjectionDate(profile, entries) {
+  if (!profile || entries.length < 2) return null;
+  const avgPaceKg = getAvgPace(profile, entries);
+  if (!avgPaceKg) return null;
+  const lastEntry = entries[entries.length - 1];
+  const currentWeight = lastEntry.weight;
+  const remaining = profile.targetWeight - currentWeight;
+  if (Math.sign(remaining) !== Math.sign(avgPaceKg) && avgPaceKg !== 0) return null;
+  if (avgPaceKg === 0) return null;
+  const weeksLeft = remaining / avgPaceKg;
+  const projDate = new Date(lastEntry.entryDate);
+  projDate.setDate(projDate.getDate() + Math.round(weeksLeft * 7));
+  return projDate.toLocaleDateString('fr-BE', {day:'numeric', month:'long', year:'numeric'});
+}
+
+function playBodySoundGood() {
+  try {
+    const ac = getAudioCtx();
+    const now = ac.currentTime;
+    const beep = (freq, start, dur) => {
+      const o = ac.createOscillator(); const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, start);
+      g.gain.setValueAtTime(0.15, start);
+      g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      o.start(start); o.stop(start + dur + 0.01);
+    };
+    beep(523, now, 0.1); beep(659, now+0.1, 0.1); beep(784, now+0.2, 0.3);
+  } catch(e) {}
+}
+
+function playBodySoundCelebration() {
+  try {
+    const ac = getAudioCtx();
+    const now = ac.currentTime;
+    const beep = (freq, start, dur) => {
+      const o = ac.createOscillator(); const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, start);
+      g.gain.setValueAtTime(0.2, start);
+      g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      o.start(start); o.stop(start + dur + 0.01);
+    };
+    beep(523, now, 0.08); beep(659, now+0.08, 0.08); beep(784, now+0.16, 0.08);
+    beep(1047, now+0.24, 0.35);
+  } catch(e) {}
+}
+
+function playBodySoundSad() {
+  try {
+    const ac = getAudioCtx();
+    const now = ac.currentTime;
+    const beep = (freq, start, dur) => {
+      const o = ac.createOscillator(); const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, start);
+      g.gain.setValueAtTime(0.12, start);
+      g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      o.start(start); o.stop(start + dur + 0.01);
+    };
+    beep(440, now, 0.15); beep(370, now+0.15, 0.35);
+  } catch(e) {}
+}
+
+// ---- RENDER MAIN CORPS PAGE ----
+function renderCorpsPage() {
+  const el = document.getElementById('corps-main');
+  if (!el) return;
+  const d = getData();
+  const myId = getMyProfile();
+  const myProfile = myId ? getBodyProfile(myId) : null;
+  const isAdmin = sessionStorage.getItem('fw_admin') === '1';
+
+  let html = '';
+
+  // --- MON SUIVI section (if I have a profile or not yet) ---
+  if (myId) {
+    if (!myProfile) {
+      html += `<div class="card corps-onboarding-card" style="margin-bottom:20px;">
+        <div class="stitle">⚖️ Mon suivi corporel</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Tu n'as pas encore de profil de suivi. Configure-le avec Sander pour commencer.</p>
+        <button class="btn btn-p" onclick="showCorpsOnboarding('${myId}')">⚙️ Configurer mon profil</button>
+      </div>`;
+    } else {
+      html += renderMyCorpsCard(myId, myProfile);
+    }
+  }
+
+  // --- VUE COACH (admin) ---
+  if (isAdmin) {
+    html += `<div class="stitle" style="margin-top:24px;">🛡️ Vue Coach — Tous les warriors</div>`;
+    html += `<div class="corps-grid">`;
+    d.warriors.forEach(w => {
+      const profile = getBodyProfile(w.id);
+      if (!profile) {
+        html += `<div class="corps-warrior-card" onclick="showCorpsOnboarding('${w.id}')">
+          <div class="corps-warrior-header">
+            <span class="corps-warrior-name">${w.name}</span>
+            <span class="corps-status-dot corps-status-grey"></span>
+          </div>
+          <div class="corps-body" style="color:var(--muted);font-size:12px;">Pas encore configuré — cliquer pour configurer</div>
+        </div>`;
+      } else {
+        const entries = getBodyEntriesForWarrior(w.id);
+        const status = getBodyStatus(profile, entries);
+        html += renderCorpsCard(w, profile, entries, status, true);
+      }
+    });
+    html += `</div>`;
+  } else {
+    // Non-admin : afficher les warriors publics
+    html += `<div class="stitle" style="margin-top:24px;">🧊 La tribu — Suivi</div>`;
+    html += `<div class="corps-grid">`;
+    d.warriors.forEach(w => {
+      if (w.id === myId) return; // already shown above
+      const profile = getBodyProfile(w.id);
+      if (!profile || profile.visibility === 'private') return;
+      const entries = getBodyEntriesForWarrior(w.id);
+      const status = getBodyStatus(profile, entries);
+      html += renderCorpsCard(w, profile, entries, status, false);
+    });
+    html += `</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function renderMyCorpsCard(warriorId, profile) {
+  const d = getData();
+  const w = d.warriors.find(x => x.id === warriorId);
+  if (!w) return '';
+  const entries = getBodyEntriesForWarrior(warriorId);
+  const status = getBodyStatus(profile, entries);
+  const isAdmin = sessionStorage.getItem('fw_admin') === '1';
+  let html = renderCorpsCard(w, profile, entries, status, isAdmin);
+  // Add encode button
+  html += `<div style="margin-bottom:20px;">
+    <button class="btn btn-p" onclick="showCorpsEncode('${warriorId}')">⚖️ Encoder mon poids du dimanche</button>
+  </div>`;
+  return html;
+}
+
+function renderCorpsCard(w, profile, entries, status, showAlerts) {
+  const lastEntry = entries.length > 0 ? entries[entries.length-1] : null;
+  const prevEntry = entries.length > 1 ? entries[entries.length-2] : null;
+  const statusClass = `corps-status-${status}`;
+  const goalLabels = {perte:'Perte de poids', prise:'Prise de masse', recompo:'Recomposition'};
+  const goalLabel = goalLabels[profile.goalType] || profile.goalType;
+  const visibilityIcon = profile.visibility === 'private' ? '🔒' : profile.visibility === 'discreet' ? '👁️' : '🌍';
+
+  let deltaHTML = '—';
+  let avgPaceHTML = '—';
+  if (lastEntry && prevEntry) {
+    const delta = lastEntry.weight - prevEntry.weight;
+    const sign = delta > 0 ? '+' : '';
+    const cls = delta < 0 ? 'corps-delta-negative' : delta > 0 ? 'corps-delta-positive' : 'corps-delta-neutral';
+    deltaHTML = `<span class="${cls}">${sign}${(delta*1000).toFixed(0)}g</span>`;
+    const avgPaceKg = getAvgPace(profile, entries);
+    if (avgPaceKg !== null) {
+      const avgSign = avgPaceKg > 0 ? '+' : '';
+      avgPaceHTML = `${avgSign}${(avgPaceKg*1000).toFixed(0)}g/sem`;
+    }
+  }
+
+  const currentWeight = lastEntry ? lastEntry.weight : profile.startWeight;
+  const projection = getProjectionDate(profile, entries);
+
+  let alertHTML = '';
+  if (showAlerts) {
+    const alertMsg = getEnergyAlertMsg(entries);
+    if (alertMsg) alertHTML = `<div class="corps-alert">⚠️ ${alertMsg}</div>`;
+    if (status === 'red' && entries.length >= 2) {
+      alertHTML += `<div class="corps-alert">📉 Hors direction — vérifier l'encodage</div>`;
+    }
+  }
+
+  const paceTarget = profile.goalType === 'perte' ? `-${profile.weeklyPace}g ±${profile.paceRange}g` :
+                     profile.goalType === 'prise' ? `+${profile.weeklyPace}g ±${profile.paceRange}g` :
+                     `±${profile.paceRange}g`;
+
+  const canEncode = w.id === getMyProfile() || sessionStorage.getItem('fw_admin') === '1';
+
+  return `<div class="corps-warrior-card" id="corps-card-${w.id}">
+    <div class="corps-warrior-header">
+      <div>
+        <div class="corps-warrior-name">${w.name} <span style="font-size:12px;opacity:.5;">${visibilityIcon}</span></div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:2px;">${goalLabel} · Cible ${profile.targetWeight}kg</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        ${showAlerts && sessionStorage.getItem('fw_admin')==='1' ? `<button class="btn" style="padding:4px 10px;font-size:10px;background:rgba(0,180,216,.1);color:var(--accent);border:1px solid rgba(0,180,216,.2);" onclick="showCorpsOnboarding('${w.id}')">✏️</button>` : ''}
+        <div class="corps-status-dot ${statusClass}"></div>
+      </div>
+    </div>
+    <div class="corps-body">
+      <div class="corps-kpi-row">
+        <div class="corps-kpi">
+          <div class="corps-kpi-val">${currentWeight ? currentWeight.toFixed(1) : '—'}<span style="font-size:12px;color:var(--muted);">kg</span></div>
+          <div class="corps-kpi-lbl">Poids actuel</div>
+        </div>
+        <div class="corps-kpi">
+          <div class="corps-kpi-val">${deltaHTML}</div>
+          <div class="corps-kpi-lbl">Δ semaine</div>
+        </div>
+        <div class="corps-kpi">
+          <div class="corps-kpi-val" style="font-size:16px;">${avgPaceHTML}</div>
+          <div class="corps-kpi-lbl">Cadence moy.</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Cible cadence : ${paceTarget}</div>
+      ${projection ? `<div style="font-size:11px;color:var(--accent);margin-bottom:8px;">🎯 Projection : objectif atteint le <strong>${projection}</strong></div>` : ''}
+      ${alertHTML}
+      ${lastEntry ? `<div style="font-size:10px;color:var(--muted);margin-top:8px;">Dernier encodage : ${new Date(lastEntry.entryDate).toLocaleDateString('fr-BE')}</div>` : '<div style="font-size:11px;color:var(--muted);margin-top:8px;">Aucun encodage encore</div>'}
+      ${canEncode ? `<div style="margin-top:12px;"><button class="btn btn-p" style="padding:7px 16px;font-size:11px;" onclick="showCorpsEncode('${w.id}')">⚖️ Encoder</button></div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ---- ONBOARDING MODAL ----
+function showCorpsOnboarding(warriorId) {
+  const d = getData();
+  const w = d.warriors.find(x => x.id === warriorId);
+  if (!w) return;
+  const existing = getBodyProfile(warriorId) || {};
+
+  const modal = document.createElement('div');
+  modal.id = 'corps-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
+
+  modal.innerHTML = `<div style="background:#0d1f38;border:1px solid rgba(0,180,216,.25);border-radius:12px;padding:28px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:900;text-transform:uppercase;color:var(--text);">⚖️ Profil Corps — ${w.name}</div>
+      <button onclick="document.getElementById('corps-modal').remove()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
+    </div>
+
+    <div class="corps-section-title">Objectif</div>
+    <div class="goal-opts" id="ob-goal-opts">
+      <button class="goal-opt ${existing.goalType==='perte'?'selected':''}" onclick="selectGoalOpt('perte')">📉 Perte de poids</button>
+      <button class="goal-opt ${existing.goalType==='prise'?'selected':''}" onclick="selectGoalOpt('prise')">📈 Prise de masse</button>
+      <button class="goal-opt ${existing.goalType==='recompo'?'selected':''}" onclick="selectGoalOpt('recompo')">🔄 Recompo</button>
+    </div>
+    <input type="hidden" id="ob-goal-val" value="${existing.goalType||''}">
+
+    <div class="corps-section-title" style="margin-top:20px;">Poids</div>
+    <div class="form-grid">
+      <div class="fg">
+        <label class="fl">Poids actuel (kg)</label>
+        <input class="fi" id="ob-start" type="number" step="0.1" value="${existing.startWeight||''}" placeholder="ex: 82.5">
+      </div>
+      <div class="fg">
+        <label class="fl">Poids cible (kg)</label>
+        <input class="fi" id="ob-target" type="number" step="0.1" value="${existing.targetWeight||''}" placeholder="ex: 75.0">
+      </div>
+    </div>
+
+    <div class="corps-section-title" style="margin-top:16px;">Cadence hebdomadaire</div>
+    <div class="form-grid">
+      <div class="fg">
+        <label class="fl">Cadence cible (grammes/semaine)</label>
+        <input class="fi" id="ob-pace" type="number" step="50" value="${existing.weeklyPace||''}" placeholder="ex: 600">
+      </div>
+      <div class="fg">
+        <label class="fl">Marge acceptable (±grammes)</label>
+        <input class="fi" id="ob-range" type="number" step="50" value="${existing.paceRange||''}" placeholder="ex: 100">
+      </div>
+    </div>
+
+    <div class="corps-section-title" style="margin-top:16px;">Suivi optionnel</div>
+    <div class="form-grid">
+      <div class="fg">
+        <label class="fl">Calories cibles/jour (optionnel)</label>
+        <input class="fi" id="ob-cal" type="number" value="${existing.calorieTarget||''}" placeholder="ex: 1800">
+      </div>
+      <div class="fg">
+        <label class="fl">Protéines cibles/jour en g (optionnel)</label>
+        <input class="fi" id="ob-prot" type="number" value="${existing.proteinTarget||''}" placeholder="ex: 150">
+      </div>
+    </div>
+
+    <div class="corps-section-title" style="margin-top:16px;">Visibilité</div>
+    <div class="visibility-opts" id="ob-vis-opts">
+      <button class="vis-opt ${(existing.visibility||'public')==='public'?'selected':''}" onclick="selectVisOpt('public')">🌍 Public</button>
+      <button class="vis-opt ${existing.visibility==='discreet'?'selected':''}" onclick="selectVisOpt('discreet')">👁️ Discret (toi + Sander)</button>
+      <button class="vis-opt ${existing.visibility==='private'?'selected':''}" onclick="selectVisOpt('private')">🔒 Privé (toi seul)</button>
+    </div>
+    <input type="hidden" id="ob-vis-val" value="${existing.visibility||'public'}">
+
+    <div id="ob-msg" style="margin-top:12px;"></div>
+    <div class="form-actions" style="margin-top:20px;">
+      <button class="btn btn-p" onclick="saveCorpsProfile('${warriorId}')">💾 Enregistrer</button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(modal);
+}
+
+function selectGoalOpt(val) {
+  document.getElementById('ob-goal-val').value = val;
+  document.querySelectorAll('.goal-opt').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.goal-opt').forEach(b => {
+    if (b.textContent.includes(val === 'perte' ? 'Perte' : val === 'prise' ? 'Prise' : 'Recompo')) b.classList.add('selected');
+  });
+}
+
+function selectVisOpt(val) {
+  document.getElementById('ob-vis-val').value = val;
+  document.querySelectorAll('.vis-opt').forEach(b => b.classList.remove('selected'));
+  const map = {public:'🌍', discreet:'👁️', private:'🔒'};
+  document.querySelectorAll('.vis-opt').forEach(b => {
+    if (b.textContent.startsWith(map[val])) b.classList.add('selected');
+  });
+}
+
+async function saveCorpsProfile(warriorId) {
+  const goalType = document.getElementById('ob-goal-val').value;
+  const startWeight = parseFloat(document.getElementById('ob-start').value);
+  const targetWeight = parseFloat(document.getElementById('ob-target').value);
+  const weeklyPace = parseInt(document.getElementById('ob-pace').value);
+  const paceRange = parseInt(document.getElementById('ob-range').value);
+  const calorieTarget = document.getElementById('ob-cal').value ? parseInt(document.getElementById('ob-cal').value) : null;
+  const proteinTarget = document.getElementById('ob-prot').value ? parseInt(document.getElementById('ob-prot').value) : null;
+  const visibility = document.getElementById('ob-vis-val').value || 'public';
+  const msgEl = document.getElementById('ob-msg');
+
+  if (!goalType || isNaN(startWeight) || isNaN(targetWeight) || isNaN(weeklyPace) || isNaN(paceRange)) {
+    msgEl.innerHTML = '<div class="msg msg-err">Remplis tous les champs obligatoires.</div>';
+    return;
+  }
+
+  const existing = getBodyProfile(warriorId);
+  const profileId = existing ? existing.id : 'bp_' + warriorId + '_' + Date.now();
+
+  try {
+    await upsertBodyProfile({
+      id: profileId, warriorId,
+      goalType, startWeight, targetWeight,
+      weeklyPace, paceRange,
+      calorieTarget, proteinTarget,
+      visibility,
+      phaseLabel: null,
+      phaseStartDate: new Date().toISOString().split('T')[0]
+    });
+    msgEl.innerHTML = '<div class="msg msg-ok">✅ Profil enregistré !</div>';
+    await loadFromDb();
+    setTimeout(() => {
+      const m = document.getElementById('corps-modal');
+      if (m) m.remove();
+      renderCorpsPage();
+    }, 1000);
+  } catch(e) {
+    msgEl.innerHTML = `<div class="msg msg-err">Erreur : ${e.message}</div>`;
+  }
+}
+
+// ---- ENCODE MODAL ----
+function showCorpsEncode(warriorId) {
+  const d = getData();
+  const w = d.warriors.find(x => x.id === warriorId);
+  const profile = getBodyProfile(warriorId);
+  if (!w || !profile) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const modal = document.createElement('div');
+  modal.id = 'corps-encode-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
+
+  const showCal = !!profile.calorieTarget;
+  const showProt = !!profile.proteinTarget;
+
+  modal.innerHTML = `<div style="background:#0d1f38;border:1px solid rgba(0,180,216,.25);border-radius:12px;padding:28px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:900;text-transform:uppercase;">⚖️ Encodage — ${w.name}</div>
+      <button onclick="document.getElementById('corps-encode-modal').remove()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
+    </div>
+
+    <div class="form-grid">
+      <div class="fg">
+        <label class="fl">Date</label>
+        <input class="fi" id="enc-date" type="date" value="${today}">
+      </div>
+      <div class="fg">
+        <label class="fl">Poids ce matin (kg)</label>
+        <input class="fi" id="enc-weight" type="number" step="0.1" placeholder="ex: 81.2">
+      </div>
+      <div class="fg">
+        <label class="fl">Heures de sport cette semaine</label>
+        <input class="fi" id="enc-sport" type="number" step="0.5" placeholder="ex: 4.5">
+      </div>
+      <div class="fg">
+        <label class="fl">Pas moyen/jour</label>
+        <input class="fi" id="enc-steps" type="number" placeholder="ex: 8500">
+      </div>
+    </div>
+
+    <div class="corps-section-title" style="margin-top:16px;">Bien-être</div>
+
+    <div class="score-row">
+      <span class="score-label">⚡ Niveau d'énergie</span>
+      <div class="score-btns" id="enc-energy-btns">
+        ${[1,2,3,4,5].map(n => `<button class="score-btn" data-val="${n}" onclick="selectScore('enc-energy', ${n})">${n}</button>`).join('')}
+      </div>
+      <input type="hidden" id="enc-energy" value="">
+    </div>
+
+    <div class="score-row">
+      <span class="score-label">😋 Envies alimentaires</span>
+      <div class="score-btns" id="enc-cravings-btns">
+        ${[1,2,3,4,5].map(n => `<button class="score-btn" data-val="${n}" onclick="selectScore('enc-cravings', ${n})">${n}</button>`).join('')}
+      </div>
+      <input type="hidden" id="enc-cravings" value="">
+    </div>
+
+    ${showCal ? `<div class="corps-section-title" style="margin-top:16px;">Nutrition</div>
+    <div class="form-grid">
+      <div class="fg">
+        <label class="fl">Calories moy/jour cette semaine</label>
+        <input class="fi" id="enc-cal" type="number" placeholder="Cible: ${profile.calorieTarget} kcal">
+      </div>
+      ${showProt ? `<div class="fg"><label class="fl">Protéines moy/jour (g)</label><input class="fi" id="enc-prot" type="number" placeholder="Cible: ${profile.proteinTarget}g"></div>` : ''}
+    </div>` : showProt ? `<div class="corps-section-title" style="margin-top:16px;">Nutrition</div>
+    <div class="form-grid"><div class="fg"><label class="fl">Protéines moy/jour (g)</label><input class="fi" id="enc-prot" type="number" placeholder="Cible: ${profile.proteinTarget}g"></div></div>` : ''}
+
+    <div id="enc-feedback" style="margin-top:16px;min-height:40px;"></div>
+    <div class="form-actions" style="margin-top:12px;">
+      <button class="btn btn-p" onclick="saveCorpsEntry('${warriorId}')">💾 Enregistrer</button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(modal);
+}
+
+function selectScore(field, val) {
+  document.getElementById(field).value = val;
+  document.querySelectorAll(`#${field}-btns .score-btn`).forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.val) === val);
+  });
+}
+
+async function saveCorpsEntry(warriorId) {
+  const profile = getBodyProfile(warriorId);
+  const weight = parseFloat(document.getElementById('enc-weight').value);
+  const entryDate = document.getElementById('enc-date').value;
+  const sportHours = document.getElementById('enc-sport').value ? parseFloat(document.getElementById('enc-sport').value) : null;
+  const avgSteps = document.getElementById('enc-steps').value ? parseInt(document.getElementById('enc-steps').value) : null;
+  const energyScore = document.getElementById('enc-energy').value ? parseInt(document.getElementById('enc-energy').value) : null;
+  const foodCravingsScore = document.getElementById('enc-cravings').value ? parseInt(document.getElementById('enc-cravings').value) : null;
+  const caloriesEl = document.getElementById('enc-cal');
+  const proteinsEl = document.getElementById('enc-prot');
+  const calories = caloriesEl && caloriesEl.value ? parseInt(caloriesEl.value) : null;
+  const proteins = proteinsEl && proteinsEl.value ? parseInt(proteinsEl.value) : null;
+  const feedbackEl = document.getElementById('enc-feedback');
+
+  if (isNaN(weight) || !entryDate) {
+    feedbackEl.innerHTML = '<div class="msg msg-err">Poids et date obligatoires.</div>';
+    return;
+  }
+
+  // Get previous entry to calculate delta for sound
+  const entries = getBodyEntriesForWarrior(warriorId);
+  const prevEntry = entries.length > 0 ? entries[entries.length-1] : null;
+
+  const entryId = 'be_' + warriorId + '_' + entryDate.replace(/-/g,'');
+  try {
+    await upsertBodyEntry({
+      id: entryId, warriorId, entryDate, weight,
+      sportHours, avgSteps, energyScore, foodCravingsScore,
+      calories, proteins
+    });
+    await loadFromDb();
+
+    // Determine feedback + sound
+    const newEntries = getBodyEntriesForWarrior(warriorId);
+    const status = getBodyStatus(profile, newEntries);
+
+    let feedbackMsg = '';
+    if (!prevEntry) {
+      feedbackMsg = `<div class="msg msg-ok">✅ Premier encodage enregistré ! Bonne chance ${document.querySelector('.corps-warrior-name') ? '' : ''} 💪</div>`;
+      playBodySoundGood();
+    } else {
+      const delta = weight - prevEntry.weight;
+      const isLoss = profile.goalType === 'perte';
+      const isGain = profile.goalType === 'prise';
+      const absDeltaG = Math.abs(delta) * 1000;
+      const inRange = absDeltaG >= (profile.weeklyPace - profile.paceRange) && absDeltaG <= (profile.weeklyPace + profile.paceRange);
+      const goodDirection = (isLoss && delta < 0) || (isGain && delta > 0) || (profile.goalType === 'recompo');
+
+      if (goodDirection && inRange) {
+        feedbackMsg = `<div class="msg msg-ok">🎉 Dans la cible ! ${isLoss ? delta.toFixed(1) : '+' + delta.toFixed(1)}kg cette semaine — parfait !</div>`;
+        playBodySoundCelebration();
+        // Post in feed if public
+        if (profile.visibility === 'public') {
+          const d2 = getData();
+          const wObj = d2.warriors.find(x => x.id === warriorId);
+          await insertFeedEvent('body_target', warriorId,
+            `⚖️ ${wObj ? wObj.name : ''} est dans sa cible cette semaine ! (${isLoss ? delta.toFixed(1) : '+' + delta.toFixed(1)}kg)`,
+            null);
+        }
+      } else if (goodDirection) {
+        feedbackMsg = `<div class="msg msg-ok">👍 Bonne direction ! ${isLoss ? delta.toFixed(1) : '+' + delta.toFixed(1)}kg — continue comme ça.</div>`;
+        playBodySoundGood();
+      } else {
+        feedbackMsg = `<div class="msg msg-err">💪 Ce n'est pas la semaine idéale, mais tu restes dans la course. Analyse avec Sander.</div>`;
+        playBodySoundSad();
+      }
+    }
+
+    feedbackEl.innerHTML = feedbackMsg;
+    setTimeout(() => {
+      const m = document.getElementById('corps-encode-modal');
+      if (m) m.remove();
+      renderCorpsPage();
+    }, 2200);
+  } catch(e) {
+    feedbackEl.innerHTML = `<div class="msg msg-err">Erreur : ${e.message}</div>`;
+  }
+}
+
+
 let _audioCtx = null;
 function getAudioCtx() {
   if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
