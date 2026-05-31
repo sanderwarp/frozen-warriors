@@ -789,6 +789,16 @@ select.fi option{background:var(--dark);}
           <button class="btn btn-d" onclick="clearAllData()">🗑 Réinitialiser toutes les données</button>
         </div>
         <div id="clean-msg" style="margin-top:8px;"></div>
+
+        <div style="margin-top:20px;">
+          <div class="stitle">⚖️ Effacer données Corps</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <select class="fi" id="admin-body-warrior" style="flex:1;min-width:160px;"></select>
+            <button class="btn btn-d" onclick="adminDeleteBodyEntries()">🗑 Effacer les encodages</button>
+            <button class="btn btn-d" onclick="adminDeleteBodyProfile()" style="background:rgba(239,68,68,.25);">🗑 Effacer profil + encodages</button>
+          </div>
+          <div id="admin-body-msg" style="margin-top:8px;"></div>
+        </div>
         <div style="display:none;">
         </div>
         <div style="margin-top:20px;">
@@ -2971,6 +2981,38 @@ async function clearAllData() {
   } catch(e) { alert('Erreur: ' + e.message); }
 }
 
+function populateAdminBodySelect() {
+  const sel = document.getElementById('admin-body-warrior');
+  if (!sel) return;
+  const d = getData();
+  sel.innerHTML = d.warriors.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+}
+
+async function adminDeleteBodyEntries() {
+  const wid = document.getElementById('admin-body-warrior').value;
+  const w = getData().warriors.find(x => x.id === wid);
+  if (!w) return;
+  if (!confirm(`Effacer tous les encodages de ${w.name} ? (le profil est conservé)`)) return;
+  try {
+    await sbFetch('body_entries?warrior_id=eq.'+wid, { method: 'DELETE', prefer: '', headers: {'Prefer':'return=minimal'} });
+    await loadFromDb();
+    showMsg('admin-body-msg', `✅ Encodages de ${w.name} effacés.`, 'ok');
+  } catch(e) { showMsg('admin-body-msg', 'Erreur : ' + e.message, 'err'); }
+}
+
+async function adminDeleteBodyProfile() {
+  const wid = document.getElementById('admin-body-warrior').value;
+  const w = getData().warriors.find(x => x.id === wid);
+  if (!w) return;
+  if (!confirm(`Effacer le profil ET tous les encodages de ${w.name} ? Irréversible.`)) return;
+  try {
+    await sbFetch('body_entries?warrior_id=eq.'+wid, { method: 'DELETE', prefer: '', headers: {'Prefer':'return=minimal'} });
+    await sbFetch('body_profiles?warrior_id=eq.'+wid, { method: 'DELETE', prefer: '', headers: {'Prefer':'return=minimal'} });
+    await loadFromDb();
+    showMsg('admin-body-msg', `✅ Profil et encodages de ${w.name} effacés.`, 'ok');
+  } catch(e) { showMsg('admin-body-msg', 'Erreur : ' + e.message, 'err'); }
+}
+
 // ======== UTILS ========
 function showMsg(id, text, type) {
   const el = document.getElementById(id);
@@ -2995,7 +3037,7 @@ function nav(name) {
   if (name === 'warriors') renderWarriorsList();
   if (name === 'criteres') renderCriteres();
   if (name === 'challenge') { renderChallengePage(); }
-  if (name === 'admin') { renderChallengeAdmin(); }
+  if (name === 'admin') { renderChallengeAdmin(); populateAdminBodySelect(); }
   if (name === 'athx') { initAthxPage(); }
   if (name === 'rankings') { renderRankings(); }
   if (name === 'corps') { renderCorpsPage(); }
