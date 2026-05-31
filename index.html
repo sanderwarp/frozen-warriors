@@ -2339,6 +2339,13 @@ const PROFILE_KEY = 'fw_profile';
 function getMyProfile() {
   try { return localStorage.getItem(PROFILE_KEY); } catch(e) { return null; }
 }
+function isCoach() {
+  const myId = getMyProfile();
+  if (!myId) return false;
+  const d = getData();
+  const w = d.warriors.find(x => x.id === myId);
+  return w && w.name === 'Nico';
+}
 function setMyProfile(wid) {
   try { localStorage.setItem(PROFILE_KEY, wid); } catch(e) {}
 }
@@ -3905,7 +3912,7 @@ function renderCorpsPage() {
   if (!el) return;
   const d = getData();
   const myId = getMyProfile();
-  const isAdmin = sessionStorage.getItem('fw_admin') === '1';
+  const coach = isCoach() || sessionStorage.getItem('fw_admin') === '1';
   let html = '';
 
   // Mon profil
@@ -3922,9 +3929,10 @@ function renderCorpsPage() {
   }
 
   // Vue coach
-  if (isAdmin) {
+  if (coach) {
     html += `<div class="stitle" style="margin-top:20px;">🛡️ Vue Coach</div><div class="corps-grid">`;
     d.warriors.forEach(w => {
+      if (w.id === myId) return; // déjà affiché au-dessus
       const profile = getBodyProfile(w.id);
       if (!profile) {
         html += `<div class="corps-warrior-card" onclick="showCorpsOnboarding('${w.id}')"><div class="corps-warrior-header"><span class="corps-warrior-name">${w.name}</span><span class="corps-status-dot sdot-grey"></span></div><div class="corps-body" style="color:var(--muted);font-size:12px;">Non configuré — cliquer pour configurer</div></div>`;
@@ -3972,8 +3980,8 @@ function renderCorpsCard(w, profile, entries, canEdit) {
   const currentW = last ? last.weight : profile.startWeight;
   const proj = getProjectionDate(profile, entries);
   const myId = getMyProfile();
-  const isAdmin = sessionStorage.getItem('fw_admin') === '1';
-  const showEncode = w.id === myId || isAdmin;
+  const coach = isCoach() || sessionStorage.getItem('fw_admin') === '1';
+  const showEncode = w.id === myId || coach;
   const energyAlert = entries.slice(-2).length === 2 && entries.slice(-2).every(e => e.energyScore !== null && e.energyScore <= 2);
 
   return `<div class="corps-warrior-card">
@@ -3983,7 +3991,7 @@ function renderCorpsCard(w, profile, entries, canEdit) {
         <div style="font-size:10px;color:var(--muted);margin-top:2px;">${goalLabels[profile.goalType]||''} · cible ${profile.targetWeight}kg</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        ${isAdmin?`<button class="btn" style="padding:3px 9px;font-size:10px;background:rgba(0,180,216,.1);color:var(--accent);border:1px solid rgba(0,180,216,.2);" onclick="showCorpsOnboarding('${w.id}')">✏️</button>`:''}
+        ${coach?`<button class="btn" style="padding:3px 9px;font-size:10px;background:rgba(0,180,216,.1);color:var(--accent);border:1px solid rgba(0,180,216,.2);" onclick="showCorpsOnboarding('${w.id}')">✏️</button>`:''}
         <div class="corps-status-dot ${dotClass}"></div>
       </div>
     </div>
