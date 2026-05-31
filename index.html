@@ -4112,16 +4112,16 @@ function showCorpsCharts(warriorId) {
       <div style="position:relative;height:220px;"><canvas id="chart-weight"></canvas></div>
     </div>
 
-    <!-- Sport + Pas -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-      <div style="background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.12);border-radius:8px;padding:16px;">
-        <div style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">🏃 Sport (h/sem)</div>
-        <div style="position:relative;height:140px;"><canvas id="chart-sport"></canvas></div>
-      </div>
-      <div style="background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.12);border-radius:8px;padding:16px;">
-        <div style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">👟 Pas/jour</div>
-        <div style="position:relative;height:140px;"><canvas id="chart-steps"></canvas></div>
-      </div>
+    <!-- Sport -->
+    <div style="background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.12);border-radius:8px;padding:16px;margin-bottom:12px;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">🏃 Sport (h/sem)</div>
+      <div style="position:relative;height:140px;"><canvas id="chart-sport"></canvas></div>
+    </div>
+
+    <!-- Pas -->
+    <div style="background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.12);border-radius:8px;padding:16px;margin-bottom:12px;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">👟 Pas moyen / jour</div>
+      <div style="position:relative;height:140px;"><canvas id="chart-steps"></canvas></div>
     </div>
 
     <!-- Bien-être -->
