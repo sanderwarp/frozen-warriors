@@ -1291,7 +1291,9 @@ let _cache = { warriors: [], results: [], habits: [], feed: [], reactions: [], b
 async function loadFromDb() {
   showLoading(true);
   try {
-    const [warriors, results, habits, feed, reactions, bodyProfiles, bodyEntries] = await Promise.all([getWarriors(), getResults(), getHabits(), getFeed(), getFeedReactions(), getBodyProfiles(), getBodyEntries()]);
+    const [warriors, results, habits, feed, reactions] = await Promise.all([getWarriors(), getResults(), getHabits(), getFeed(), getFeedReactions()]);
+  const bodyProfiles = await getBodyProfiles().catch(() => []);
+  const bodyEntries = await getBodyEntries().catch(() => []);
     _cache.warriors = warriors.map(w => ({
       id: w.id, name: w.name, gender: w.gender,
       weight: w.weight, height: w.height
