@@ -3934,11 +3934,8 @@ function renderCorpsPage() {
     d.warriors.forEach(w => {
       if (w.id === myId) return; // déjà affiché au-dessus
       const profile = getBodyProfile(w.id);
-      if (!profile) {
-        html += `<div class="corps-warrior-card" onclick="showCorpsOnboarding('${w.id}')"><div class="corps-warrior-header"><span class="corps-warrior-name">${w.name}</span><span class="corps-status-dot sdot-grey"></span></div><div class="corps-body" style="color:var(--muted);font-size:12px;">Non configuré — cliquer pour configurer</div></div>`;
-      } else {
-        html += renderCorpsCard(w, profile, getBodyEntriesForWarrior(w.id), true);
-      }
+      if (!profile) return; // ignorer ceux sans profil corps
+      html += renderCorpsCard(w, profile, getBodyEntriesForWarrior(w.id), true);
     });
     html += `</div>`;
   } else {
