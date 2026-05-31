@@ -3918,11 +3918,14 @@ function renderCorpsCard(w, profile, entries, canEdit) {
   let avgHTML = '—';
   if (last && prev) {
     const delta = last.weight - prev.weight;
-    const cls = delta < 0 ? 'cdelta-neg' : delta > 0 ? 'cdelta-pos' : 'cdelta-neu';
+    const goodDelta = (profile.goalType === 'perte' && delta < 0) || (profile.goalType === 'prise' && delta > 0) || (profile.goalType === 'recompo' && Math.abs(delta) <= profile.paceRange/1000);
+    const cls = delta === 0 ? 'cdelta-neu' : goodDelta ? 'cdelta-pos' : 'cdelta-neg';
     const sign = delta > 0 ? '+' : '';
     deltaHTML = `<span class="${cls}">${sign}${(delta*1000).toFixed(0)}g</span>`;
     const avg = getAvgPaceKg(entries);
-    if (avg !== null) avgHTML = `${avg>0?'+':''}${(avg*1000).toFixed(0)}g/sem`;
+    const avgGood = avg !== null && ((profile.goalType==='perte'&&avg<0)||(profile.goalType==='prise'&&avg>0)||profile.goalType==='recompo');
+    const avgCls = avg === null ? '' : avgGood ? 'cdelta-pos' : 'cdelta-neg';
+    if (avg !== null) avgHTML = `<span class="${avgCls}">${avg>0?'+':''}${(avg*1000).toFixed(0)}g/sem</span>`;
   }
   const currentW = last ? last.weight : profile.startWeight;
   const proj = getProjectionDate(profile, entries);
@@ -4226,11 +4229,23 @@ async function saveCorpsEntry(warriorId) {
   const prevEntries = getBodyEntriesForWarrior(warriorId);
   const prevEntry = prevEntries.length > 0 ? prevEntries[prevEntries.length-1] : null;
   const id = 'be_'+warriorId+'_'+entryDate.replace(/-/g,'');
+
+  // Jouer le son immédiatement (avant await, sinon bloqué par le navigateur)
+  if (!prevEntry) {
+    playBodySound('good');
+  } else {
+    const delta = weight - prevEntry.weight;
+    const absDG = Math.abs(delta)*1000;
+    const goodDir = (profile.goalType==='perte'&&delta<0)||(profile.goalType==='prise'&&delta>0)||profile.goalType==='recompo';
+    const inRange = absDG>=(profile.weeklyPace-profile.paceRange)&&absDG<=(profile.weeklyPace+profile.paceRange);
+    playBodySound(goodDir && inRange ? 'celebration' : goodDir ? 'good' : 'sad');
+  }
+
   try {
     await upsertBodyEntry({id, warriorId, entryDate, weight, sportHours, avgSteps, energyScore, foodCravingsScore, motivationScore, calories, proteins});
     await loadFromDb();
     const newEntries = getBodyEntriesForWarrior(warriorId);
-    let msg = '', soundType = 'good';
+    let msg = '';
     if (!prevEntry) {
       msg = '<div class="msg msg-ok">✅ Premier encodage enregistré ! 💪</div>';
     } else {
@@ -4239,15 +4254,14 @@ async function saveCorpsEntry(warriorId) {
       const goodDir = (profile.goalType==='perte'&&delta<0)||(profile.goalType==='prise'&&delta>0)||profile.goalType==='recompo';
       const inRange = absDG>=(profile.weeklyPace-profile.paceRange)&&absDG<=(profile.weeklyPace+profile.paceRange);
       if (goodDir && inRange) {
-        soundType = 'celebration'; msg = `<div class="msg msg-ok">🎉 Dans la cible ! ${delta>0?'+':''}${delta.toFixed(1)}kg — parfait !</div>`;
+        msg = `<div class="msg msg-ok">🎉 Dans la cible ! ${delta>0?'+':''}${delta.toFixed(1)}kg — parfait !</div>`;
         if (profile.visibility==='public') { const ww=getData().warriors.find(x=>x.id===warriorId); await insertFeedEvent('body_target', warriorId, `⚖️ ${ww?ww.name:''} est dans sa cible cette semaine ! (${delta>0?'+':''}${delta.toFixed(1)}kg)`, null); }
       } else if (goodDir) {
         msg = `<div class="msg msg-ok">👍 Bonne direction ! Continue.</div>`;
       } else {
-        soundType = 'sad'; msg = `<div class="msg msg-err">💪 Pas la semaine idéale — analyse avec Sander.</div>`;
+        msg = `<div class="msg msg-err">💪 Pas la semaine idéale — analyse avec Sander.</div>`;
       }
     }
-    playBodySound(soundType);
     document.getElementById('enc-fb').innerHTML = msg;
     setTimeout(() => { const m=document.getElementById('corps-enc-modal'); if(m) m.remove(); renderCorpsPage(); }, 2000);
   } catch(e) { document.getElementById('enc-fb').innerHTML=`<div class="msg msg-err">Erreur : ${e.message}</div>`; }
