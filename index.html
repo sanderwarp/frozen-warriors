@@ -3898,13 +3898,29 @@ function getProjectionDate(profile, entries) {
 }
 function playBodySound(type) {
   try {
-    const ac = getAudioCtx();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ac = new AudioCtx();
     const now = ac.currentTime;
-    const b = (f,s,d) => { const o=ac.createOscillator(),g=ac.createGain(); o.connect(g); g.connect(ac.destination); o.type='sine'; o.frequency.setValueAtTime(f,s); g.gain.setValueAtTime(0.15,s); g.gain.exponentialRampToValueAtTime(0.001,s+d); o.start(s); o.stop(s+d+0.01); };
-    if (type==='celebration') { b(523,now,0.08); b(659,now+0.08,0.08); b(784,now+0.16,0.08); b(1047,now+0.24,0.35); }
-    else if (type==='good') { b(523,now,0.1); b(659,now+0.1,0.1); b(784,now+0.2,0.3); }
-    else { b(440,now,0.15); b(370,now+0.15,0.35); }
-  } catch(e) {}
+    const b = (f, s, d) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, now + s);
+      g.gain.setValueAtTime(0.18, now + s);
+      g.gain.exponentialRampToValueAtTime(0.001, now + s + d);
+      o.start(now + s); o.stop(now + s + d + 0.05);
+    };
+    if (type === 'celebration') {
+      b(523, 0, 0.08); b(659, 0.09, 0.08); b(784, 0.18, 0.08); b(1047, 0.27, 0.4);
+    } else if (type === 'good') {
+      b(523, 0, 0.1); b(659, 0.12, 0.1); b(784, 0.24, 0.3);
+    } else {
+      b(440, 0, 0.18); b(370, 0.2, 0.4);
+    }
+    // Fermer proprement après la dernière note
+    setTimeout(() => { try { ac.close(); } catch(e) {} }, 1200);
+  } catch(e) { console.log('Audio error:', e); }
 }
 
 function renderCorpsPage() {
