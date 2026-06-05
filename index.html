@@ -3883,17 +3883,26 @@ function getBodyStatus(profile, entries) {
 }
 function getAvgPaceKg(entries) {
   if (entries.length < 2) return null;
-  const weeks = Math.max(1, Math.round((new Date(entries[entries.length-1].entryDate) - new Date(entries[0].entryDate)) / (7*24*3600*1000)));
-  return (entries[entries.length-1].weight - entries[0].weight) / weeks;
+  // Moyenne des deltas consécutifs ramenés à 7 jours
+  let totalPace = 0;
+  let count = 0;
+  for (let i = 1; i < entries.length; i++) {
+    const days = Math.max(1, (new Date(entries[i].entryDate) - new Date(entries[i-1].entryDate)) / (24*3600*1000));
+    const delta = entries[i].weight - entries[i-1].weight;
+    totalPace += (delta / days) * 7; // ramené à 7 jours
+    count++;
+  }
+  return count > 0 ? +(totalPace / count).toFixed(3) : null;
 }
 function getProjectionDate(profile, entries) {
   if (!profile || entries.length < 2) return null;
-  const avg = getAvgPaceKg(entries);
+  const avg = getAvgPaceKg(entries); // kg/semaine
   if (!avg || avg === 0) return null;
   const remaining = profile.targetWeight - entries[entries.length-1].weight;
   if (Math.sign(remaining) !== Math.sign(avg)) return null;
+  const weeksLeft = remaining / avg;
   const d = new Date(entries[entries.length-1].entryDate);
-  d.setDate(d.getDate() + Math.round((remaining/avg)*7));
+  d.setDate(d.getDate() + Math.round(weeksLeft * 7));
   return d.toLocaleDateString('fr-BE',{day:'numeric',month:'long',year:'numeric'});
 }
 function playBodySound(type) {
