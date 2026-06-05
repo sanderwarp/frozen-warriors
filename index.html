@@ -3932,6 +3932,178 @@ function playBodySound(type) {
   } catch(e) { console.log('Audio error:', e); }
 }
 
+// ======== BEACH BODY GROUP CHALLENGE ========
+
+function calcGroupChallenge() {
+  const d = getData();
+  let totalToLose = 0;   // kg total à perdre/gagner par le groupe
+  let totalProgress = 0; // kg déjà perdus/gagnés
+  let memberCount = 0;
+
+  d.warriors.forEach(w => {
+    const profile = getBodyProfile(w.id);
+    if (!profile) return;
+    const entries = getBodyEntriesForWarrior(w.id);
+    const toGo = Math.abs(profile.targetWeight - profile.startWeight);
+    if (toGo <= 0) return;
+    totalToLose += toGo;
+    memberCount++;
+    if (entries.length > 0) {
+      const current = entries[entries.length-1].weight;
+      const delta = profile.goalType === 'prise'
+        ? current - profile.startWeight
+        : profile.startWeight - current;
+      totalProgress += Math.max(0, delta); // ne pas compter les régressions
+    }
+  });
+
+  const pct = totalToLose > 0 ? Math.min(100, (totalProgress / totalToLose) * 100) : 0;
+  return { totalToLose, totalProgress, pct, memberCount };
+}
+
+function calcWeeklyGroupContribution(warriorId, newWeight) {
+  // Contribution de ce warrior à la jauge cette semaine
+  const profile = getBodyProfile(warriorId);
+  const entries = getBodyEntriesForWarrior(warriorId);
+  if (!profile || entries.length === 0) return null;
+  const prev = entries[entries.length-1].weight;
+  const delta = profile.goalType === 'prise' ? newWeight - prev : prev - newWeight;
+  const { totalToLose } = calcGroupChallenge();
+  if (totalToLose <= 0) return null;
+  return (delta / totalToLose) * 100;
+}
+
+async function checkAndFireMilestone(prevPct, newPct) {
+  const milestones = [
+    { pct: 25, label: '🍽️ 25%', msg: '🎉 Le clan a atteint 25% de son objectif collectif ! Récompense : restaurant tous ensemble ! Bravo à tous les warriors ! 💪' },
+    { pct: 50, label: '🧊 50%', msg: '🔥 MI-CHEMIN ! Le clan a atteint 50% ! Récompense : Soirée H5 — bains froids, sauna, summo fight & bonne ambiance NA ! 🧊🏆' },
+    { pct: 75, label: '🌲 75%', msg: '🏔️ 75% ! Le clan mérite la journée à Rochehaut — balade en forêt et brasserie terroir ! WARRIORS ! 🌲🍺' }
+  ];
+  for (const m of milestones) {
+    if (prevPct < m.pct && newPct >= m.pct) {
+      await insertFeedEvent('group_milestone', null, m.msg, null);
+    }
+  }
+}
+
+function getWeeklyGroupHistory() {
+  // Calcule l'évolution % par semaine en reconstituant depuis les encodages
+  const d = getData();
+  // Collecter toutes les dates d'encodage uniques
+  const allDates = [...new Set((d.bodyEntries||[]).map(e => e.entryDate))].sort();
+  if (allDates.length < 2) return [];
+
+  const history = [];
+  for (let i = 1; i < allDates.length; i++) {
+    const date = allDates[i];
+    const prevDate = allDates[i-1];
+    // Calculer le % au jour courant et au jour précédent
+    let totalToLose = 0, progCurr = 0, progPrev = 0;
+    d.warriors.forEach(w => {
+      const profile = getBodyProfile(w.id);
+      if (!profile) return;
+      const toGo = Math.abs(profile.targetWeight - profile.startWeight);
+      if (toGo <= 0) return;
+      totalToLose += toGo;
+      const entriesUpToCurr = (d.bodyEntries||[]).filter(e => e.warriorId === w.id && e.entryDate <= date).sort((a,b) => a.entryDate.localeCompare(b.entryDate));
+      const entriesUpToPrev = (d.bodyEntries||[]).filter(e => e.warriorId === w.id && e.entryDate <= prevDate).sort((a,b) => a.entryDate.localeCompare(b.entryDate));
+      if (entriesUpToCurr.length > 0) {
+        const delta = profile.goalType === 'prise'
+          ? entriesUpToCurr[entriesUpToCurr.length-1].weight - profile.startWeight
+          : profile.startWeight - entriesUpToCurr[entriesUpToCurr.length-1].weight;
+        progCurr += Math.max(0, delta);
+      }
+      if (entriesUpToPrev.length > 0) {
+        const delta = profile.goalType === 'prise'
+          ? entriesUpToPrev[entriesUpToPrev.length-1].weight - profile.startWeight
+          : profile.startWeight - entriesUpToPrev[entriesUpToPrev.length-1].weight;
+        progPrev += Math.max(0, delta);
+      }
+    });
+    if (totalToLose > 0) {
+      const pctCurr = Math.min(100, (progCurr / totalToLose) * 100);
+      const pctPrev = Math.min(100, (progPrev / totalToLose) * 100);
+      history.push({ date, pct: pctCurr, delta: pctCurr - pctPrev });
+    }
+  }
+  return history.slice(-8); // 8 dernières entrées
+}
+
+function renderGroupChallenge(myId) {
+  const { totalToLose, totalProgress, pct, memberCount } = calcGroupChallenge();
+  const history = getWeeklyGroupHistory();
+
+  const milestones = [
+    { pct: 25, icon: '🍽️', label: 'Restaurant', reached: pct >= 25 },
+    { pct: 50, icon: '🧊', label: 'Soirée H5', reached: pct >= 50 },
+    { pct: 75, icon: '🌲', label: 'Rochehaut', reached: pct >= 75 }
+  ];
+
+  // Couleur de la jauge selon progression
+  const gaugeColor = pct >= 75 ? '#22c55e' : pct >= 50 ? '#00b4d8' : pct >= 25 ? '#ffd166' : '#e67e22';
+  const glowColor = pct >= 75 ? 'rgba(34,197,94,.4)' : pct >= 50 ? 'rgba(0,180,216,.4)' : pct >= 25 ? 'rgba(255,209,102,.4)' : 'rgba(230,126,34,.4)';
+
+  // Historique hebdo
+  const histHTML = history.length > 0 ? `
+    <div style="margin-top:16px;border-top:1px solid rgba(0,180,216,.08);padding-top:14px;">
+      <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Évolution hebdomadaire</div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        ${history.slice().reverse().map(h => {
+          const sign = h.delta >= 0 ? '+' : '';
+          const cls = h.delta > 0 ? '#22c55e' : h.delta < 0 ? 'var(--red)' : 'var(--muted)';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;">
+            <span style="color:var(--muted);">${new Date(h.date).toLocaleDateString('fr-BE',{day:'numeric',month:'short'})}</span>
+            <span style="color:${cls};font-family:'Black Ops One',cursive;font-size:12px;">${sign}${h.delta.toFixed(2)}%</span>
+            <span style="color:var(--muted);">${h.pct.toFixed(1)}% total</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  return `<div style="background:linear-gradient(135deg,rgba(15,30,51,.95),rgba(8,20,38,.98));border:1px solid rgba(0,180,216,.2);border-radius:12px;padding:20px;margin-bottom:20px;position:relative;overflow:hidden;">
+    <!-- Fond décoratif -->
+    <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:${glowColor};filter:blur(40px);pointer-events:none;"></div>
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+      <div style="font-size:22px;">🏖️</div>
+      <div>
+        <div style="font-family:'Black Ops One',cursive;font-size:16px;color:var(--text);letter-spacing:1px;">BEACH BODY GROUP CHALLENGE</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">${memberCount} warrior${memberCount>1?'s':''} · ${totalProgress.toFixed(1)}kg / ${totalToLose.toFixed(1)}kg</div>
+      </div>
+    </div>
+
+    <!-- Pourcentage -->
+    <div style="font-family:'Black Ops One',cursive;font-size:42px;color:${gaugeColor};text-shadow:0 0 20px ${glowColor};margin:10px 0 6px;">${pct.toFixed(1)}<span style="font-size:20px;">%</span></div>
+
+    <!-- Barre de progression -->
+    <div style="background:rgba(255,255,255,.06);border-radius:20px;height:18px;position:relative;overflow:hidden;margin-bottom:16px;">
+      <!-- Paliers markers -->
+      <div style="position:absolute;left:25%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.15);z-index:1;"></div>
+      <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.15);z-index:1;"></div>
+      <div style="position:absolute;left:75%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.15);z-index:1;"></div>
+      <!-- Barre -->
+      <div style="height:100%;width:${pct.toFixed(1)}%;background:linear-gradient(90deg,#e67e22,${gaugeColor});border-radius:20px;transition:width 1s ease;position:relative;">
+        ${pct > 5 ? `<div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;color:rgba(0,0,0,.7);">${pct.toFixed(0)}%</div>` : ''}
+      </div>
+    </div>
+
+    <!-- Paliers -->
+    <div style="display:flex;gap:8px;">
+      ${milestones.map(m => `
+        <div style="flex:1;text-align:center;padding:8px 4px;border-radius:8px;border:1px solid ${m.reached ? 'rgba(34,197,94,.4)' : 'rgba(255,255,255,.06)'};background:${m.reached ? 'rgba(34,197,94,.08)' : 'rgba(255,255,255,.02)'};position:relative;">
+          ${m.reached ? `<div style="position:absolute;top:-6px;right:-6px;background:#22c55e;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;font-size:8px;">✓</div>` : ''}
+          <div style="font-size:18px;">${m.icon}</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${m.reached ? '#22c55e' : 'var(--muted)'};margin-top:2px;">${m.pct}%</div>
+          <div style="font-size:9px;color:${m.reached ? 'var(--text)' : 'var(--muted)'};">${m.label}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    ${histHTML}
+  </div>`;
+}
+
 function renderCorpsPage() {
   const el = document.getElementById('corps-main');
   if (!el) return;
@@ -3939,6 +4111,9 @@ function renderCorpsPage() {
   const myId = getMyProfile();
   const coach = isCoach() || sessionStorage.getItem('fw_admin') === '1';
   let html = '';
+
+  // JAUGE COLLECTIVE EN PREMIER
+  html += renderGroupChallenge(myId);
 
   // Mon profil
   if (myId) {
@@ -3957,14 +4132,13 @@ function renderCorpsPage() {
   if (coach) {
     html += `<div class="stitle" style="margin-top:20px;">🛡️ Vue Coach</div><div class="corps-grid">`;
     d.warriors.forEach(w => {
-      if (w.id === myId) return; // déjà affiché au-dessus
+      if (w.id === myId) return;
       const profile = getBodyProfile(w.id);
-      if (!profile) return; // ignorer ceux sans profil corps
+      if (!profile) return;
       html += renderCorpsCard(w, profile, getBodyEntriesForWarrior(w.id), true);
     });
     html += `</div>`;
   } else {
-    // Tribu — profils publics/discrets
     const others = d.warriors.filter(w => w.id !== myId);
     const visible = others.filter(w => { const p = getBodyProfile(w.id); return p && p.visibility !== 'private'; });
     if (visible.length > 0) {
@@ -4495,24 +4669,38 @@ async function saveCorpsEntry(warriorId) {
   }
 
   try {
+    // Contribution à la jauge collective
+    const prevGroupPct = calcGroupChallenge().pct;
     await upsertBodyEntry({id, warriorId, entryDate, weight, sportHours, avgSteps, energyScore, foodCravingsScore, motivationScore, calories, proteins});
     await loadFromDb();
+    const newGroupPct = calcGroupChallenge().pct;
+
+    // Vérifier paliers franchis
+    await checkAndFireMilestone(prevGroupPct, newGroupPct);
     const newEntries = getBodyEntriesForWarrior(warriorId);
+    // Contribution individuelle à la jauge
+    const groupDelta = newGroupPct - prevGroupPct;
+    const contribHTML = groupDelta > 0.01
+      ? `<div style="margin-top:8px;font-size:11px;color:var(--accent);">🏖️ Tu as contribué <strong>+${groupDelta.toFixed(2)}%</strong> au Beach Body Challenge cette semaine !</div>`
+      : groupDelta < -0.01
+      ? `<div style="margin-top:8px;font-size:11px;color:var(--muted);">🏖️ Impact sur le challenge : <strong>${groupDelta.toFixed(2)}%</strong> cette semaine.</div>`
+      : '';
+
     let msg = '';
     if (!prevEntry) {
-      msg = '<div class="msg msg-ok">✅ Premier encodage enregistré ! 💪</div>';
+      msg = `<div class="msg msg-ok">✅ Premier encodage enregistré ! 💪</div>${contribHTML}`;
     } else {
       const delta = weight - prevEntry.weight;
       const absDG = Math.abs(delta)*1000;
       const goodDir = (profile.goalType==='perte'&&delta<0)||(profile.goalType==='prise'&&delta>0)||profile.goalType==='recompo';
       const inRange = absDG>=(profile.weeklyPace-profile.paceRange)&&absDG<=(profile.weeklyPace+profile.paceRange);
       if (goodDir && inRange) {
-        msg = `<div class="msg msg-ok">🎉 Dans la cible ! ${delta>0?'+':''}${delta.toFixed(1)}kg — parfait !</div>`;
+        msg = `<div class="msg msg-ok">🎉 Dans la cible ! ${delta>0?'+':''}${delta.toFixed(1)}kg — parfait !</div>${contribHTML}`;
         if (profile.visibility==='public') { const ww=getData().warriors.find(x=>x.id===warriorId); await insertFeedEvent('body_target', warriorId, `⚖️ ${ww?ww.name:''} est dans sa cible cette semaine ! (${delta>0?'+':''}${delta.toFixed(1)}kg)`, null); }
       } else if (goodDir) {
-        msg = `<div class="msg msg-ok">👍 Bonne direction ! Continue.</div>`;
+        msg = `<div class="msg msg-ok">👍 Bonne direction ! Continue.</div>${contribHTML}`;
       } else {
-        msg = `<div class="msg msg-err">💪 Pas la semaine idéale — analyse avec Sander.</div>`;
+        msg = `<div class="msg msg-err">💪 Pas la semaine idéale — analyse avec Sander.</div>${contribHTML}`;
       }
     }
     document.getElementById('enc-fb').innerHTML = msg;
