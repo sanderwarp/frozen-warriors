@@ -4028,6 +4028,127 @@ function renderCorpsCard(w, profile, entries, canEdit) {
   </div>`;
 }
 
+function showCorpsHistory(warriorId) {
+  const d = getData();
+  const w = d.warriors.find(x => x.id === warriorId);
+  const entries = getBodyEntriesForWarrior(warriorId);
+  if (!w) return;
+
+  const m = document.createElement('div');
+  m.id = 'corps-history-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9500;overflow-y:auto;padding:16px;';
+
+  const rows = [...entries].reverse().map(e => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(0,180,216,.08);">
+      <div>
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">${new Date(e.entryDate).toLocaleDateString('fr-BE',{weekday:'short',day:'numeric',month:'long'})}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">
+          ⚖️ ${e.weight}kg
+          ${e.sportHours ? ` · 🏃 ${e.sportHours}h` : ''}
+          ${e.avgSteps ? ` · 👟 ${e.avgSteps.toLocaleString()}` : ''}
+          ${e.energyScore ? ` · ⚡ ${e.energyScore}/5` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="editCorpsEntry('${warriorId}','${e.id}')" style="background:rgba(0,180,216,.1);border:1px solid rgba(0,180,216,.2);color:var(--accent);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;">✏️ Modifier</button>
+        <button onclick="deleteCorpsEntry('${warriorId}','${e.id}')" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:var(--red);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;">🗑</button>
+      </div>
+    </div>
+  `).join('');
+
+  m.innerHTML = `<div style="max-width:560px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;margin-bottom:16px;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:900;text-transform:uppercase;">✏️ Historique — ${w.name}</div>
+      <button onclick="document.getElementById('corps-history-modal').remove()" style="background:transparent;border:none;color:var(--muted);font-size:26px;cursor:pointer;">✕</button>
+    </div>
+    <div style="background:rgba(15,30,51,.8);border:1px solid rgba(0,180,216,.12);border-radius:8px;overflow:hidden;">
+      ${entries.length === 0 ? '<div style="padding:24px;text-align:center;color:var(--muted);">Aucun encodage.</div>' : rows}
+    </div>
+  </div>`;
+
+  document.body.appendChild(m);
+}
+
+function editCorpsEntry(warriorId, entryId) {
+  const d = getData();
+  const profile = getBodyProfile(warriorId);
+  const entry = (d.bodyEntries||[]).find(e => e.id === entryId);
+  const w = d.warriors.find(x => x.id === warriorId);
+  if (!entry || !profile || !w) return;
+
+  const m = document.createElement('div');
+  m.id = 'corps-edit-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9600;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
+
+  m.innerHTML = `<div style="background:#0d1f38;border:1px solid rgba(0,180,216,.25);border-radius:12px;padding:24px;max-width:440px;width:100%;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:900;text-transform:uppercase;">✏️ Modifier encodage</div>
+      <button onclick="document.getElementById('corps-edit-modal').remove()" style="background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--accent);margin-bottom:14px;">📅 ${new Date(entry.entryDate).toLocaleDateString('fr-BE',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
+    <div class="form-grid">
+      <div class="fg"><label class="fl">Poids (kg)</label><input class="fi" id="edit-w" type="number" step="0.1" value="${entry.weight}"></div>
+      <div class="fg"><label class="fl">Heures de sport</label><input class="fi" id="edit-sport" type="number" step="0.5" value="${entry.sportHours||''}"></div>
+      <div class="fg"><label class="fl">Pas moyen/jour</label><input class="fi" id="edit-steps" type="number" value="${entry.avgSteps||''}"></div>
+    </div>
+    <div class="stitle" style="margin-top:14px;">Bien-être</div>
+    <div class="score-row"><span class="score-label">⚡ Énergie</span>
+      <div class="score-btns">${[1,2,3,4,5].map(n=>`<button class="score-btn ${entry.energyScore===n?'selected':''}" onclick="selScore('edit-en',${n},this)">${n}</button>`).join('')}</div>
+      <input type="hidden" id="edit-en" value="${entry.energyScore||''}"></div>
+    <div class="score-row"><span class="score-label">😋 Envies alim.</span>
+      <div class="score-btns">${[1,2,3,4,5].map(n=>`<button class="score-btn ${entry.foodCravingsScore===n?'selected':''}" onclick="selScore('edit-cr',${n},this)">${n}</button>`).join('')}</div>
+      <input type="hidden" id="edit-cr" value="${entry.foodCravingsScore||''}"></div>
+    <div class="score-row"><span class="score-label">💪 Envie de s'entraîner</span>
+      <div class="score-btns">${[1,2,3,4,5].map(n=>`<button class="score-btn ${entry.motivationScore===n?'selected':''}" onclick="selScore('edit-mo',${n},this)">${n}</button>`).join('')}</div>
+      <input type="hidden" id="edit-mo" value="${entry.motivationScore||''}"></div>
+    ${profile.calorieTarget||profile.proteinTarget ? `<div class="stitle" style="margin-top:14px;">Nutrition</div><div class="form-grid">
+      ${profile.calorieTarget?`<div class="fg"><label class="fl">Calories moy/jour</label><input class="fi" id="edit-cal" type="number" value="${entry.calories||''}"></div>`:''}
+      ${profile.proteinTarget?`<div class="fg"><label class="fl">Protéines moy/jour (g)</label><input class="fi" id="edit-prot" type="number" value="${entry.proteins||''}"></div>`:''}
+    </div>` : ''}
+    <div id="edit-msg" style="margin-top:10px;"></div>
+    <div class="form-actions"><button class="btn btn-p" onclick="saveCorpsEdit('${warriorId}','${entryId}')">💾 Enregistrer</button></div>
+  </div>`;
+
+  document.body.appendChild(m);
+}
+
+async function saveCorpsEdit(warriorId, entryId) {
+  const entry = (getData().bodyEntries||[]).find(e => e.id === entryId);
+  if (!entry) return;
+  const weight = parseFloat(document.getElementById('edit-w').value);
+  if (isNaN(weight)) { document.getElementById('edit-msg').innerHTML='<div class="msg msg-err">Poids obligatoire.</div>'; return; }
+  const sportHours = document.getElementById('edit-sport').value ? parseFloat(document.getElementById('edit-sport').value) : null;
+  const avgSteps = document.getElementById('edit-steps').value ? parseInt(document.getElementById('edit-steps').value) : null;
+  const energyScore = document.getElementById('edit-en').value ? parseInt(document.getElementById('edit-en').value) : null;
+  const foodCravingsScore = document.getElementById('edit-cr').value ? parseInt(document.getElementById('edit-cr').value) : null;
+  const motivationScore = document.getElementById('edit-mo').value ? parseInt(document.getElementById('edit-mo').value) : null;
+  const calEl = document.getElementById('edit-cal'), protEl = document.getElementById('edit-prot');
+  const calories = calEl && calEl.value ? parseInt(calEl.value) : null;
+  const proteins = protEl && protEl.value ? parseInt(protEl.value) : null;
+  try {
+    await upsertBodyEntry({ id: entryId, warriorId, entryDate: entry.entryDate, weight, sportHours, avgSteps, energyScore, foodCravingsScore, motivationScore, calories, proteins });
+    document.getElementById('edit-msg').innerHTML = '<div class="msg msg-ok">✅ Encodage corrigé !</div>';
+    await loadFromDb();
+    setTimeout(() => {
+      const em = document.getElementById('corps-edit-modal'); if(em) em.remove();
+      const hm = document.getElementById('corps-history-modal'); if(hm) hm.remove();
+      const cm = document.getElementById('corps-chart-modal'); if(cm) cm.remove();
+      renderCorpsPage();
+    }, 900);
+  } catch(e) { document.getElementById('edit-msg').innerHTML=`<div class="msg msg-err">Erreur : ${e.message}</div>`; }
+}
+
+async function deleteCorpsEntry(warriorId, entryId) {
+  if (!confirm('Supprimer cet encodage ?')) return;
+  try {
+    await sbFetch('body_entries?id=eq.'+entryId, { method: 'DELETE', headers: {'Prefer':'return=minimal'} });
+    await loadFromDb();
+    const hm = document.getElementById('corps-history-modal'); if(hm) hm.remove();
+    const cm = document.getElementById('corps-chart-modal'); if(cm) cm.remove();
+    renderCorpsPage();
+  } catch(e) { alert('Erreur : ' + e.message); }
+}
+
 function showCorpsSettings(warriorId) {
   const d = getData();
   const w = d.warriors.find(x => x.id === warriorId);
@@ -4217,7 +4338,10 @@ function showCorpsCharts(warriorId) {
   m.innerHTML = `<div style="max-width:680px;margin:0 auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-top:8px;">
       <div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:900;text-transform:uppercase;color:var(--text);">📈 ${w.name} — Évolution</div>
-      <button onclick="document.getElementById('corps-chart-modal').remove()" style="background:transparent;border:none;color:var(--muted);font-size:26px;cursor:pointer;">✕</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button onclick="showCorpsHistory('${warriorId}')" style="background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.2);color:#ffd166;border-radius:6px;padding:6px 12px;font-size:11px;font-family:Barlow Condensed,sans-serif;font-weight:700;letter-spacing:1px;cursor:pointer;">✏️ CORRIGER</button>
+        <button onclick="document.getElementById('corps-chart-modal').remove()" style="background:transparent;border:none;color:var(--muted);font-size:26px;cursor:pointer;">✕</button>
+      </div>
     </div>
 
     ${entries.length < 2 ? `<div style="text-align:center;padding:60px 20px;color:var(--muted);font-size:14px;">Pas encore assez de données (minimum 2 encodages).</div>` : `
