@@ -1827,11 +1827,11 @@ function TabBar({ tab, onTab }) {
   return (
     <div style={{
       position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20,
-      height: 76, paddingBottom: 18,
+      paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
       background: `linear-gradient(180deg, ${T.bg1}00, ${T.bg0} 38%)`,
       backdropFilter: 'blur(10px)',
       borderTop: `1px solid ${T.inkXLow}`,
-      display: 'flex', alignItems: 'flex-start', paddingTop: 8,
+      display: 'flex', alignItems: 'flex-start', paddingTop: 9,
     }}>
       {TABS.map((t) => {
         const active = tab === t.id;
@@ -1985,7 +1985,7 @@ function FWApp({ accent, particlesOn = true }) {
       {ready && (
         <div style={{ position: 'relative', height: '100%', zIndex: 2 }}>
           {/* Screen body */}
-          <div className="app-scroll" style={{ paddingTop: 48, paddingBottom: 84, height: '100%' }}>
+          <div className="app-scroll" style={{ paddingTop: 'max(44px, calc(env(safe-area-inset-top) + 8px))', paddingBottom: 'calc(96px + env(safe-area-inset-bottom))', height: '100%' }}>
             {tab === 'home' && <DashboardScreen me={me} warriors={warriors} meta={meta} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} onTab={setTab} onOpenSub={setSub} onReact={reactToFeed} />}
             {tab === 'rank' && <ClassementScreen warriors={warriors} meId={me && me.id} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} me={me} />}
             {tab === 'habits' && <HabitsScreen me={me} warriors={warriors} meta={meta} accent={acc} onProfile={() => setPickerOpen(true)} reload={reload} />}
@@ -2000,7 +2000,7 @@ function FWApp({ accent, particlesOn = true }) {
       {sub && ready && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: T.bg0, display: 'flex', flexDirection: 'column' }} className="app-fade">
           <div style={{
-            paddingTop: 46, paddingBottom: 10, paddingLeft: 8, paddingRight: 16,
+            paddingTop: 'max(44px, calc(env(safe-area-inset-top) + 8px))', paddingBottom: 10, paddingLeft: 8, paddingRight: 16,
             display: 'flex', alignItems: 'center', gap: 8,
             borderBottom: `1px solid ${T.inkXLow}`, position: 'relative', zIndex: 2,
             background: `linear-gradient(180deg, ${T.bg1}, ${T.bg1}cc)`,
@@ -2060,10 +2060,26 @@ function FWApp({ accent, particlesOn = true }) {
   );
 }
 
+// ─── Mini hex radar (used by Classement / Roster cards) ────────────────
+function MiniHex({ values, accent = T.accent, size = 56 }) {
+  const hp = window.hexPoint || ((i, r, cx, cy) => { const a = (Math.PI * 2 / 6) * i - Math.PI / 2; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; });
+  const cx = size / 2, cy = size / 2, r = size * 0.38;
+  const vals = (values && values.length === 6) ? values : [0, 0, 0, 0, 0, 0];
+  const pts = vals.map((v, i) => hp(i, r * Math.max(8, v || 0) / 100, cx, cy));
+  const ring = Array.from({ length: 6 }, (_, i) => hp(i, r, cx, cy));
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <polygon points={ring.map((p) => p.join(',')).join(' ')}
+        fill="none" stroke={T.inkLow} strokeOpacity={0.5} strokeWidth={1} strokeDasharray="2 2" />
+      <polygon points={pts.map((p) => p.join(',')).join(' ')}
+        fill={accent} fillOpacity={0.2} stroke={accent} strokeWidth={1.4} strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 Object.assign(window, {
-  FWApp, APP_W, APP_H,
   Card, Eyebrow, SectionTitle, AnimalBadge, RankPill, ProgressBar,
-  relativeTime, AppBar, FEED_ICONS, MEDAL, APP_T: T, APP_FT: FT, APP_FM: FM,
+  relativeTime, AppBar, FEED_ICONS, MEDAL, MiniHex, APP_T: T, APP_FT: FT, APP_FM: FM,
 });
 
 </script>
