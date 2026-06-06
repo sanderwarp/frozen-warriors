@@ -1,0 +1,3826 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Frozen Warriors</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #03070d; overscroll-behavior: none; }
+  #root { position: fixed; inset: 0; overflow: hidden; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script>window.SCREEN_W=402;window.SCREEN_H=874;</script>
+<script type="text/babel" data-from="common.jsx">
+// common.jsx — shared bits for Frozen Warriors wireframes
+// Hex radar SVG, fake data, sketchy primitives.
+
+const AXES = ['Force', 'Respiration', 'Anaérobie', 'Puissance', 'Endurance', 'Tension'];
+const AXES_SHORT = ['FOR', 'RES', 'ANA', 'PUI', 'END', 'TEN'];
+
+// 28 warriors — 8 detailed, 20 procgen
+const PRIMARY = [
+  { id: 'm',  name: 'Marcus L.',   rank: 1,  stats: [88, 72, 65, 81, 90, 78], prev: [85, 70, 68, 75, 88, 80], habits: 27 },
+  { id: 'k',  name: 'Klara N.',    rank: 2,  stats: [76, 84, 88, 70, 75, 82], prev: [70, 80, 85, 68, 73, 79], habits: 25 },
+  { id: 'j',  name: 'Jonas R.',    rank: 3,  stats: [82, 60, 70, 85, 68, 74], prev: [80, 62, 68, 80, 65, 70], habits: 22 },
+  { id: 'a',  name: 'Aïsha B.',    rank: 4,  stats: [70, 90, 82, 65, 88, 80], prev: [68, 86, 80, 62, 84, 78], habits: 28 },
+  { id: 's',  name: 'Sven D.',     rank: 5,  stats: [92, 55, 60, 90, 62, 70], prev: [88, 58, 64, 85, 60, 68], habits: 18 },
+  { id: 'l',  name: 'Léa M.',      rank: 6,  stats: [65, 78, 75, 60, 82, 88], prev: [62, 75, 72, 58, 80, 85], habits: 24 },
+  { id: 't',  name: 'Théo V.',     rank: 7,  stats: [74, 70, 72, 76, 73, 75], prev: [70, 68, 70, 72, 70, 72], habits: 20 },
+  { id: 'n',  name: 'Nora P.',     rank: 8,  stats: [68, 82, 80, 64, 78, 84], prev: [66, 80, 78, 62, 76, 80], habits: 26 },
+];
+const WARRIORS = [
+  ...PRIMARY,
+  ...Array.from({ length: 20 }, (_, i) => {
+    const seed = (i + 1) * 17;
+    const r = (n) => 50 + ((seed * (n + 1) * 13) % 45);
+    return {
+      id: 'w' + i,
+      name: ['Eva','Iris','Bjorn','Olaf','Kai','Mila','Ruth','Yuki','Erik','Ana','Tom','Saga','Liv','Per','Ines','Otto','Vera','Noé','Sif','Ulf'][i] + ' ' + 'XSPMTABFR'[i%9] + '.',
+      rank: i + 9,
+      stats: [r(1), r(2), r(3), r(4), r(5), r(6)],
+      prev: [r(1) - 3, r(2) - 2, r(3) - 4, r(4) - 1, r(5) - 3, r(6) - 2],
+      habits: 10 + (seed % 18),
+    };
+  }),
+];
+
+// Team average — naive mean
+const TEAM_AVG = AXES.map((_, i) =>
+  Math.round(WARRIORS.reduce((s, w) => s + w.stats[i], 0) / WARRIORS.length)
+);
+
+const MONTHS = ['Oct','Nov','Déc','Jan','Fév','Mar','Avr'];
+
+// ─── Hex math ──────────────────────────────────────────────────────────
+function hexPoint(i, r, cx, cy) {
+  const a = (Math.PI * 2 / 6) * i - Math.PI / 2;
+  return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+}
+
+// ─── Hex Radar ─────────────────────────────────────────────────────────
+function HexRadar({
+  size = 260,
+  values,
+  ghost = null,            // previous month or other warrior
+  teamAvg = null,
+  accent = '#0e7490',
+  ghostAccent = '#999',
+  ink = '#222',
+  filled = 'stroke',       // 'stroke' | 'fill' | 'glow'
+  showLabels = true,
+  highlightStrong = true,
+  pulse = true,
+  labelFont = "'Kalam', cursive",
+}) {
+  const cx = size / 2, cy = size / 2;
+  const r = size * 0.36;
+  const labelR = size * 0.46;
+
+  // Find strongest & weakest axis
+  const strongIdx = values.indexOf(Math.max(...values));
+  const weakIdx = values.indexOf(Math.min(...values));
+
+  const ring = (f) => Array.from({ length: 6 }, (_, i) => hexPoint(i, r * f, cx, cy));
+  const ringStr = (pts) => pts.map(p => p.join(',')).join(' ');
+  const valuePts = values.map((v, i) => hexPoint(i, r * Math.max(8, v) / 100, cx, cy));
+  const ghostPts = ghost ? ghost.map((v, i) => hexPoint(i, r * Math.max(8, v) / 100, cx, cy)) : null;
+  const avgPts = teamAvg ? teamAvg.map((v, i) => hexPoint(i, r * v / 100, cx, cy)) : null;
+
+  const labels = AXES.map((axis, i) => {
+    const [x, y] = hexPoint(i, labelR, cx, cy);
+    return { axis, x, y, i, value: values[i] };
+  });
+
+  const glowOn = filled === 'glow';
+
+  return (
+    <svg width={size} height={size} viewBox={`-20 -20 ${size + 40} ${size + 40}`} style={{ overflow: 'visible' }}>
+      <defs>
+        <filter id={`glow-${size}`} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" />
+        </filter>
+      </defs>
+      {/* concentric rings */}
+      {[0.33, 0.66, 1].map((f, idx) => (
+        <polygon key={idx} points={ringStr(ring(f))}
+          fill="none" stroke={ink} strokeOpacity={0.18}
+          strokeWidth={1} strokeDasharray={idx < 2 ? '3 4' : ''} />
+      ))}
+      {/* axes spokes */}
+      {Array.from({ length: 6 }, (_, i) => {
+        const [x, y] = hexPoint(i, r, cx, cy);
+        return <line key={i} x1={cx} y1={cy} x2={x} y2={y}
+          stroke={ink} strokeOpacity={0.16} strokeWidth={1} strokeDasharray="2 4" />;
+      })}
+      {/* team avg (filigree) */}
+      {avgPts && (
+        <polygon points={ringStr(avgPts)} fill="none"
+          stroke={ink} strokeOpacity={0.45} strokeWidth={1.5} strokeDasharray="5 3" />
+      )}
+      {/* ghost (previous month) */}
+      {ghostPts && (
+        <polygon points={ringStr(ghostPts)}
+          fill={ghostAccent} fillOpacity={0.07}
+          stroke={ghostAccent} strokeOpacity={0.7}
+          strokeWidth={1.5} strokeDasharray="4 3" />
+      )}
+      {/* values shape */}
+      {glowOn && (
+        <polygon points={ringStr(valuePts)} fill={accent} fillOpacity={0.4}
+          filter={`url(#glow-${size})`} />
+      )}
+      <polygon points={ringStr(valuePts)}
+        fill={accent} fillOpacity={filled === 'fill' ? 0.22 : 0.1}
+        stroke={accent} strokeWidth={2.2} strokeLinejoin="round"
+        strokeLinecap="round" />
+      {/* vertex dots */}
+      {valuePts.map(([x, y], i) => (
+        <g key={i}>
+          {highlightStrong && i === strongIdx && pulse && (
+            <circle cx={x} cy={y} r="9" fill={accent} opacity="0.35">
+              <animate attributeName="r" values="6;14;6" dur="1.8s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.5;0;0.5" dur="1.8s" repeatCount="indefinite" />
+            </circle>
+          )}
+          <circle cx={x} cy={y}
+            r={i === strongIdx ? 5 : i === weakIdx ? 4 : 3}
+            fill={i === weakIdx ? '#999' : accent}
+            stroke="#fff" strokeWidth={1} />
+        </g>
+      ))}
+      {/* labels */}
+      {showLabels && labels.map(({ axis, x, y, i, value }) => {
+        const isStrong = i === strongIdx;
+        const isWeak = i === weakIdx;
+        const tag = isStrong ? '★ point fort' : isWeak ? '⚠ à travailler' : null;
+        return (
+          <g key={i}>
+            <text x={x} y={y - 4} fontSize={11} textAnchor="middle"
+              dominantBaseline="middle" fontFamily={labelFont}
+              fill={ink} fontWeight={700}>
+              {axis}
+            </text>
+            <text x={x} y={y + 8} fontSize={10} textAnchor="middle"
+              dominantBaseline="middle" fontFamily="ui-monospace, monospace"
+              fill={ink} opacity={0.6}>
+              {value}
+            </text>
+            {tag && pulse && (
+              <text x={x} y={y + 22} fontSize={8} textAnchor="middle"
+                dominantBaseline="middle" fontFamily={labelFont}
+                fill={isStrong ? accent : '#888'} fontWeight={700}>
+                {tag}
+                {isStrong && (
+                  <animate attributeName="opacity" values="0.5;1;0.5" dur="1.6s" repeatCount="indefinite" />
+                )}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── Sketchy primitives ────────────────────────────────────────────────
+function SketchBox({ children, style = {}, dashed = true, tilt = 0, ...rest }) {
+  return (
+    <div style={{
+      border: `1.4px ${dashed ? 'dashed' : 'solid'} #2a2a2a`,
+      borderRadius: 8,
+      padding: 10,
+      background: '#fff',
+      transform: tilt ? `rotate(${tilt}deg)` : undefined,
+      ...style,
+    }} {...rest}>{children}</div>
+  );
+}
+
+function Chip({ children, tone = 'ink', style = {} }) {
+  const tones = {
+    ink: { bg: '#fff', fg: '#222', bd: '#222' },
+    accent: { bg: '#e0f7fa', fg: '#0e7490', bd: '#0e7490' },
+    warn: { bg: '#fff', fg: '#666', bd: '#888' },
+  };
+  const t = tones[tone] || tones.ink;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '2px 8px', borderRadius: 99,
+      border: `1.2px solid ${t.bd}`, background: t.bg, color: t.fg,
+      fontSize: 10, fontFamily: "'Kalam', cursive", fontWeight: 600,
+      letterSpacing: 0.2, ...style,
+    }}>{children}</span>
+  );
+}
+
+function Avatar({ initial, size = 36, ring = false, accent = '#0e7490' }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: '#f3f0e8',
+      border: `${ring ? 2 : 1.4}px ${ring ? 'solid' : 'dashed'} ${ring ? accent : '#222'}`,
+      display: 'grid', placeItems: 'center',
+      fontFamily: "'Kalam', cursive", fontWeight: 700,
+      fontSize: size * 0.42, color: '#222',
+    }}>{initial}</div>
+  );
+}
+
+function StatBar({ label, value, max = 100, accent = '#0e7490', dim = false }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontFamily: "'Kalam', cursive" }}>
+      <span style={{ width: 50, color: '#222', fontWeight: 600 }}>{label}</span>
+      <div style={{
+        flex: 1, height: 8, borderRadius: 4,
+        border: '1px dashed #333', background: '#fafaf6',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{
+          height: '100%',
+          width: `${value}%`,
+          background: dim ? 'repeating-linear-gradient(45deg,#bbb 0 4px,transparent 4px 8px)' : accent,
+          opacity: dim ? 0.5 : 0.75,
+        }} />
+      </div>
+      <span style={{ width: 22, textAlign: 'right', fontFamily: 'ui-monospace, monospace', fontSize: 10, color: '#222' }}>{value}</span>
+    </div>
+  );
+}
+
+function Annotation({ children, style = {} }) {
+  return (
+    <div style={{
+      fontFamily: "'Kalam', cursive", fontSize: 10,
+      color: '#7c3aed', fontStyle: 'italic',
+      letterSpacing: 0.2, lineHeight: 1.3,
+      ...style,
+    }}>↳ {children}</div>
+  );
+}
+
+function Arrow({ from = 'left', style = {} }) {
+  return (
+    <span style={{
+      fontFamily: "'Kalam', cursive", color: '#7c3aed',
+      fontSize: 14, ...style,
+    }}>{from === 'left' ? '⤺' : '⤻'}</span>
+  );
+}
+
+Object.assign(window, {
+  AXES, AXES_SHORT, WARRIORS, TEAM_AVG, MONTHS,
+  HexRadar, SketchBox, Chip, Avatar, StatBar, Annotation, Arrow,
+  hexPoint,
+});
+
+</script>
+<script type="text/babel" data-from="hifi-character.jsx">
+// hifi-character.jsx — Hi-fi "Fiche guerrier" (dark glacial, RPG/tech)
+// Combines screens 01 + 05: hex radar central + per-axis evolution + habits/challenge.
+
+const ICE = {
+  bg0: '#03070d',
+  bg1: '#091522',
+  bg2: '#0f2436',
+  ink: '#e6f6fb',
+  inkDim: 'rgba(230,246,251,0.65)',
+  inkLow: 'rgba(230,246,251,0.35)',
+  inkXLow: 'rgba(230,246,251,0.14)',
+  accent: '#67e8f9',
+  accentDeep: '#22d3ee',
+  accentBright: '#a5f3fc',
+  accentDark: '#0e7490',
+  warn: '#fb923c',
+  good: '#4ade80',
+  bad: '#f87171',
+  weak: '#475569',
+};
+
+const HI_FONT_TITLE = "'Space Grotesk', system-ui, sans-serif";
+const HI_FONT_MONO = "'JetBrains Mono', ui-monospace, monospace";
+
+// ─── Frost particles (drifting upward) ─────────────────────────────────
+function FrostParticles({ width = 402, height = 874, count = 32 }) {
+  const particles = React.useMemo(() => {
+    return Array.from({ length: count }, (_, i) => {
+      const x = ((i * 9301 + 49297) % 233280 / 233280) * width;
+      const r = 0.6 + ((i * 31) % 18) / 12;
+      const dur = 10 + ((i * 7) % 16);
+      const delay = -((i * 1.7) % dur);
+      const sway = (((i % 5) - 2) * 10);
+      const opacity = 0.25 + ((i % 7) / 22);
+      return { x, r, dur, delay, sway, opacity };
+    });
+  }, [width, count]);
+  return (
+    <svg width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      {particles.map((p, i) => (
+        <circle key={i} cx={p.x} cy={height + 12} r={p.r} fill={ICE.accentBright} opacity={p.opacity}>
+          <animate attributeName="cy" from={height + 12} to={-12} dur={`${p.dur}s`} begin={`${p.delay}s`} repeatCount="indefinite" />
+          <animate attributeName="cx" values={`${p.x};${p.x + p.sway};${p.x}`} dur={`${p.dur * 0.7}s`} begin={`${p.delay}s`} repeatCount="indefinite" />
+        </circle>
+      ))}
+    </svg>
+  );
+}
+
+// ─── Dark hex radar with draw-on animation ─────────────────────────────
+function HexRadarDark({
+  size = 280, values, present = null, ghost = null, teamAvg = null,
+  accent = ICE.accent, ghostAccent = ICE.accentDark,
+  drawOnKey = 0, pulse = true,
+}) {
+  const cx = size / 2, cy = size / 2;
+  const r = size * 0.36;
+  const labelR = size * 0.49;
+
+  const has = (i) => (present ? present[i] : values[i] > 0);
+  // Strong / weak only among measured axes
+  const measured = values.map((v, i) => ({ v, i })).filter((s) => has(s.i));
+  const strongIdx = measured.length ? measured.reduce((a, b) => (b.v > a.v ? b : a)).i : -1;
+  const weakIdx = measured.length > 1 ? measured.reduce((a, b) => (b.v < a.v ? b : a)).i : -1;
+
+  const ring = (f) => Array.from({ length: 6 }, (_, i) => hexPoint(i, r * f, cx, cy));
+  const ringStr = (pts) => pts.map(p => p.join(',')).join(' ');
+  const valuePts = values.map((v, i) => hexPoint(i, r * Math.max(8, v) / 100, cx, cy));
+  const ghostPts = ghost ? ghost.map((v, i) => hexPoint(i, r * Math.max(8, v) / 100, cx, cy)) : null;
+  const avgPts = teamAvg ? teamAvg.map((v, i) => hexPoint(i, r * v / 100, cx, cy)) : null;
+
+  const perimeter = valuePts.reduce((sum, p, i) => {
+    const n = valuePts[(i + 1) % valuePts.length];
+    return sum + Math.hypot(n[0] - p[0], n[1] - p[1]);
+  }, 0);
+
+  return (
+    <svg width={size} height={size} viewBox={`-30 -30 ${size + 60} ${size + 60}`}
+      style={{ overflow: 'visible', display: 'block' }}>
+      <defs>
+        <filter id="radar-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3.5" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <radialGradient id="radar-aurora" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={ICE.accent} stopOpacity="0.18" />
+          <stop offset="55%" stopColor={ICE.accent} stopOpacity="0.06" />
+          <stop offset="100%" stopColor={ICE.accent} stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      {/* aurora */}
+      <circle cx={cx} cy={cy} r={r * 1.5} fill="url(#radar-aurora)" />
+
+      {/* rings */}
+      {[0.33, 0.66, 1].map((f, idx) => (
+        <polygon key={idx} points={ringStr(ring(f))}
+          fill="none" stroke={ICE.inkXLow}
+          strokeWidth={idx === 2 ? 1.2 : 0.8}
+          strokeDasharray={idx < 2 ? '2 4' : ''} />
+      ))}
+
+      {/* spokes */}
+      {Array.from({ length: 6 }, (_, i) => {
+        const [x, y] = hexPoint(i, r, cx, cy);
+        return <line key={i} x1={cx} y1={cy} x2={x} y2={y}
+          stroke={ICE.inkXLow} strokeWidth={0.8} strokeDasharray="1 4" />;
+      })}
+
+      {/* team avg silhouette */}
+      {avgPts && (
+        <polygon points={ringStr(avgPts)} fill="none"
+          stroke={ICE.inkLow} strokeWidth={1.2} strokeDasharray="3 4" />
+      )}
+
+      {/* ghost (last month) */}
+      {ghostPts && (
+        <polygon points={ringStr(ghostPts)}
+          fill={ghostAccent} fillOpacity={0.05}
+          stroke={ghostAccent} strokeOpacity={0.6}
+          strokeWidth={1.4} strokeDasharray="5 4" />
+      )}
+
+      {/* fill (under stroke, no glow) */}
+      <polygon points={ringStr(valuePts)}
+        fill={accent} fillOpacity={0.12} />
+
+      {/* glow stroke with draw-on animation */}
+      <polygon points={ringStr(valuePts)}
+        fill="none" stroke={accent} strokeWidth={2.4}
+        strokeLinejoin="round" strokeLinecap="round"
+        filter="url(#radar-glow)"
+        strokeDasharray={perimeter}
+        strokeDashoffset={perimeter}>
+        <animate key={drawOnKey} attributeName="stroke-dashoffset"
+          from={perimeter} to="0" dur="1.6s"
+          begin="0s" fill="freeze" calcMode="spline"
+          keySplines="0.2 0.8 0.2 1" keyTimes="0;1" values={`${perimeter};0`} />
+      </polygon>
+
+      {/* vertex glyphs */}
+      {valuePts.map(([x, y], i) => {
+        const measuredAxis = has(i);
+        const isStrong = i === strongIdx;
+        const isWeak = i === weakIdx;
+        const color = !measuredAxis ? ICE.inkLow : isWeak ? ICE.weak : accent;
+        return (
+          <g key={i} opacity="0">
+            <animate attributeName="opacity" from="0" to="1" dur="0.4s"
+              begin={`${0.4 + i * 0.12}s`} fill="freeze" />
+            {isStrong && pulse && (
+              <circle cx={x} cy={y} r="6" fill={accent} opacity="0.5">
+                <animate attributeName="r" values="6;18;6" dur="2s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite" />
+              </circle>
+            )}
+            {measuredAxis ? (
+              <circle cx={x} cy={y} r={isStrong ? 5.5 : isWeak ? 4 : 4.5}
+                fill={color} stroke={ICE.bg0} strokeWidth={1.5} />
+            ) : (
+              <circle cx={x} cy={y} r={3.5}
+                fill={ICE.bg0} stroke={ICE.inkLow} strokeWidth={1.2} strokeDasharray="2 2" />
+            )}
+            {isStrong && measuredAxis && (
+              <circle cx={x} cy={y} r="2" fill={ICE.bg0} />
+            )}
+          </g>
+        );
+      })}
+
+      {/* labels */}
+      {AXES.map((axis, i) => {
+        const [x, y] = hexPoint(i, labelR, cx, cy);
+        const measuredAxis = has(i);
+        const isStrong = i === strongIdx;
+        const isWeak = i === weakIdx;
+        const labelColor = !measuredAxis ? ICE.inkLow : isStrong ? ICE.accentBright : isWeak ? ICE.weak : ICE.inkDim;
+        return (
+          <g key={i} opacity="0">
+            <animate attributeName="opacity" from="0" to="1" dur="0.5s"
+              begin={`${0.6 + i * 0.1}s`} fill="freeze" />
+            <text x={x} y={y - 4} fontSize={9.5} textAnchor="middle"
+              fontFamily={HI_FONT_MONO} fill={labelColor}
+              fontWeight={600} letterSpacing="1" opacity={measuredAxis ? 1 : 0.6}>
+              {axis.toUpperCase()}
+            </text>
+            <text x={x} y={y + 10} fontSize={measuredAxis ? 13 : 10} textAnchor="middle"
+              fontFamily={HI_FONT_MONO} fill={!measuredAxis ? ICE.inkLow : isStrong ? ICE.accent : ICE.ink}
+              fontWeight={700} opacity={measuredAxis ? 1 : 0.55}>
+              {measuredAxis ? values[i] : 'n/d'}
+            </text>
+            {measuredAxis && (isStrong || isWeak) && (
+              <text x={x} y={y + 22} fontSize={7.5} textAnchor="middle"
+                fontFamily={HI_FONT_MONO} fill={isStrong ? ICE.accent : ICE.weak}
+                fontWeight={700} letterSpacing="0.5">
+                {isStrong ? '★ PT FORT' : '⚠ À TRAVAILLER'}
+                {isStrong && pulse && (
+                  <animate attributeName="opacity" values="0.5;1;0.5" dur="1.8s" repeatCount="indefinite" />
+                )}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {/* center crosshair */}
+      <g opacity="0.4">
+        <line x1={cx - 4} y1={cy} x2={cx + 4} y2={cy} stroke={ICE.accent} strokeWidth="1" />
+        <line x1={cx} y1={cy - 4} x2={cx} y2={cy + 4} stroke={ICE.accent} strokeWidth="1" />
+      </g>
+    </svg>
+  );
+}
+
+// ─── Animated count-up ─────────────────────────────────────────────────
+function CountUp({ to, dur = 1100, suffix = '', deps = [] }) {
+  const [v, setV] = React.useState(0);
+  React.useEffect(() => {
+    let raf, start;
+    const tick = (t) => {
+      if (!start) start = t;
+      const k = Math.min(1, (t - start) / dur);
+      const eased = 1 - Math.pow(1 - k, 3);
+      setV(Math.round(to * eased));
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [to, dur, ...deps]);
+  return <>{v}{suffix}</>;
+}
+
+// ─── Tiny sparkline ────────────────────────────────────────────────────
+function SparkDark({ values, width = 70, height = 22, accent = ICE.accent, trend }) {
+  const max = Math.max(...values, 100);
+  const min = Math.min(...values, 0);
+  const span = Math.max(1, max - min);
+  const pts = values.map((v, i) => [
+    (i / (values.length - 1)) * (width - 4) + 2,
+    height - 2 - ((v - min) / span) * (height - 6),
+  ]);
+  const d = 'M' + pts.map(p => p.join(',')).join(' L');
+  const last = pts[pts.length - 1];
+  const color = trend > 0 ? ICE.good : trend < 0 ? ICE.bad : accent;
+  return (
+    <svg width={width} height={height} style={{ display: 'block' }}>
+      <defs>
+        <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={`${d} L ${last[0]},${height} L ${pts[0][0]},${height} Z`} fill="url(#spark-fill)" />
+      <path d={d} fill="none" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r="2.2" fill={color} />
+    </svg>
+  );
+}
+
+// ─── Header ────────────────────────────────────────────────────────────
+function HFHeader() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '6px 18px 4px', position: 'relative', zIndex: 4,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ color: ICE.inkLow, fontSize: 18 }}>‹</span>
+        <span style={{
+          fontFamily: HI_FONT_MONO, fontSize: 10, letterSpacing: 1.4,
+          color: ICE.inkLow, textTransform: 'uppercase',
+        }}>Frozen Warriors · S3</span>
+      </div>
+      <div style={{
+        width: 26, height: 26, borderRadius: 8,
+        border: `1px solid ${ICE.inkXLow}`,
+        display: 'grid', placeItems: 'center', color: ICE.inkDim, fontSize: 14,
+      }}>≡</div>
+    </div>
+  );
+}
+
+// ─── Identity row ──────────────────────────────────────────────────────
+function HFIdentity({ w, delta, totalWarriors, hasPrev = true, measuredCount = 6 }) {
+  const initial = (w.name && w.name.trim()[0]) ? w.name.trim()[0].toUpperCase() : '?';
+  const total = totalWarriors || WARRIORS.length;
+  return (
+    <div style={{ padding: '8px 18px 4px', display: 'flex', gap: 14, alignItems: 'center', position: 'relative', zIndex: 4 }}>
+      <div style={{
+        width: 60, height: 60, borderRadius: '50%',
+        background: `linear-gradient(135deg, ${ICE.bg2}, ${ICE.bg1})`,
+        border: `1.5px solid ${ICE.accent}`,
+        boxShadow: `0 0 24px ${ICE.accent}30, inset 0 0 12px ${ICE.accent}22`,
+        display: 'grid', placeItems: 'center',
+        fontFamily: HI_FONT_TITLE, fontSize: 26, fontWeight: 600,
+        color: ICE.accentBright, position: 'relative', flexShrink: 0,
+      }}>
+        {initial}
+        <div style={{
+          position: 'absolute', bottom: -2, right: -2,
+          background: ICE.accent, color: ICE.bg0,
+          fontFamily: HI_FONT_MONO, fontSize: 9, fontWeight: 700,
+          padding: '1px 5px', borderRadius: 6,
+        }}>#{w.rank}</div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: HI_FONT_TITLE, fontSize: 22, fontWeight: 600,
+          color: ICE.ink, lineHeight: 1, letterSpacing: -0.3,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{(w.name || '—').toUpperCase()}</div>
+        <div style={{
+          fontFamily: HI_FONT_MONO, fontSize: 9.5, letterSpacing: 1.2,
+          color: ICE.inkLow, marginTop: 4, textTransform: 'uppercase',
+        }}>Guerrier · Rang #{w.rank}/{total}</div>
+        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          {hasPrev ? (
+            <div style={{
+              flexShrink: 0,
+              padding: '3px 9px', borderRadius: 99,
+              border: `1px solid ${delta >= 0 ? ICE.good + '55' : ICE.bad + '55'}`,
+              background: (delta >= 0 ? ICE.good : ICE.bad) + '14',
+              color: delta >= 0 ? ICE.good : ICE.bad,
+              fontFamily: HI_FONT_MONO, fontSize: 10, fontWeight: 700,
+              whiteSpace: 'nowrap',
+            }}>
+              {`${delta >= 0 ? '▲' : '▼'} ${delta >= 0 ? '+' : ''}${delta} vs séance préc.`}
+            </div>
+          ) : (
+            <div style={{
+              flexShrink: 0,
+              padding: '3px 9px', borderRadius: 99,
+              border: `1px solid ${ICE.accent}44`,
+              background: `${ICE.accent}10`, color: ICE.accent,
+              fontFamily: HI_FONT_MONO, fontSize: 10, fontWeight: 700,
+              whiteSpace: 'nowrap',
+            }}>
+              {`${measuredCount}/6 axes mesurés`}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Axis details row ──────────────────────────────────────────────────
+function HFAxisRow({ axis, value, prev, history, idx, isStrong, isWeak, measured = true, prevMeasured = true, hasPrev = true }) {
+  const delta = value - prev;
+  const showDelta = measured && prevMeasured && hasPrev;
+  const accent = !measured ? ICE.inkLow : isStrong ? ICE.accent : isWeak ? ICE.weak : ICE.inkDim;
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: '34px 1fr 70px 50px 38px',
+      alignItems: 'center', gap: 10,
+      padding: '8px 12px',
+      borderBottom: `1px solid ${ICE.inkXLow}`,
+      position: 'relative',
+    }}>
+      <div style={{
+        fontFamily: HI_FONT_MONO, fontSize: 9, color: ICE.inkLow,
+        letterSpacing: 1,
+      }}>{String(idx + 1).padStart(2, '0')}</div>
+      <div>
+        <div style={{
+          fontFamily: HI_FONT_TITLE, fontSize: 13, fontWeight: 500,
+          color: measured ? ICE.ink : ICE.inkLow, lineHeight: 1.1,
+        }}>{axis}</div>
+        {measured && (isStrong || isWeak) && (
+          <div style={{
+            fontFamily: HI_FONT_MONO, fontSize: 8, letterSpacing: 1,
+            color: isStrong ? ICE.accent : ICE.weak,
+            textTransform: 'uppercase', marginTop: 2,
+          }}>
+            {isStrong ? '★ point fort' : '⚠ à travailler'}
+          </div>
+        )}
+        {!measured && (
+          <div style={{
+            fontFamily: HI_FONT_MONO, fontSize: 8, letterSpacing: 1,
+            color: ICE.inkLow, textTransform: 'uppercase', marginTop: 2,
+          }}>non mesuré</div>
+        )}
+      </div>
+      {measured
+        ? <SparkDark values={history} trend={delta} />
+        : <div style={{ height: 22 }} />}
+      <div style={{
+        fontFamily: HI_FONT_MONO, fontSize: measured ? 18 : 12, fontWeight: 700,
+        color: accent, textAlign: 'right', letterSpacing: -0.5,
+        fontVariantNumeric: 'tabular-nums',
+      }}>{measured ? value : 'n/d'}</div>
+      <div style={{
+        fontFamily: HI_FONT_MONO, fontSize: 10, fontWeight: 700,
+        color: delta > 0 ? ICE.good : delta < 0 ? ICE.bad : ICE.inkLow,
+        textAlign: 'right',
+      }}>{showDelta ? (delta > 0 ? '+' : '') + delta : ''}</div>
+    </div>
+  );
+}
+
+// ─── Habits strip (30 shards) ──────────────────────────────────────────
+function HFHabits({ habits, total = 30 }) {
+  return (
+    <div style={{
+      padding: '10px 14px',
+      border: `1px solid ${ICE.inkXLow}`,
+      borderRadius: 12, background: `linear-gradient(135deg, ${ICE.bg1}, ${ICE.bg0})`,
+      flex: 1, minWidth: 0,
+    }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+        marginBottom: 6,
+      }}>
+        <span style={{
+          fontFamily: HI_FONT_MONO, fontSize: 9, letterSpacing: 1.4,
+          color: ICE.inkLow, textTransform: 'uppercase',
+        }}>Habitudes · 30j</span>
+        <span style={{
+          fontFamily: HI_FONT_MONO, fontSize: 14, fontWeight: 700,
+          color: ICE.accent, fontVariantNumeric: 'tabular-nums',
+        }}><CountUp to={habits} />/{total}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 22 }}>
+        {Array.from({ length: total }, (_, i) => {
+          const filled = i < habits;
+          return (
+            <div key={i} style={{
+              flex: 1, minWidth: 0,
+              height: filled ? '100%' : '40%',
+              background: filled
+                ? `linear-gradient(180deg, ${ICE.accentBright}, ${ICE.accent})`
+                : ICE.inkXLow,
+              clipPath: 'polygon(0 0, 100% 8%, 100% 100%, 0 92%)',
+              boxShadow: filled ? `0 0 6px ${ICE.accent}66` : 'none',
+            }} />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Challenge badge ───────────────────────────────────────────────────
+function HFChallenge({ rank = null, name = null, totalWarriors }) {
+  const hasRank = rank != null;
+  const label = name ? (name.length > 14 ? name.slice(0, 13) + '…' : name) : 'Challenge';
+  return (
+    <div style={{
+      padding: '10px 14px',
+      border: `1px solid ${ICE.inkXLow}`,
+      borderRadius: 12, background: `linear-gradient(135deg, ${ICE.bg1}, ${ICE.bg0})`,
+      flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute', right: -6, top: -6, fontSize: 36, opacity: 0.18,
+      }}>⚔</div>
+      <div style={{
+        fontFamily: HI_FONT_MONO, fontSize: 9, letterSpacing: 1.4,
+        color: ICE.inkLow, textTransform: 'uppercase', whiteSpace: 'nowrap',
+        overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{label}</div>
+      {hasRank ? (
+        <div style={{
+          fontFamily: HI_FONT_TITLE, fontSize: 22, fontWeight: 700,
+          color: ICE.accentBright, lineHeight: 1, marginTop: 4,
+        }}>#{rank}{totalWarriors ? <span style={{ fontSize: 10, color: ICE.inkLow, marginLeft: 4 }}>/{totalWarriors}</span> : null}</div>
+      ) : (
+        <div style={{
+          fontFamily: HI_FONT_TITLE, fontSize: 16, fontWeight: 600,
+          color: ICE.inkLow, lineHeight: 1.1, marginTop: 6,
+        }}>—</div>
+      )}
+      <div style={{
+        fontFamily: HI_FONT_MONO, fontSize: 10, color: ICE.inkLow,
+        marginTop: 4, fontWeight: 600,
+      }}>{hasRank ? 'classement du mois' : 'pas inscrit'}</div>
+    </div>
+  );
+}
+
+// ─── Callouts on radar ─────────────────────────────────────────────────
+function HFCallout({ x, y, label, value, kind = 'strong' }) {
+  const color = kind === 'strong' ? ICE.accent : ICE.weak;
+  const bg = kind === 'strong' ? `${ICE.accent}1a` : `${ICE.weak}1a`;
+  return (
+    <div style={{
+      position: 'absolute', left: x, top: y, transform: 'translate(-50%, -50%)',
+      pointerEvents: 'none',
+    }}>
+      <div style={{
+        fontFamily: HI_FONT_MONO, fontSize: 8.5, letterSpacing: 1.4,
+        color, textTransform: 'uppercase', fontWeight: 700,
+        padding: '3px 7px', borderRadius: 99,
+        border: `1px solid ${color}55`, background: bg,
+        backdropFilter: 'blur(4px)',
+        whiteSpace: 'nowrap',
+        animation: kind === 'strong' ? 'hfPulse 1.8s ease-in-out infinite' : 'none',
+      }}>{label}</div>
+    </div>
+  );
+}
+
+// Format an ISO date (yyyy-mm-dd) → "fév 26"
+function fmtMonth(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  const m = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'aoû', 'sep', 'oct', 'nov', 'déc'][d.getMonth()];
+  return `${m} ${String(d.getFullYear()).slice(2)}`;
+}
+
+// ─── Main hi-fi screen ─────────────────────────────────────────────────
+function HiFiCharacter({
+  warrior, teamAvg, totalWarriors,
+  accent = ICE.accent, pulse = true, ghostOn = true, particlesOn = true,
+  selector = null,
+}) {
+  const w = warrior || WARRIORS[0];
+  const avg = teamAvg || TEAM_AVG;
+  const total = totalWarriors || WARRIORS.length;
+  const present = w.present || w.stats.map((v) => v > 0);
+  const prevPresent = w.prevPresent || present;
+  const hasPrev = w.hasPrev != null ? w.hasPrev : true;
+
+  // History per axis: use real per-session history if available, else
+  // synthesise a smooth 7-point ramp from prev → current.
+  const history = AXES.map((_, i) => {
+    const real = w.histByCat && w.histByCat[i];
+    if (real && real.length >= 2) return real;
+    return Array.from({ length: 7 }, (_, m) => {
+      const f = m / 6;
+      const v = w.prev[i] + (w.stats[i] - w.prev[i]) * f;
+      const wobble = ((i * 11 + m * 17) % 7) - 3;
+      return Math.max(20, Math.min(100, Math.round(v + wobble)));
+    });
+  });
+  // Strongest / weakest among measured axes only
+  const measured = w.stats.map((v, i) => ({ v, i })).filter((s) => present[s.i]);
+  const strongIdx = measured.length ? measured.reduce((a, b) => (b.v > a.v ? b : a)).i : -1;
+  const weakIdx = measured.length > 1 ? measured.reduce((a, b) => (b.v < a.v ? b : a)).i : -1;
+  // Delta only over axes measured in both sessions
+  const totalDelta = hasPrev
+    ? w.stats.reduce((sum, v, i) => (present[i] && prevPresent[i] ? sum + (v - w.prev[i]) : sum), 0)
+    : 0;
+  const measuredCount = present.filter(Boolean).length;
+  const curMonth = fmtMonth(w.latestDate);
+
+  return (
+    <div style={{
+      position: 'relative', height: '100%', overflow: 'hidden',
+      background: `radial-gradient(120% 70% at 50% 18%, ${ICE.bg2} 0%, ${ICE.bg1} 38%, ${ICE.bg0} 80%)`,
+      color: ICE.ink, fontFamily: HI_FONT_TITLE,
+    }}>
+      <style>{`
+        @keyframes hfPulse {
+          0%, 100% { opacity: 0.85; transform: translate(-50%, -50%) scale(1); }
+          50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+        }
+        @keyframes hfFade {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .hf-fade { animation: hfFade 0.6s ease-out both; }
+        .hf-scroll { overflow-y: auto; height: 100%; }
+        .hf-scroll::-webkit-scrollbar { width: 0; }
+      `}</style>
+
+      {/* particle ambient */}
+      {particlesOn && <FrostParticles width={SCREEN_W} height={SCREEN_H} />}
+
+      {/* grain / scanline overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
+        background: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, transparent 1px, transparent 3px)',
+        mixBlendMode: 'screen',
+      }} />
+
+      <div className="hf-scroll" style={{ paddingTop: 50, paddingBottom: 40, position: 'relative', zIndex: 2 }}>
+        <HFHeader />
+        {selector}
+        <HFIdentity w={w} delta={totalDelta} hasPrev={hasPrev} measuredCount={measuredCount} totalWarriors={total} />
+
+        {/* Radar */}
+        <div style={{ position: 'relative', display: 'grid', placeItems: 'center', margin: '4px 0 6px' }}>
+          <div className="hf-fade" style={{ animationDelay: '0.1s' }}>
+            <HexRadarDark size={260} values={w.stats}
+              present={present}
+              ghost={ghostOn && hasPrev ? w.prev : null}
+              teamAvg={avg}
+              accent={accent} pulse={pulse} />
+          </div>
+        </div>
+
+        {/* Section label */}
+        <div style={{
+          padding: '8px 18px 6px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{
+            fontFamily: HI_FONT_MONO, fontSize: 9.5, letterSpacing: 1.6,
+            color: ICE.inkLow, textTransform: 'uppercase', whiteSpace: 'nowrap',
+          }}>· Détails · historique</div>
+          <div style={{
+            fontFamily: HI_FONT_MONO, fontSize: 9, letterSpacing: 1,
+            color: ICE.inkXLow, whiteSpace: 'nowrap',
+          }}>—— {curMonth}</div>
+        </div>
+
+        {/* Axis rows */}
+        <div className="hf-fade" style={{
+          animationDelay: '0.4s',
+          margin: '0 14px',
+          border: `1px solid ${ICE.inkXLow}`,
+          borderRadius: 14,
+          background: `linear-gradient(180deg, ${ICE.bg1}cc, ${ICE.bg0}cc)`,
+          overflow: 'hidden',
+        }}>
+          {AXES.map((axis, i) => (
+            <HFAxisRow key={axis} axis={axis} idx={i}
+              value={w.stats[i]} prev={w.prev[i]}
+              measured={present[i]} prevMeasured={prevPresent[i]} hasPrev={hasPrev}
+              history={history[i]}
+              isStrong={i === strongIdx} isWeak={i === weakIdx} />
+          ))}
+        </div>
+
+        {/* Habits + Challenge */}
+        <div className="hf-fade" style={{ animationDelay: '0.6s', display: 'flex', gap: 8, padding: '12px 14px 4px' }}>
+          <HFHabits habits={w.habits} />
+          <HFChallenge rank={w.challengeRank} name={w.challengeName} totalWarriors={total} />
+        </div>
+
+        {/* Footer month chip */}
+        <div style={{ padding: '8px 14px 6px', display: 'flex', justifyContent: 'center' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '6px 14px', borderRadius: 99,
+            border: `1px solid ${ICE.accent}33`,
+            background: `${ICE.accent}10`, backdropFilter: 'blur(6px)',
+            fontFamily: HI_FONT_MONO, fontSize: 10, letterSpacing: 1.4,
+            color: ICE.accent, textTransform: 'uppercase',
+          }}>
+            {w.prevDate && fmtMonth(w.prevDate) !== curMonth ? fmtMonth(w.prevDate) + ' → ' : ''}<span style={{ color: ICE.accentBright, fontWeight: 700 }}>{curMonth}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, {
+  HiFiCharacter, HexRadarDark, FrostParticles, ICE, HI_FONT_TITLE, HI_FONT_MONO,
+});
+
+</script>
+<script type="text/babel" data-from="live-data.jsx">
+// live-data.jsx — Supabase live data for Frozen Warriors radar.
+// Lifts the exact scoring model from the production app so the radar
+// values match the real leaderboard. Falls back gracefully (caller
+// decides) when the fetch can't reach Supabase (e.g. sandboxed preview).
+
+const SUPABASE_URL = 'https://pmllfyvtucysdmpfwjmj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Y0G9IoOgQCBKmz84zxAsww_xuoXK_05';
+
+async function sbFetch(path) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!res.ok) throw new Error('Supabase ' + res.status);
+  return res.json();
+}
+
+// ─── Writes (upsert, merge-duplicates) ─────────────────────────────────
+async function sbWrite(path, body, prefer) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': prefer || 'resolution=merge-duplicates,return=representation',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let msg = 'HTTP ' + res.status;
+    try { const j = await res.json(); if (j && j.message) msg = j.message; } catch (e) {}
+    throw new Error(msg);
+  }
+  return res.json().catch(() => ({}));
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// ─── Feed reactions (encouragements) — one per person per feed item ─────
+// Deterministic id => re-reacting switches type (merge-duplicates upsert);
+// tapping the active type removes the row.
+async function writeReactionLive({ feedId, warriorId, warriorName, type, remove }) {
+  const id = 'fr_' + feedId + '_' + warriorId;
+  if (remove) {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/feed_reactions?id=eq.' + encodeURIComponent(id), {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=minimal' },
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return;
+  }
+  await sbWrite('feed_reactions', {
+    id, feed_id: feedId, warrior_id: warriorId,
+    warrior_name: warriorName, reaction_type: type,
+    created_at: new Date().toISOString(),
+  }, 'resolution=merge-duplicates,return=minimal');
+}
+
+// ─── Body tracking helpers (ported from production logic) ──────────────
+// Pace stored in grams/week. Returns kg/week (signed) averaged over gaps.
+function avgPaceKg(entries) {
+  if (!entries || entries.length < 2) return null;
+  let total = 0, count = 0;
+  for (let i = 1; i < entries.length; i++) {
+    const days = Math.max(1, (new Date(entries[i].date) - new Date(entries[i - 1].date)) / 86400000);
+    total += ((entries[i].weight - entries[i - 1].weight) / days) * 7;
+    count++;
+  }
+  return count > 0 ? +(total / count).toFixed(3) : null;
+}
+
+// 4-tier color for a signed kg/week pace given the goal.
+// green = inside target range · yellow = right way but too slow ·
+// orange = right way but too fast (or no range set, off-target) · red = wrong way
+function bodyPaceColor(profile, paceKg) {
+  if (paceKg == null) return 'grey';
+  const goal = profile.goalType;
+  const goodDir = (goal === 'perte' && paceKg < 0) || (goal === 'prise' && paceKg > 0) || goal === 'recompo';
+  if (goal !== 'recompo' && !goodDir) return 'red';
+  const absG = Math.abs(paceKg) * 1000;
+  const pace = profile.weeklyPace, range = profile.paceRange;
+  if (goal === 'recompo') {
+    if (range == null) return 'green';
+    return absG <= range ? 'green' : 'orange';
+  }
+  if (pace == null || range == null) return 'green';
+  if (absG >= pace - range && absG <= pace + range) return 'green';
+  return absG < pace - range ? 'yellow' : 'orange';
+}
+
+// Weekly delta = change between the last two entries, in kg (signed).
+function lastWeekDeltaKg(entries) {
+  if (!entries || entries.length < 2) return null;
+  return +(entries[entries.length - 1].weight - entries[entries.length - 2].weight).toFixed(3);
+}
+
+function projectionDate(profile, entries) {
+  if (!profile || !entries || entries.length < 2 || profile.target == null) return null;
+  const avg = avgPaceKg(entries);
+  if (!avg || avg === 0) return null;
+  const remaining = profile.target - entries[entries.length - 1].weight;
+  if (Math.sign(remaining) !== Math.sign(avg)) return null;
+  const weeksLeft = remaining / avg;
+  const d = new Date(entries[entries.length - 1].date);
+  d.setDate(d.getDate() + Math.round(weeksLeft * 7));
+  return d;
+}
+
+// Retro 8-bit feedback sounds: 'celebration' | 'good' | 'bad'
+function playBodySound(type) {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ac = new AudioCtx();
+    const now = ac.currentTime;
+    const beep = (f, s, d, wave) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = wave || 'square';
+      o.frequency.setValueAtTime(f, now + s);
+      g.gain.setValueAtTime(0.16, now + s);
+      g.gain.exponentialRampToValueAtTime(0.001, now + s + d);
+      o.start(now + s); o.stop(now + s + d + 0.05);
+    };
+    if (type === 'celebration') {
+      beep(523, 0, 0.09); beep(659, 0.1, 0.09); beep(784, 0.2, 0.09); beep(1047, 0.3, 0.45);
+    } else if (type === 'good') {
+      beep(523, 0, 0.1); beep(659, 0.12, 0.1); beep(784, 0.24, 0.32);
+    } else {
+      beep(440, 0, 0.18, 'sawtooth'); beep(370, 0.2, 0.45, 'sawtooth');
+    }
+    setTimeout(() => { try { ac.close(); } catch (e) {} }, 1300);
+  } catch (e) {}
+}
+
+// Write / correct a body entry (one row per warrior+date — re-save updates).
+async function saveBodyEntryLive({ warriorId, entryDate, weight, sportHours, avgSteps, energy, cravings, motivation }) {
+  let id = 'be_' + warriorId + '_' + entryDate;
+  try {
+    const ex = await sbFetch('body_entries?select=id&warrior_id=eq.' + encodeURIComponent(warriorId) + '&entry_date=eq.' + encodeURIComponent(entryDate));
+    if (ex && ex.length) id = ex[0].id;
+  } catch (e) {}
+  const num = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+  await sbWrite('body_entries', {
+    id, warrior_id: warriorId, entry_date: entryDate,
+    weight: num(weight), sport_hours: num(sportHours), avg_steps: num(avgSteps),
+    energy_score: num(energy), food_cravings_score: num(cravings), motivation_score: num(motivation),
+  }, 'resolution=merge-duplicates,return=minimal');
+  return id;
+}
+
+async function deleteBodyEntryLive(id) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/body_entries?id=eq.' + encodeURIComponent(id), {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Prefer': 'return=minimal' },
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+}
+
+// Save a test-result row (reuses the existing id for that warrior+date so a
+// re-save updates instead of duplicating — mirrors the production app).
+async function saveResultLive({ warriorId, date, values, legMode }) {
+  const num = (k) => { const v = parseFloat(values[k]); return isNaN(v) ? null : v; };
+  let id = 'r' + Date.now();
+  try {
+    const ex = await sbFetch('results?select=id&warrior_id=eq.' + encodeURIComponent(warriorId) + '&date=eq.' + encodeURIComponent(date));
+    if (ex && ex.length) id = ex[0].id;
+  } catch (e) {}
+  const row = {
+    id, warrior_id: warriorId, date,
+    grip_g: num('grip_g'), grip_d: num('grip_d'), deadhang: num('deadhang'),
+    legext: num('legext'), legext_mode: legMode || 'legext', backsquat: num('backsquat'),
+    wimhof: num('wimhof'), vo2max: num('vo2max'), broadjump: num('broadjump'),
+    pushups: num('pushups'), plank_f: num('plank_f'), plank_s: num('plank_s'),
+    bp: num('bp'),
+  };
+  return sbWrite('results', row);
+}
+
+async function saveHabitsLive({ warriorId, date, checks, showers, hydrationMl }) {
+  const c = checks || {};
+  const row = {
+    id: 'h_' + warriorId + '_' + date, warrior_id: warriorId, date,
+    cardio: !!c.cardio, force: !!c.force, mixte: !!c.mixte, sauna: !!c.sauna,
+    bain_froid: !!c.bain_froid, wim_hof: !!c.wim_hof, yoga: !!c.yoga, point_faible: !!c.point_faible,
+    douches_froides: showers || 0, hydration_ml: hydrationMl || 0,
+  };
+  return sbWrite('habits', row);
+}
+
+async function submitChallengeLive({ challengeId, warriorId, value }) {
+  const row = {
+    id: 'cr_' + challengeId + '_' + warriorId,
+    challenge_id: challengeId, warrior_id: warriorId,
+    value: parseFloat(value), submitted_at: new Date().toISOString(),
+  };
+  return sbWrite('challenge_results', row);
+}
+
+// ─── Scoring model (lifted verbatim from the production app) ───────────
+function scoreBackSquat(v, weight) {
+  const ratio = v / weight;
+  if (ratio < 1.2) return -1;
+  if (ratio <= 1.6) return 1;
+  return 2;
+}
+
+const LIVE_TESTS = {
+  homme: [
+    { id: 'grip_g', cat: 'Force', score: (v) => v < 40 ? -1 : v <= 60 ? 1 : 2 },
+    { id: 'grip_d', cat: 'Force', score: (v) => v < 40 ? -1 : v <= 60 ? 1 : 2 },
+    { id: 'deadhang', cat: 'Force', score: (v) => v < 60 ? -1 : v <= 180 ? 1 : 2 },
+    { id: 'legext', cat: 'Force', score: (v, w) => v < w ? -1 : 1, useWeight: true },
+    { id: 'wimhof', cat: 'Respiration', score: (v) => v < 90 ? -1 : v < 180 ? 1 : 2 },
+    { id: 'vo2max', cat: 'Capacité anaérobique', score: (v) => v < 50 ? -1 : v <= 55 ? 1 : 2 },
+    { id: 'broadjump', cat: 'Puissance', score: (v, w, h) => v < h ? -1 : v <= (h + 60) ? 1 : 2, useHeight: true },
+    { id: 'pushups', cat: 'Endurance musculaire', score: (v) => v < 25 ? -1 : v <= 50 ? 1 : 2 },
+    { id: 'plank_f', cat: 'Endurance musculaire', score: (v) => v < 90 ? -1 : v <= 180 ? 1 : 2 },
+    { id: 'plank_s', cat: 'Endurance musculaire', score: (v) => v < 60 ? -1 : v <= 120 ? 1 : 2 },
+  ],
+  femme: [
+    { id: 'grip_g', cat: 'Force', score: (v) => v < 35 ? -1 : v <= 50 ? 1 : 2 },
+    { id: 'grip_d', cat: 'Force', score: (v) => v < 35 ? -1 : v <= 50 ? 1 : 2 },
+    { id: 'deadhang', cat: 'Force', score: (v) => v < 60 ? -1 : v <= 180 ? 1 : 2 },
+    { id: 'legext', cat: 'Force', score: (v, w) => v < w ? -1 : 1, useWeight: true },
+    { id: 'wimhof', cat: 'Respiration', score: (v) => v < 90 ? -1 : v < 180 ? 1 : 2 },
+    { id: 'vo2max', cat: 'Capacité anaérobique', score: (v) => v < 45 ? -1 : v <= 50 ? 1 : 2 },
+    { id: 'broadjump', cat: 'Puissance', score: (v, w, h) => v < h ? -1 : v <= (h + 60) ? 1 : 2, useHeight: true },
+    { id: 'pushups', cat: 'Endurance musculaire', score: (v) => v < 15 ? -1 : v <= 25 ? 1 : 2 },
+    { id: 'plank_f', cat: 'Endurance musculaire', score: (v) => v < 90 ? -1 : v <= 180 ? 1 : 2 },
+    { id: 'plank_s', cat: 'Endurance musculaire', score: (v) => v < 60 ? -1 : v <= 120 ? 1 : 2 },
+  ],
+};
+
+// Category → radar axis index (matches AXES in common.jsx)
+const CAT_TO_AXIS = {
+  'Force': 0,
+  'Respiration': 1,
+  'Capacité anaérobique': 2,
+  'Puissance': 3,
+  'Endurance musculaire': 4,
+  'Tension artérielle': 5,
+};
+
+// Returns { total, cats:{cat:{pts}} } for one result row.
+function calcScoreLive(warrior, result) {
+  const tests = LIVE_TESTS[warrior.gender] || LIVE_TESTS.homme;
+  let total = 0;
+  const cats = {};
+  tests.forEach((t) => {
+    if (t.id === 'legext' && result.legext_mode === 'backsquat') {
+      const raw = parseFloat(result.backsquat);
+      if (isNaN(raw)) return;
+      const pts = scoreBackSquat(raw, warrior.weight);
+      total += pts;
+      (cats[t.cat] = cats[t.cat] || { pts: 0 }).pts += pts;
+      return;
+    }
+    const raw = parseFloat(result[t.id]);
+    if (isNaN(raw)) return;
+    const pts = (t.useWeight || t.useHeight)
+      ? t.score(raw, warrior.weight, warrior.height)
+      : t.score(raw);
+    total += pts;
+    (cats[t.cat] = cats[t.cat] || { pts: 0 }).pts += pts;
+  });
+  const bp = parseFloat(result.bp);
+  if (!isNaN(bp)) {
+    const bpPts = bp < 120 ? 1 : bp <= 130 ? 0 : -1;
+    total += bpPts;
+    (cats['Tension artérielle'] = cats['Tension artérielle'] || { pts: 0 }).pts += bpPts;
+  }
+  return { total, cats };
+}
+
+// Category points → 0-100 percentage (production formula).
+function catPct(warrior, cat, pts) {
+  const tests = LIVE_TESTS[warrior.gender || 'homme'];
+  const maxPts = (tests.filter((t) => t.cat === cat).length * 2) + (cat === 'Tension artérielle' ? 1 : 0);
+  if (maxPts === 0) return 0;
+  return Math.max(0, Math.min(100, ((pts + maxPts) / (maxPts * 2)) * 100));
+}
+
+// ─── Gamification (lifted verbatim) ────────────────────────────────────
+const ANIMALS = [
+  { name: 'Escargot', emoji: '🐌', min: -99, max: 2 },
+  { name: 'Écureuil', emoji: '🐿️', min: 3, max: 5 },
+  { name: 'Loup', emoji: '🐺', min: 6, max: 8 },
+  { name: 'Tigre', emoji: '🐯', min: 9, max: 11 },
+  { name: 'T-Rex', emoji: '🦖', min: 12, max: 14 },
+  { name: 'Dragon', emoji: '🐉', min: 15, max: 19 },
+  { name: 'Odin', emoji: '⚡', min: 20, max: 999 },
+];
+function getAnimal(score) {
+  return ANIMALS.find((a) => score >= a.min && score <= a.max) || ANIMALS[0];
+}
+function nextAnimal(score) {
+  const i = ANIMALS.findIndex((a) => score >= a.min && score <= a.max);
+  return i >= 0 && i < ANIMALS.length - 1 ? ANIMALS[i + 1] : null;
+}
+
+const HABIT_DEFS = [
+  { key: 'cardio', label: 'Cardio', emoji: '🏃' },
+  { key: 'force', label: 'Force', emoji: '💪' },
+  { key: 'mixte', label: 'Mixte', emoji: '⚡' },
+  { key: 'sauna', label: 'Sauna', emoji: '🧖' },
+  { key: 'bain_froid', label: 'Bain froid', emoji: '🧊' },
+  { key: 'wim_hof', label: 'Respiration', emoji: '🫁' },
+  { key: 'yoga', label: 'Yoga / Étirements', emoji: '🧘' },
+  { key: 'point_faible', label: 'Point faible', emoji: '🎯' },
+];
+
+// Test fields for the saisie form (labels + units; thresholds live in LIVE_TESTS)
+const TEST_META = [
+  { id: 'grip_g', cat: 'Force', label: 'Grip gauche', unit: 'kg' },
+  { id: 'grip_d', cat: 'Force', label: 'Grip droit', unit: 'kg' },
+  { id: 'deadhang', cat: 'Force', label: 'Dead hang', unit: 'sec' },
+  { id: 'legext', cat: 'Force', label: 'Leg extension', unit: 'kg', alt: { id: 'backsquat', label: 'Back squat', unit: 'kg' } },
+  { id: 'wimhof', cat: 'Respiration', label: 'Wim Hof (dernier set)', unit: 'sec' },
+  { id: 'vo2max', cat: 'Capacité anaérobique', label: 'VO2 max', unit: '' },
+  { id: 'broadjump', cat: 'Puissance', label: 'Broad jump', unit: 'cm' },
+  { id: 'pushups', cat: 'Endurance musculaire', label: 'Push-ups', unit: '' },
+  { id: 'plank_f', cat: 'Endurance musculaire', label: 'Front plank', unit: 'sec' },
+  { id: 'plank_s', cat: 'Endurance musculaire', label: 'Side plank', unit: 'sec' },
+  { id: 'bp', cat: 'Tension artérielle', label: 'Tension systolique', unit: 'mmHg' },
+];
+const CAT_ORDER = ['Force', 'Respiration', 'Capacité anaérobique', 'Puissance', 'Endurance musculaire', 'Tension artérielle'];
+
+// Tests rankable individually (dir: 'desc' = plus c'est haut, mieux c'est)
+const RANK_TESTS = [
+  { id: 'vo2max', label: 'VO2 max', unit: '', dir: 'desc', emoji: '🫀' },
+  { id: 'grip', label: 'Grip (max G/D)', unit: 'kg', dir: 'desc', emoji: '✊' },
+  { id: 'deadhang', label: 'Dead hang', unit: 'sec', dir: 'desc', emoji: '🪢' },
+  { id: 'broadjump', label: 'Broad jump', unit: 'cm', dir: 'desc', emoji: '🦘' },
+  { id: 'pushups', label: 'Push-ups', unit: '', dir: 'desc', emoji: '💪' },
+  { id: 'plank_f', label: 'Front plank', unit: 'sec', dir: 'desc', emoji: '🧘' },
+  { id: 'plank_s', label: 'Side plank', unit: 'sec', dir: 'desc', emoji: '↔️' },
+  { id: 'wimhof', label: 'Wim Hof', unit: 'sec', dir: 'desc', emoji: '🫁' },
+  { id: 'legext', label: 'Leg extension', unit: 'kg', dir: 'desc', emoji: '🦵' },
+  { id: 'bp', label: 'Tension (basse = mieux)', unit: 'mmHg', dir: 'asc', emoji: '❤️' },
+];
+
+function hydrationTarget(weight) {
+  return weight ? Math.round((weight / 23) * 10) / 10 * 1000 : 2500;
+}
+
+// Habit points for one row (production formula).
+function calcHabitPointsLive(h, weight) {
+  const checks = ['cardio', 'force', 'mixte', 'sauna', 'bain_froid', 'wim_hof', 'yoga', 'point_faible'];
+  let pts = checks.filter((k) => h[k]).length;
+  pts += (h.douches_froides || 0) * 0.2;
+  if (h.hydration_ml > 0 && h.hydration_ml >= hydrationTarget(weight)) pts += 1;
+  return pts;
+}
+
+function ymOf(iso) {
+  return String(iso || '').slice(0, 7); // yyyy-mm
+}
+function monthLabelFr(ym) {
+  const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const parts = (ym || '').split('-');
+  const mi = parseInt(parts[1], 10) - 1;
+  return (months[mi] || '') + ' ' + (parts[0] || '');
+}
+function prevYm(ym) {
+  const a = (ym || '').split('-').map(Number);
+  const d = new Date(a[0], (a[1] - 1) - 1, 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function stripHtml(s) {
+  return String(s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Build the 6-axis radar array (0-100) for a result.
+function resultToStats(warrior, result) {
+  const { cats } = calcScoreLive(warrior, result);
+  const stats = [0, 0, 0, 0, 0, 0];
+  Object.entries(cats).forEach(([cat, data]) => {
+    const idx = CAT_TO_AXIS[cat];
+    if (idx != null) stats[idx] = Math.round(catPct(warrior, cat, data.pts));
+  });
+  return stats;
+}
+
+// Which of the 6 axes actually have a measurement in this result.
+function resultPresence(warrior, result) {
+  const { cats } = calcScoreLive(warrior, result);
+  const present = [false, false, false, false, false, false];
+  Object.keys(cats).forEach((cat) => {
+    const idx = CAT_TO_AXIS[cat];
+    if (idx != null) present[idx] = true;
+  });
+  return present;
+}
+
+// ─── Main loader ───────────────────────────────────────────────────────
+// Returns an array shaped like the mock WARRIORS:
+//   { id, name, gender, rank, stats[6], prev[6], histByCat[6][], habits,
+//     latestDate, prevDate, challengeRank, challengeName }
+async function loadLiveWarriors() {
+  const [warriors, results, habits, challenges, challengeResults, feed, bodyProfiles, bodyEntries, feedReactions] = await Promise.all([
+    sbFetch('warriors?order=name'),
+    sbFetch('results?order=date.desc'),
+    sbFetch('habits?order=date.desc').catch(() => []),
+    sbFetch('challenges?order=id.desc').catch(() => []),
+    sbFetch('challenge_results?order=value.desc').catch(() => []),
+    sbFetch('feed?order=created_at.desc&limit=24').catch(() => []),
+    sbFetch('body_profiles?order=created_at.asc').catch(() => []),
+    sbFetch('body_entries?order=entry_date.asc').catch(() => []),
+    sbFetch('feed_reactions?order=created_at.desc').catch(() => []),
+  ]);
+
+  // Current-month challenge (id pattern ch_YYYY_MM), else most recent
+  const now = new Date();
+  const curChId = 'ch_' + now.getFullYear() + '_' + String(now.getMonth() + 1).padStart(2, '0');
+  const latestChallenge =
+    (challenges || []).find((c) => c.id === curChId) ||
+    (challenges || [])[0] || null;
+  let challengeRankById = {};
+  if (latestChallenge) {
+    const rows = (challengeResults || [])
+      .filter((r) => r.challenge_id === latestChallenge.id)
+      .sort((a, b) => (b.value || 0) - (a.value || 0));
+    rows.forEach((r, i) => { challengeRankById[r.warrior_id] = i + 1; });
+  }
+
+  // Habits: distinct days with any logged activity over the trailing 30 days
+  const horizon = new Date(now.getTime() - 30 * 86400000);
+  const habitDays = {};
+  (habits || []).forEach((h) => {
+    if (!h.date) return;
+    const d = new Date(h.date);
+    if (isNaN(d) || d < horizon || d > now) return;
+    const any = h.cardio || h.force || h.mixte || h.sauna || h.bain_froid ||
+      h.wim_hof || h.yoga || h.point_faible ||
+      (h.douches_froides && h.douches_froides > 0) ||
+      (h.hydration_ml && h.hydration_ml > 0);
+    if (!any) return;
+    (habitDays[h.warrior_id] = habitDays[h.warrior_id] || new Set()).add(h.date);
+  });
+
+  // Map results by warrior, normalized field names (results table already
+  // uses snake_case columns; warrior_id links them).
+  const resultsByWarrior = {};
+  (results || []).forEach((r) => {
+    (resultsByWarrior[r.warrior_id] = resultsByWarrior[r.warrior_id] || []).push(r);
+  });
+
+  // Weight lookup for hydration target
+  const weightById = {};
+  (warriors || []).forEach((w) => { weightById[w.id] = w.weight; });
+
+  // Active habit month = month of the most recent habit row (so podiums show
+  // real data even if the current calendar month is empty).
+  const habitMonths = (habits || []).map((h) => ymOf(h.date)).filter(Boolean).sort();
+  const activeYm = habitMonths.length ? habitMonths[habitMonths.length - 1] : ymOf(now.toISOString());
+  const prevActiveYm = prevYm(activeYm);
+
+  // Habit points per warrior for a given month
+  function habitAgg(ym) {
+    const byW = {};
+    (habits || []).forEach((h) => {
+      if (ymOf(h.date) !== ym) return;
+      const rec = (byW[h.warrior_id] = byW[h.warrior_id] || { pts: 0, days: new Set() });
+      rec.pts += calcHabitPointsLive(h, weightById[h.warrior_id]);
+      rec.days.add(h.date);
+    });
+    return byW;
+  }
+  const monthAgg = habitAgg(activeYm);
+  const prevMonthAgg = habitAgg(prevActiveYm);
+
+  const built = (warriors || []).map((w) => {
+    const warrior = { gender: w.gender || 'homme', weight: w.weight, height: w.height };
+    const rs = (resultsByWarrior[w.id] || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const latest = rs[0] || null;
+    const prev = rs[1] || null;
+    const stats = latest ? resultToStats(warrior, latest) : [0, 0, 0, 0, 0, 0];
+    const prevStats = prev ? resultToStats(warrior, prev) : stats;
+    const present = latest ? resultPresence(warrior, latest) : [false, false, false, false, false, false];
+    const prevPresent = prev ? resultPresence(warrior, prev) : present;
+
+    // Per-axis history (chronological asc), one point per test session
+    const chrono = rs.slice().reverse();
+    const histByCat = [0, 1, 2, 3, 4, 5].map((axis) =>
+      chrono.map((r) => resultToStats(warrior, r)[axis])
+    );
+
+    const { total } = latest ? calcScoreLive(warrior, latest) : { total: -999 };
+    const monthRec = monthAgg[w.id];
+
+    // Best raw value per test across all sessions (min for bp, max otherwise)
+    const raw = {};
+    const RAW_FIELDS = ['grip_g', 'grip_d', 'deadhang', 'legext', 'backsquat', 'wimhof', 'vo2max', 'broadjump', 'pushups', 'plank_f', 'plank_s'];
+    RAW_FIELDS.forEach((f) => {
+      const vals = rs.map((r) => parseFloat(r[f])).filter((v) => !isNaN(v));
+      if (vals.length) raw[f] = Math.max.apply(null, vals);
+    });
+    const bpVals = rs.map((r) => parseFloat(r.bp)).filter((v) => !isNaN(v));
+    if (bpVals.length) raw.bp = Math.min.apply(null, bpVals);
+    if (raw.grip_g != null || raw.grip_d != null) raw.grip = Math.max(raw.grip_g || 0, raw.grip_d || 0);
+
+    return {
+      id: w.id,
+      name: w.name || '—',
+      gender: warrior.gender,
+      weight: w.weight,
+      height: w.height,
+      stats,
+      prev: prevStats,
+      present,
+      prevPresent,
+      hasPrev: !!prev,
+      raw,
+      histByCat: histByCat.map((h) => (h.length >= 2 ? h : null)),
+      habits: habitDays[w.id] ? habitDays[w.id].size : 0,
+      habitPtsMonth: monthRec ? Math.round(monthRec.pts * 10) / 10 : 0,
+      habitDaysMonth: monthRec ? monthRec.days.size : 0,
+      hasData: !!latest,
+      total,
+      animal: latest ? getAnimal(total) : null,
+      nextAnimal: latest ? nextAnimal(total) : null,
+      latestDate: latest ? latest.date : null,
+      prevDate: prev ? prev.date : null,
+      challengeRank: challengeRankById[w.id] || null,
+      challengeName: latestChallenge ? (latestChallenge.title || latestChallenge.name || 'Challenge') : null,
+    };
+  });
+
+  // Rank by total score (warriors with data first), mirror leaderboard
+  const withData = built.filter((b) => b.hasData).sort((a, b) => b.total - a.total);
+  withData.forEach((b, i) => { b.rank = i + 1; });
+  const without = built.filter((b) => !b.hasData);
+  without.forEach((b) => { b.rank = withData.length + 1; });
+
+  // Team average per axis over warriors that have data
+  const teamAvg = [0, 1, 2, 3, 4, 5].map((axis) => {
+    const vals = withData.map((b) => b.stats[axis]).filter((v) => v > 0);
+    return vals.length ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length) : 0;
+  });
+
+  const ordered = [...withData, ...without];
+  ordered._teamAvg = teamAvg;
+
+  // ─── Meta: leaderboards, winners, challenge, feed ───────────────────
+  const byId = {};
+  ordered.forEach((w) => { byId[w.id] = w; });
+
+  // Habits leaderboard (active month) — pts desc
+  const habitsMonthLb = ordered
+    .map((w) => ({ w, pts: w.habitPtsMonth, days: w.habitDaysMonth }))
+    .filter((e) => e.pts > 0)
+    .sort((a, b) => b.pts - a.pts);
+
+  // Previous-month habits winner
+  const prevPairs = Object.entries(prevMonthAgg)
+    .map(([id, rec]) => ({ w: byId[id], pts: Math.round(rec.pts * 10) / 10, days: rec.days.size }))
+    .filter((e) => e.w && e.pts > 0)
+    .sort((a, b) => b.pts - a.pts);
+  const habitsPrevWinner = prevPairs[0] || null;
+
+  // Challenge leaderboard for the latest challenge
+  let challengeLb = [];
+  if (latestChallenge) {
+    const order = latestChallenge.sort_order || 'desc';
+    const best = {};
+    (challengeResults || []).forEach((r) => {
+      if (r.challenge_id !== latestChallenge.id) return;
+      if (!best[r.warrior_id] || (order === 'desc' ? r.value > best[r.warrior_id].value : r.value < best[r.warrior_id].value)) {
+        best[r.warrior_id] = r;
+      }
+    });
+    challengeLb = Object.values(best)
+      .map((r) => ({ w: byId[r.warrior_id], value: r.value }))
+      .filter((e) => e.w)
+      .sort((a, b) => (order === 'desc' ? b.value - a.value : a.value - b.value));
+  }
+
+  // Activity feed (strip HTML from messages)
+  const reactionsByFeed = {};
+  (feedReactions || []).forEach((r) => {
+    if (!r.feed_id) return;
+    const w = byId[r.warrior_id];
+    (reactionsByFeed[r.feed_id] = reactionsByFeed[r.feed_id] || []).push({
+      id: r.id,
+      warriorId: r.warrior_id,
+      warriorName: r.warrior_name || (w && w.name) || 'Guerrier',
+      type: r.reaction_type,
+      animal: w && w.animal ? w.animal : null,
+      createdAt: r.created_at || null,
+    });
+  });
+
+  const feedItems = (feed || []).slice(0, 24).map((f) => ({
+    id: f.id,
+    type: f.type,
+    message: stripHtml(f.message),
+    details: f.details ? stripHtml(f.details) : null,
+    warriorId: f.warrior_id || null,
+    warriorName: f.warrior_id && byId[f.warrior_id] ? byId[f.warrior_id].name : null,
+    createdAt: f.created_at || null,
+    reactions: reactionsByFeed[f.id] || [],
+  })).filter((f) => f.message);
+
+  // Body tracking: profile + entries per warrior
+  const bodyProfById = {};
+  (bodyProfiles || []).forEach((p) => { bodyProfById[p.warrior_id] = p; });
+  const bodyEntriesById = {};
+  (bodyEntries || []).forEach((e) => {
+    (bodyEntriesById[e.warrior_id] = bodyEntriesById[e.warrior_id] || []).push(e);
+  });
+  const bodyList = [];
+  Object.keys(bodyProfById).forEach((wid) => {
+    const w = byId[wid];
+    if (!w) return;
+    const p = bodyProfById[wid];
+    const entries = (bodyEntriesById[wid] || []).slice().sort((a, b) => String(a.entry_date).localeCompare(String(b.entry_date)));
+    const latest = entries.length ? entries[entries.length - 1] : null;
+    const start = p.start_weight != null ? p.start_weight : (entries[0] ? entries[0].weight : null);
+    const target = p.target_weight;
+    const current = latest ? latest.weight : start;
+    let pct = 0;
+    if (start != null && target != null && current != null && Math.abs(target - start) > 0.001) {
+      pct = Math.max(0, Math.min(100, ((start - current) / (start - target)) * 100));
+    }
+    bodyList.push({
+      w, goalType: p.goal_type || 'recompo',
+      start, target, current,
+      pct: Math.round(pct),
+      weeklyPace: p.weekly_pace != null ? p.weekly_pace : null, // grams/week target
+      paceRange: p.pace_range != null ? p.pace_range : null,    // grams tolerance
+      lastDate: latest ? latest.entry_date : null,
+      entries: entries.map((e) => ({
+        id: e.id,
+        date: e.entry_date,
+        weight: e.weight,
+        sportHours: e.sport_hours != null ? e.sport_hours : null,
+        avgSteps: e.avg_steps != null ? e.avg_steps : null,
+        energy: e.energy_score != null ? e.energy_score : null,
+        cravings: e.food_cravings_score != null ? e.food_cravings_score : null,
+        motivation: e.motivation_score != null ? e.motivation_score : null,
+      })),
+      visibility: p.visibility || 'public',
+    });
+  });
+  bodyList.sort((a, b) => b.pct - a.pct);
+
+  // Group challenge ("Beach Body") — total kg to lose/gain across members
+  let gTotalToLose = 0, gTotalProgress = 0, gMembers = 0;
+  bodyList.forEach((b) => {
+    if (b.start == null || b.target == null) return;
+    const toGo = Math.abs(b.target - b.start);
+    if (toGo <= 0) return;
+    gTotalToLose += toGo;
+    gMembers++;
+    if (b.current != null) {
+      const delta = b.goalType === 'prise' ? (b.current - b.start) : (b.start - b.current);
+      gTotalProgress += Math.max(0, delta);
+    }
+  });
+  const gPct = gTotalToLose > 0 ? Math.min(100, (gTotalProgress / gTotalToLose) * 100) : 0;
+  const groupChallenge = {
+    totalToLose: Math.round(gTotalToLose * 10) / 10,
+    totalProgress: Math.round(gTotalProgress * 10) / 10,
+    pct: Math.round(gPct),
+    memberCount: gMembers,
+    milestones: [
+      { pct: 25, emoji: '🍽️', label: 'Restaurant', desc: 'Restaurant tous ensemble' },
+      { pct: 50, emoji: '🧊', label: 'Soirée H5', desc: 'Bains froids · sauna · sumo fight' },
+      { pct: 75, emoji: '🌲', label: 'Rochehaut', desc: 'Balade en forêt · brasserie terroir' },
+      { pct: 100, emoji: '🏖️', label: 'Beach Body', desc: 'Objectif collectif atteint !' },
+    ],
+  };
+
+  ordered._meta = {
+    activeMonthLabel: monthLabelFr(activeYm),
+    prevMonthLabel: monthLabelFr(prevActiveYm),
+    habitsMonthLb,
+    habitsPrevWinner,
+    challenge: latestChallenge ? {
+      id: latestChallenge.id,
+      title: latestChallenge.title || latestChallenge.name || 'Challenge',
+      description: latestChallenge.description || '',
+      unit: latestChallenge.unit || '',
+      sortOrder: latestChallenge.sort_order || 'desc',
+      leaderboard: challengeLb,
+    } : null,
+    feed: feedItems,
+    teamAvg,
+    habitDefs: HABIT_DEFS,
+    body: bodyList,
+    groupChallenge,
+    rankTests: RANK_TESTS,
+  };
+  return ordered;
+}
+
+Object.assign(window, {
+  loadLiveWarriors, SUPABASE_URL,
+  ANIMALS, getAnimal, nextAnimal, HABIT_DEFS, calcHabitPointsLive, hydrationTarget,
+  TEST_META, CAT_ORDER, CAT_TO_AXIS, RANK_TESTS,
+  calcScoreLive, resultToStats, resultPresence, catPct,
+  saveResultLive, saveHabitsLive, submitChallengeLive, todayISO,
+  writeReactionLive,
+  avgPaceKg, bodyPaceColor, lastWeekDeltaKg, projectionDate, playBodySound,
+  saveBodyEntryLive, deleteBodyEntryLive,
+});
+
+</script>
+<script type="text/babel" data-from="app-shell.jsx">
+// app-shell.jsx — Navigable "Frozen Warriors" app: phone shell, bottom tab
+// bar, screen router, "me" profile. Dark glacial system shared with the
+// hi-fi character sheet (window.ICE / HI_FONT_*).
+
+const APP_W = 402;
+const APP_H = 858;
+
+const T = window.ICE || {
+  bg0: '#03070d', bg1: '#091522', bg2: '#0f2436',
+  ink: '#e6f6fb', inkDim: 'rgba(230,246,251,0.65)', inkLow: 'rgba(230,246,251,0.35)',
+  inkXLow: 'rgba(230,246,251,0.14)', accent: '#67e8f9', accentDeep: '#22d3ee',
+  accentBright: '#a5f3fc', accentDark: '#0e7490', warn: '#fb923c', good: '#4ade80',
+  bad: '#f87171', weak: '#475569',
+};
+const FT = window.HI_FONT_TITLE || "'Space Grotesk', system-ui, sans-serif";
+const FM = window.HI_FONT_MONO || "'JetBrains Mono', ui-monospace, monospace";
+
+const MEDAL = ['#ffd76a', '#cdd6e0', '#e0a16a']; // gold / silver / bronze
+
+const FEED_ICONS = {
+  new_warrior: '⚔️', fitness_result: '🏋', habit_entry: '🔥',
+  personal_record: '🏆', level_up: '🐉', challenge: '⚔️',
+  month_winner_habits: '👑', month_winner_challenge: '🏅',
+  group_milestone: '🧊', body_target: '⚖️',
+};
+
+// ─── Shared UI atoms ───────────────────────────────────────────────────
+function Card({ children, style = {}, glow = false, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      border: `1px solid ${T.inkXLow}`, borderRadius: 16,
+      background: `linear-gradient(165deg, ${T.bg1}ee, ${T.bg0}ee)`,
+      padding: 14,
+      boxShadow: glow ? `0 0 28px ${T.accent}1f` : '0 4px 18px rgba(0,0,0,0.3)',
+      cursor: onClick ? 'pointer' : 'default',
+      ...style,
+    }}>{children}</div>
+  );
+}
+
+function Eyebrow({ children, style = {} }) {
+  return (
+    <div style={{
+      fontFamily: FM, fontSize: 9.5, letterSpacing: 1.6,
+      color: T.inkLow, textTransform: 'uppercase', ...style,
+    }}>{children}</div>
+  );
+}
+
+function SectionTitle({ children, right }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+      margin: '2px 2px 10px',
+    }}>
+      <div style={{ fontFamily: FT, fontSize: 16, fontWeight: 600, color: T.ink, letterSpacing: -0.2 }}>{children}</div>
+      {right ? <div style={{ fontFamily: FM, fontSize: 10, color: T.inkLow, letterSpacing: 0.5 }}>{right}</div> : null}
+    </div>
+  );
+}
+
+function AnimalBadge({ animal, size = 44, ring = true }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: `radial-gradient(circle at 35% 30%, ${T.bg2}, ${T.bg0})`,
+      border: ring ? `1.5px solid ${T.accent}` : `1px solid ${T.inkXLow}`,
+      boxShadow: ring ? `0 0 18px ${T.accent}33, inset 0 0 10px ${T.accent}1f` : 'none',
+      display: 'grid', placeItems: 'center', fontSize: size * 0.5,
+    }}>{animal ? animal.emoji : '❓'}</div>
+  );
+}
+
+function RankPill({ rank }) {
+  const top = rank <= 3;
+  const c = top ? MEDAL[rank - 1] : T.inkLow;
+  return (
+    <div style={{
+      minWidth: 26, height: 26, padding: '0 6px', borderRadius: 8,
+      display: 'grid', placeItems: 'center', flexShrink: 0,
+      fontFamily: FM, fontSize: 12, fontWeight: 700, color: top ? T.bg0 : T.inkDim,
+      background: top ? c : T.inkXLow,
+      boxShadow: top ? `0 0 10px ${c}66` : 'none',
+    }}>{rank}</div>
+  );
+}
+
+function ProgressBar({ value, max = 100, color = T.accent, height = 6 }) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  return (
+    <div style={{ height, borderRadius: height, background: T.inkXLow, overflow: 'hidden' }}>
+      <div style={{
+        height: '100%', width: `${pct}%`,
+        background: `linear-gradient(90deg, ${T.accentDark}, ${color})`,
+        boxShadow: `0 0 8px ${color}88`, borderRadius: height,
+        transition: 'width 0.8s cubic-bezier(0.2,0.8,0.2,1)',
+      }} />
+    </div>
+  );
+}
+
+function relativeTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso); if (isNaN(d)) return '';
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return "à l'instant";
+  const m = Math.floor(s / 60); if (m < 60) return `il y a ${m} min`;
+  const h = Math.floor(m / 60); if (h < 24) return `il y a ${h} h`;
+  const j = Math.floor(h / 24); if (j < 30) return `il y a ${j} j`;
+  const mo = Math.floor(j / 30); return `il y a ${mo} mois`;
+}
+
+// ─── Top app bar ───────────────────────────────────────────────────────
+function AppBar({ title, sub, me, onProfile, onBell, bellBadge = 0 }) {
+  return (
+    <div style={{
+      padding: '8px 18px 10px', display: 'flex', alignItems: 'center',
+      justifyContent: 'space-between', position: 'relative', zIndex: 4,
+    }}>
+      <div>
+        <Eyebrow>{sub || 'Frozen Warriors'}</Eyebrow>
+        <div style={{ fontFamily: FT, fontSize: 24, fontWeight: 700, color: T.ink, letterSpacing: -0.5, lineHeight: 1 }}>{title}</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {onBell && (
+          <button onClick={onBell} style={{
+            position: 'relative', width: 38, height: 38, borderRadius: 12, cursor: 'pointer',
+            border: `1px solid ${T.inkXLow}`, background: `${T.bg1}cc`, color: T.ink,
+            fontSize: 17, display: 'grid', placeItems: 'center', flexShrink: 0,
+          }}>
+            🔔
+            {bellBadge > 0 && (
+              <span style={{
+                position: 'absolute', top: -5, right: -5, minWidth: 17, height: 17, padding: '0 4px',
+                borderRadius: 99, background: '#fb7185', color: '#fff',
+                fontFamily: FM, fontSize: 9.5, fontWeight: 700,
+                display: 'grid', placeItems: 'center', border: `2px solid ${T.bg0}`,
+              }}>{bellBadge > 9 ? '9+' : bellBadge}</span>
+            )}
+          </button>
+        )}
+        {me && (
+          <div onClick={onProfile} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontFamily: FM, fontSize: 8.5, color: T.inkLow, letterSpacing: 1, textTransform: 'uppercase' }}>moi</div>
+              <div style={{ fontFamily: FT, fontSize: 12, fontWeight: 600, color: T.ink, maxWidth: 78, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{me.name}</div>
+            </div>
+            <AnimalBadge animal={me.animal} size={38} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Bottom tab bar ────────────────────────────────────────────────────
+const TABS = [
+  { id: 'home', label: 'Accueil', icon: '◆' },
+  { id: 'rank', label: 'Classement', icon: '▲' },
+  { id: 'habits', label: 'Habitudes', icon: '🔥' },
+  { id: 'more', label: 'Plus', icon: '⋯' },
+];
+
+function TabBar({ tab, onTab }) {
+  return (
+    <div style={{
+      position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20,
+      height: 76, paddingBottom: 18,
+      background: `linear-gradient(180deg, ${T.bg1}00, ${T.bg0} 38%)`,
+      backdropFilter: 'blur(10px)',
+      borderTop: `1px solid ${T.inkXLow}`,
+      display: 'flex', alignItems: 'flex-start', paddingTop: 8,
+    }}>
+      {TABS.map((t) => {
+        const active = tab === t.id;
+        const isEmoji = t.icon.length > 1;
+        return (
+          <button key={t.id} onClick={() => onTab(t.id)} style={{
+            flex: 1, background: 'none', border: 'none', cursor: 'pointer',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            color: active ? T.accent : T.inkLow, padding: 0,
+          }}>
+            <span style={{
+              fontSize: isEmoji ? 17 : 15, lineHeight: 1,
+              filter: active ? `drop-shadow(0 0 6px ${T.accent})` : 'none',
+              opacity: isEmoji && !active ? 0.5 : 1,
+            }}>{t.icon}</span>
+            <span style={{ fontFamily: FM, fontSize: 8.5, letterSpacing: 0.6, fontWeight: active ? 700 : 500 }}>{t.label}</span>
+            <span style={{
+              width: 4, height: 4, borderRadius: '50%',
+              background: active ? T.accent : 'transparent',
+              boxShadow: active ? `0 0 6px ${T.accent}` : 'none',
+            }} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Loading / error ───────────────────────────────────────────────────
+function CenterMsg({ children, spin }) {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
+      background: T.bg0, zIndex: 50,
+    }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{
+          width: 46, height: 46, margin: '0 auto 16px', borderRadius: '50%',
+          border: `2px solid ${T.inkXLow}`, borderTopColor: T.accent,
+          animation: spin ? 'appSpin 0.9s linear infinite' : 'none',
+        }} />
+        <div style={{ fontFamily: FM, fontSize: 11, color: T.inkDim, letterSpacing: 1 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Profile picker sheet ──────────────────────────────────────────────
+function ProfileSheet({ warriors, meId, onPick, onClose }) {
+  return (
+    <div onClick={onClose} style={{
+      position: 'absolute', inset: 0, zIndex: 60,
+      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)',
+      display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: T.bg1, borderTop: `1px solid ${T.inkXLow}`,
+        borderRadius: '20px 20px 0 0', padding: '14px 14px 28px',
+        maxHeight: '70%', display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{ width: 38, height: 4, borderRadius: 2, background: T.inkXLow, margin: '0 auto 12px' }} />
+        <Eyebrow style={{ marginBottom: 10, paddingLeft: 4 }}>Choisir mon profil</Eyebrow>
+        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {warriors.map((w) => (
+            <div key={w.id} onClick={() => onPick(w.id)} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+              borderRadius: 12, cursor: 'pointer',
+              background: w.id === meId ? `${T.accent}14` : 'transparent',
+              border: `1px solid ${w.id === meId ? T.accent + '44' : 'transparent'}`,
+            }}>
+              <AnimalBadge animal={w.animal} size={34} ring={w.id === meId} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: FT, fontSize: 14, fontWeight: 600, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.name}</div>
+                <div style={{ fontFamily: FM, fontSize: 9, color: T.inkLow }}>{w.hasData ? `#${w.rank} · ${w.animal ? w.animal.name : ''}` : 'aucune mesure'}</div>
+              </div>
+              {w.id === meId && <span style={{ color: T.accent, fontSize: 14 }}>✓</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Data hook ─────────────────────────────────────────────────────────
+function useAppData() {
+  const [s, setS] = React.useState({ status: 'loading', list: null });
+  const load = React.useCallback((silent) => {
+    if (!silent) setS((p) => (p.list ? p : { status: 'loading', list: null }));
+    loadLiveWarriors()
+      .then((list) => setS({ status: list && list.length ? 'ok' : 'empty', list }))
+      .catch((e) => setS((p) => (p.list ? p : { status: 'error', list: null, error: String(e.message || e) })));
+  }, []);
+  React.useEffect(() => { load(); }, [load]);
+  return { status: s.status, list: s.list, reload: () => load(true) };
+}
+
+// ─── Root ──────────────────────────────────────────────────────────────
+function FWApp({ accent, particlesOn = true }) {
+  const { status, list, reload } = useAppData();
+  const [tab, setTab] = React.useState('home');
+  const [ficheId, setFicheId] = React.useState(null);
+  const [sub, setSub] = React.useState(null); // 'challenge' | 'saisie' | 'roster'
+  const [pickerOpen, setPickerOpen] = React.useState(false);
+  const [meId, setMeId] = React.useState(() => {
+    try { return localStorage.getItem('fw_me') || null; } catch (e) { return null; }
+  });
+
+  const setMe = (id) => {
+    setMeId(id);
+    try { localStorage.setItem('fw_me', id); } catch (e) {}
+    setPickerOpen(false);
+  };
+
+  const ready = status === 'ok';
+  const warriors = ready ? list : [];
+  const meta = ready ? list._meta : null;
+  const me = ready ? (warriors.find((w) => w.id === meId) || warriors.find((w) => /nico/i.test(w.name)) || warriors.find((w) => w.hasData) || warriors[0]) : null;
+  const fiche = ficheId ? warriors.find((w) => w.id === ficheId) : null;
+
+  const acc = accent || T.accent;
+
+  // Encouragements: write reaction to Supabase, then silent refresh.
+  const reactToFeed = React.useCallback((feedId, type, remove) => {
+    if (!me || !window.writeReactionLive) return;
+    window.writeReactionLive({ feedId, warriorId: me.id, warriorName: me.name, type, remove })
+      .then(() => reload())
+      .catch(() => {});
+  }, [me, reload]);
+
+  return (
+    <div style={{
+      position: 'relative', height: '100%', overflow: 'hidden',
+      background: `radial-gradient(120% 60% at 50% 0%, ${T.bg2} 0%, ${T.bg1} 40%, ${T.bg0} 82%)`,
+      color: T.ink, fontFamily: FT,
+    }}>
+      <style>{`
+        @keyframes appSpin { to { transform: rotate(360deg); } }
+        @keyframes appFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .app-fade { animation: appFade 0.45s ease-out both; }
+        .app-scroll { overflow-y: auto; overflow-x: hidden; height: 100%; }
+        .app-scroll::-webkit-scrollbar { width: 0; }
+      `}</style>
+
+      {particlesOn && window.FrostParticles && <window.FrostParticles width={APP_W} height={APP_H} count={22} />}
+
+      {status === 'loading' && <CenterMsg spin>Connexion à Supabase…</CenterMsg>}
+      {status === 'error' && <CenterMsg>Hors-ligne — impossible de charger</CenterMsg>}
+      {status === 'empty' && <CenterMsg>Aucun guerrier</CenterMsg>}
+
+      {ready && (
+        <div style={{ position: 'relative', height: '100%', zIndex: 2 }}>
+          {/* Screen body */}
+          <div className="app-scroll" style={{ paddingTop: 48, paddingBottom: 84, height: '100%' }}>
+            {tab === 'home' && <DashboardScreen me={me} warriors={warriors} meta={meta} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} onTab={setTab} onOpenSub={setSub} onReact={reactToFeed} />}
+            {tab === 'rank' && <ClassementScreen warriors={warriors} meId={me && me.id} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} me={me} />}
+            {tab === 'habits' && <HabitsScreen me={me} warriors={warriors} meta={meta} accent={acc} onProfile={() => setPickerOpen(true)} reload={reload} />}
+            {tab === 'more' && <MoreScreen me={me} warriors={warriors} meta={meta} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} onOpenSub={setSub} />}
+          </div>
+
+          <TabBar tab={tab} onTab={setTab} />
+        </div>
+      )}
+
+      {/* Sub-screen overlay (challenge / saisie / roster) */}
+      {sub && ready && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: T.bg0, display: 'flex', flexDirection: 'column' }} className="app-fade">
+          <div style={{
+            paddingTop: 46, paddingBottom: 10, paddingLeft: 8, paddingRight: 16,
+            display: 'flex', alignItems: 'center', gap: 8,
+            borderBottom: `1px solid ${T.inkXLow}`, position: 'relative', zIndex: 2,
+            background: `linear-gradient(180deg, ${T.bg1}, ${T.bg1}cc)`,
+          }}>
+            <button onClick={() => setSub(null)} style={{
+              width: 34, height: 34, borderRadius: 10, cursor: 'pointer', flexShrink: 0,
+              border: `1px solid ${T.inkXLow}`, background: 'transparent', color: T.ink,
+              fontSize: 18, display: 'grid', placeItems: 'center',
+            }}>‹</button>
+            <div style={{ fontFamily: FT, fontSize: 18, fontWeight: 700, color: T.ink }}>
+              {sub === 'challenge' ? 'Challenge du mois'
+                : sub === 'saisie' ? 'Saisir un résultat'
+                : sub === 'rankings' ? 'Classements par test'
+                : sub === 'corps' ? 'Suivi du corps'
+                : sub === 'encouragements' ? 'Encouragements'
+                : 'Tous les guerriers'}
+            </div>
+          </div>
+          <div className="app-scroll" style={{ flex: 1, paddingTop: 12, paddingBottom: 24 }}>
+            {sub === 'challenge' && <ChallengeScreen me={me} meta={meta} accent={acc} onOpenFiche={(id) => setFicheId(id)} reload={reload} />}
+            {sub === 'saisie' && <SaisieScreen me={me} accent={acc} reload={reload} />}
+            {sub === 'roster' && <RosterScreen warriors={warriors} me={me} accent={acc} onOpenFiche={(id) => setFicheId(id)} />}
+            {sub === 'rankings' && <RankingsScreen warriors={warriors} me={me} accent={acc} onOpenFiche={(id) => setFicheId(id)} />}
+            {sub === 'corps' && <CorpsScreen meta={meta} me={me} accent={acc} onOpenFiche={(id) => setFicheId(id)} reload={reload} />}
+            {sub === 'encouragements' && <EncouragementsScreen feed={meta.feed} me={me} accent={acc} onOpenFiche={(id) => setFicheId(id)} />}
+          </div>
+        </div>
+      )}
+
+      {/* Fiche overlay */}
+      {fiche && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 40, background: T.bg0 }} className="app-fade">
+          <div style={{ position: 'absolute', inset: 0 }} className="app-scroll">
+            <HiFiCharacter
+              warrior={fiche}
+              teamAvg={meta && meta.teamAvg}
+              totalWarriors={warriors.length}
+              accent={acc}
+              pulse={true}
+              ghostOn={true}
+              particlesOn={particlesOn}
+            />
+          </div>
+          <button onClick={() => setFicheId(null)} style={{
+            position: 'absolute', top: 50, left: 14, zIndex: 45,
+            width: 36, height: 36, borderRadius: 11, cursor: 'pointer',
+            border: `1px solid ${T.inkXLow}`, background: `${T.bg1}cc`, backdropFilter: 'blur(6px)',
+            color: T.ink, fontSize: 18, display: 'grid', placeItems: 'center',
+          }}>‹</button>
+        </div>
+      )}
+
+      {pickerOpen && ready && (
+        <ProfileSheet warriors={warriors} meId={me && me.id} onPick={setMe} onClose={() => setPickerOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, {
+  FWApp, APP_W, APP_H,
+  Card, Eyebrow, SectionTitle, AnimalBadge, RankPill, ProgressBar,
+  relativeTime, AppBar, FEED_ICONS, MEDAL, APP_T: T, APP_FT: FT, APP_FM: FM,
+});
+
+</script>
+<script type="text/babel" data-from="app-screens.jsx">
+// app-screens.jsx — Dashboard, Classement, Habitudes, Plus.
+// Atoms come from app-shell.jsx (window.*). Tokens via window.APP_T.
+
+const ST = window.APP_T;
+const SFT = window.APP_FT;
+const SFM = window.APP_FM;
+
+function pageWrap(children) {
+  return <div className="app-fade" style={{ padding: '0 14px' }}>{children}</div>;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ACCUEIL
+// ════════════════════════════════════════════════════════════════════════
+function DashboardScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, onTab, onOpenSub, onReact }) {
+  const { Card, Eyebrow, SectionTitle, AnimalBadge, RankPill, ProgressBar, AppBar, relativeTime, FEED_ICONS, EncouragementBanner, FeedItem, encBadgeCount } = window;
+  const total = warriors.length;
+  const myNext = me.nextAnimal;
+  const challenge = meta.challenge;
+  const myChallenge = challenge ? challenge.leaderboard.find((e) => e.w.id === me.id) : null;
+  const myChallengeRank = myChallenge ? challenge.leaderboard.indexOf(myChallenge) + 1 : null;
+  const encBadge = encBadgeCount(meta.feed, me.id);
+
+  return (
+    <>
+      <AppBar title="Tableau de bord" sub="Frozen Warriors · S3" me={me} onProfile={onProfile}
+        onBell={() => onOpenSub('encouragements')} bellBadge={encBadge} />
+      <div style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        <EncouragementBanner feed={meta.feed} me={me} accent={accent} onOpen={() => onOpenSub('encouragements')} />
+
+        {/* Hero — my standing */}
+        <Card glow onClick={() => onOpenFiche(me.id)} style={{ padding: 16 }}>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <AnimalBadge animal={me.animal} size={62} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Eyebrow>{me.animal ? me.animal.name : '—'} · niveau</Eyebrow>
+              <div style={{ fontFamily: SFT, fontSize: 22, fontWeight: 700, color: ST.ink, lineHeight: 1, margin: '2px 0 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{me.name}</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <span style={{ fontFamily: SFM, fontSize: 11, fontWeight: 700, color: accent, padding: '2px 8px', borderRadius: 99, background: `${accent}14`, border: `1px solid ${accent}33` }}>#{me.rank}/{total}</span>
+                <span style={{ fontFamily: SFM, fontSize: 11, fontWeight: 700, color: ST.inkDim, padding: '2px 8px', borderRadius: 99, background: ST.inkXLow }}>score {me.total}</span>
+              </div>
+            </div>
+            <span style={{ color: ST.inkLow, fontSize: 20 }}>›</span>
+          </div>
+          {myNext && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                <span style={{ fontFamily: SFM, fontSize: 9, color: ST.inkLow, letterSpacing: 1, textTransform: 'uppercase' }}>Prochain palier</span>
+                <span style={{ fontFamily: SFM, fontSize: 10, color: ST.inkDim }}>{myNext.emoji} {myNext.name} · {myNext.min} pts</span>
+              </div>
+              <ProgressBar value={me.total} max={myNext.min} color={accent} />
+            </div>
+          )}
+        </Card>
+
+        {/* Quick actions */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => onOpenSub && onOpenSub('saisie')} style={{
+            flex: 1, padding: '12px 10px', borderRadius: 14, cursor: 'pointer',
+            border: `1px solid ${accent}33`, background: `${accent}12`, color: ST.ink,
+            fontFamily: SFT, fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}><span style={{ fontSize: 15 }}>＋</span> Saisir un résultat</button>
+          <button onClick={() => onOpenSub && onOpenSub('roster')} style={{
+            flex: 1, padding: '12px 10px', borderRadius: 14, cursor: 'pointer',
+            border: `1px solid ${ST.inkXLow}`, background: `${ST.bg1}cc`, color: ST.ink,
+            fontFamily: SFT, fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}><span style={{ fontSize: 14 }}>🛡️</span> Guerriers</button>
+        </div>
+
+        {/* Challenge du mois */}
+        {challenge && (
+          <div>
+            <SectionTitle right={meta.activeMonthLabel}>Challenge du mois</SectionTitle>
+            <Card style={{ padding: 14 }} onClick={() => onOpenSub && onOpenSub('challenge')}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <div style={{ fontSize: 26 }}>⚔️</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: SFT, fontSize: 15, fontWeight: 600, color: ST.ink, lineHeight: 1.1 }}>{challenge.title}</div>
+                  <div style={{ fontFamily: SFM, fontSize: 9.5, color: ST.inkLow, marginTop: 2 }}>{challenge.leaderboard.length} participants{challenge.unit ? ` · ${challenge.unit}` : ''}</div>
+                </div>
+                {myChallengeRank
+                  ? <span style={{ fontFamily: SFM, fontSize: 12, fontWeight: 700, color: accent, padding: '3px 9px', borderRadius: 99, background: `${accent}14`, border: `1px solid ${accent}33`, whiteSpace: 'nowrap' }}>moi #{myChallengeRank}</span>
+                  : <span style={{ fontFamily: SFM, fontSize: 9.5, color: ST.inkLow, whiteSpace: 'nowrap' }}>pas inscrit</span>}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {challenge.leaderboard.slice(0, 3).map((e, i) => (
+                  <div key={e.w.id} onClick={(ev) => { ev.stopPropagation(); onOpenFiche(e.w.id); }} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
+                    <RankPill rank={i + 1} />
+                    <AnimalBadge animal={e.w.animal} size={26} ring={false} />
+                    <span style={{ flex: 1, fontFamily: SFT, fontSize: 13, color: ST.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.w.name}</span>
+                    <span style={{ fontFamily: SFM, fontSize: 13, fontWeight: 700, color: accent }}>{e.value}<span style={{ fontSize: 9, color: ST.inkLow, marginLeft: 3 }}>{challenge.unit}</span></span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 10, textAlign: 'center', fontFamily: SFM, fontSize: 10, color: accent, letterSpacing: 0.5 }}>voir le classement complet ›</div>
+            </Card>
+          </div>
+        )}
+
+        {/* Podium habitudes */}
+        {meta.habitsMonthLb.length > 0 && (
+          <div>
+            <SectionTitle right={meta.activeMonthLabel}>Podium habitudes</SectionTitle>
+            <Card style={{ padding: 14 }}>
+              <Podium entries={meta.habitsMonthLb.slice(0, 3)} accent={accent} onOpenFiche={onOpenFiche} unit="pts" />
+            </Card>
+          </div>
+        )}
+
+        {/* Vainqueur du mois précédent */}
+        {meta.habitsPrevWinner && (
+          <Card style={{ padding: 14, background: `linear-gradient(150deg, ${accent}14, ${ST.bg0})`, border: `1px solid ${accent}33` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontSize: 30 }}>👑</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Eyebrow>Vainqueur habitudes · {meta.prevMonthLabel}</Eyebrow>
+                <div style={{ fontFamily: SFT, fontSize: 17, fontWeight: 700, color: ST.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta.habitsPrevWinner.w.name}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontFamily: SFM, fontSize: 18, fontWeight: 700, color: accent }}>{meta.habitsPrevWinner.pts}</div>
+                <div style={{ fontFamily: SFM, fontSize: 9, color: ST.inkLow }}>points</div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Feed */}
+        {meta.feed.length > 0 && (
+          <div style={{ paddingBottom: 6 }}>
+            <SectionTitle>Fil d'activité</SectionTitle>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {meta.feed.slice(0, 8).map((f) => (
+                <FeedItem key={f.id} f={f} me={me} accent={accent} onReact={onReact} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function Podium({ entries, accent, onOpenFiche, unit = 'pts' }) {
+  const { AnimalBadge, RankPill, MEDAL } = window;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {entries.map((e, i) => (
+        <div key={e.w.id} onClick={() => onOpenFiche && onOpenFiche(e.w.id)} style={{
+          display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+          padding: '6px 8px', borderRadius: 10,
+          background: i === 0 ? `${accent}10` : 'transparent',
+          border: `1px solid ${i === 0 ? accent + '33' : 'transparent'}`,
+        }}>
+          <RankPill rank={i + 1} />
+          <AnimalBadge animal={e.w.animal} size={30} ring={i === 0} />
+          <span style={{ flex: 1, fontFamily: SFT, fontSize: 14, fontWeight: i === 0 ? 600 : 500, color: ST.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.w.name}</span>
+          <span style={{ fontFamily: SFM, fontSize: 14, fontWeight: 700, color: i === 0 ? accent : ST.inkDim }}>{e.pts != null ? e.pts : e.value}<span style={{ fontSize: 8.5, color: ST.inkLow, marginLeft: 3 }}>{unit}</span></span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// CLASSEMENT FITNESS
+// ════════════════════════════════════════════════════════════════════════
+function ClassementScreen({ warriors, meId, accent, onOpenFiche, onProfile, me }) {
+  const { AppBar, AnimalBadge, RankPill, MiniHex } = window;
+  const ranked = warriors.filter((w) => w.hasData);
+  const noData = warriors.filter((w) => !w.hasData);
+
+  return (
+    <>
+      <AppBar title="Classement" sub={`${ranked.length} guerriers classés`} me={me} onProfile={onProfile} />
+      <div style={{ padding: '4px 14px 6px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {ranked.map((w) => {
+          const isMe = w.id === meId;
+          const top = w.rank <= 3;
+          return (
+            <div key={w.id} onClick={() => onOpenFiche(w.id)} style={{
+              display: 'flex', alignItems: 'center', gap: 11, cursor: 'pointer',
+              padding: '9px 11px', borderRadius: 14,
+              background: isMe ? `${accent}16` : `${ST.bg1}cc`,
+              border: `1px solid ${isMe ? accent + '55' : top ? window.MEDAL[w.rank - 1] + '44' : ST.inkXLow}`,
+            }}>
+              <RankPill rank={w.rank} />
+              <AnimalBadge animal={w.animal} size={38} ring={isMe} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: SFT, fontSize: 14, fontWeight: 600, color: ST.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {w.name}{isMe && <span style={{ fontFamily: SFM, fontSize: 8.5, color: accent, marginLeft: 6, letterSpacing: 1 }}>MOI</span>}
+                </div>
+                <div style={{ fontFamily: SFM, fontSize: 9, color: ST.inkLow, marginTop: 1 }}>{w.animal ? `${w.animal.emoji} ${w.animal.name}` : ''} · score {w.total}</div>
+              </div>
+              <MiniHex values={w.stats} accent={accent} size={42} />
+            </div>
+          );
+        })}
+
+        {noData.length > 0 && (
+          <div style={{ marginTop: 6, padding: '10px 12px', borderRadius: 12, border: `1px dashed ${ST.inkXLow}`, fontFamily: SFM, fontSize: 10, color: ST.inkLow, textAlign: 'center' }}>
+            {noData.length} guerrier{noData.length > 1 ? 's' : ''} sans mesure encore
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// HABITUDES
+// ════════════════════════════════════════════════════════════════════════
+function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
+  const { AppBar, Card, Eyebrow, SectionTitle, HABIT_DEFS } = window;
+  const defs = (meta && meta.habitDefs) || window.HABIT_DEFS || [];
+  // Local interactive encode state
+  const [checked, setChecked] = React.useState({});
+  const [showers, setShowers] = React.useState(0);
+  const [hydro, setHydro] = React.useState(0);
+  const [state, setState] = React.useState({ phase: 'idle', msg: '' });
+  const target = window.hydrationTarget ? window.hydrationTarget(me.weight) : 2500;
+
+  const basePts = Object.values(checked).filter(Boolean).length;
+  const pts = Math.round((basePts + showers * 0.2 + (hydro >= target ? 1 : 0)) * 10) / 10;
+
+  const toggle = (k) => { setChecked((c) => ({ ...c, [k]: !c[k] })); setState({ phase: 'idle', msg: '' }); };
+
+  const doSave = async () => {
+    if (state.phase === 'saving') return;
+    setState({ phase: 'saving', msg: '' });
+    try {
+      await window.saveHabitsLive({ warriorId: me.id, date: window.todayISO(), checks: checked, showers, hydrationMl: hydro });
+      setState({ phase: 'ok', msg: 'Habitudes du jour enregistrées ✓' });
+      if (reload) reload();
+    } catch (e) {
+      setState({ phase: 'err', msg: 'Erreur : ' + (e.message || e) });
+    }
+  };
+
+  // Week strip (7 days, demo completion from me's recent activity)
+  const days = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  const todayIdx = (new Date().getDay() + 6) % 7;
+
+  return (
+    <>
+      <AppBar title="Habitudes" sub="Encoder ma journée" me={me} onProfile={onProfile} />
+      <div style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* Today encode */}
+        <Card style={{ padding: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+            <Eyebrow>Aujourd'hui</Eyebrow>
+            <span style={{ fontFamily: SFM, fontSize: 15, fontWeight: 700, color: accent }}>{pts} <span style={{ fontSize: 9, color: ST.inkLow }}>pts</span></span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
+            {defs.map((h) => {
+              const on = !!checked[h.key];
+              return (
+                <button key={h.key} onClick={() => toggle(h.key)} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+                  padding: '9px 10px', borderRadius: 11, textAlign: 'left',
+                  background: on ? `${accent}1a` : ST.inkXLow,
+                  border: `1px solid ${on ? accent : 'transparent'}`,
+                  color: on ? ST.ink : ST.inkDim,
+                  transition: 'all 0.15s',
+                }}>
+                  <span style={{ fontSize: 16, filter: on ? 'none' : 'grayscale(0.6)', opacity: on ? 1 : 0.7 }}>{h.emoji}</span>
+                  <span style={{ fontFamily: SFT, fontSize: 11.5, fontWeight: on ? 600 : 500, lineHeight: 1.1 }}>{h.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Cold showers + hydration */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <div style={{ flex: 1, padding: '8px 10px', borderRadius: 11, background: ST.inkXLow, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: SFT, fontSize: 11, color: ST.inkDim }}>🚿 Douches froides</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Stepper onMinus={() => setShowers((s) => Math.max(0, s - 1))} onPlus={() => setShowers((s) => s + 1)} accent={accent} />
+                <span style={{ fontFamily: SFM, fontSize: 13, fontWeight: 700, color: accent, width: 14, textAlign: 'center' }}>{showers}</span>
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 11, background: ST.inkXLow }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontFamily: SFT, fontSize: 11, color: ST.inkDim }}>💧 Hydratation</span>
+              <span style={{ fontFamily: SFM, fontSize: 10, color: hydro >= target ? accent : ST.inkLow }}>{(hydro / 1000).toFixed(1)} / {(target / 1000).toFixed(1)} L</span>
+            </div>
+            <div style={{ display: 'flex', gap: 5 }}>
+              {[0.25, 0.5, 0.5, 0.75].map((l, i) => (
+                <button key={i} onClick={() => setHydro((h) => h + l * 1000)} style={{
+                  flex: 1, padding: '5px 0', borderRadius: 8, cursor: 'pointer',
+                  border: `1px solid ${accent}33`, background: `${accent}10`, color: accent,
+                  fontFamily: SFM, fontSize: 10, fontWeight: 700,
+                }}>+{l}L</button>
+              ))}
+              <button onClick={() => setHydro(0)} style={{ padding: '5px 9px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${ST.inkXLow}`, background: 'transparent', color: ST.inkLow, fontFamily: SFM, fontSize: 10 }}>↺</button>
+            </div>
+          </div>
+          <button onClick={doSave} disabled={state.phase === 'saving'} style={{
+            marginTop: 10, width: '100%', padding: '12px', borderRadius: 12,
+            cursor: state.phase === 'saving' ? 'wait' : 'pointer', border: 'none',
+            background: `linear-gradient(135deg, ${ST.accentBright || accent}, ${accent})`,
+            color: ST.bg0, fontFamily: SFT, fontSize: 14, fontWeight: 700,
+            boxShadow: `0 4px 16px ${accent}44`, opacity: state.phase === 'saving' ? 0.7 : 1,
+          }}>{state.phase === 'saving' ? 'Enregistrement…' : '🔥 Enregistrer ma journée'}</button>
+          {state.phase === 'ok' && <div style={{ marginTop: 8, fontFamily: SFM, fontSize: 10, color: ST.good, textAlign: 'center' }}>✅ {state.msg}</div>}
+          {state.phase === 'err' && <div style={{ marginTop: 8, fontFamily: SFM, fontSize: 10, color: ST.bad, textAlign: 'center' }}>{state.msg}</div>}
+          <div style={{ marginTop: 8, fontFamily: SFM, fontSize: 8.5, color: ST.inkLow, textAlign: 'center', letterSpacing: 0.4 }}>
+            écrit dans ta base Supabase · date du jour
+          </div>
+        </Card>
+
+        {/* Week strip */}
+        <div>
+          <SectionTitle>Ma semaine</SectionTitle>
+          <Card style={{ padding: '12px 10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              {days.map((d, i) => {
+                const done = i < todayIdx && (i % 3 !== 2);
+                const isToday = i === todayIdx;
+                return (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: '50%', display: 'grid', placeItems: 'center',
+                      background: done ? `linear-gradient(180deg, ${ST.accentBright || accent}, ${accent})` : ST.inkXLow,
+                      border: isToday ? `1.5px solid ${accent}` : '1px solid transparent',
+                      boxShadow: done ? `0 0 8px ${accent}66` : 'none',
+                      fontSize: 12, color: done ? ST.bg0 : ST.inkLow,
+                    }}>{done ? '✓' : isToday ? '•' : ''}</div>
+                    <span style={{ fontFamily: SFM, fontSize: 9, color: isToday ? accent : ST.inkLow }}>{d}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+
+        {/* Classement habitudes */}
+        {meta.habitsMonthLb.length > 0 && (
+          <div style={{ paddingBottom: 6 }}>
+            <SectionTitle right={meta.activeMonthLabel}>Classement habitudes</SectionTitle>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {meta.habitsMonthLb.map((e, i) => {
+                const isMe = e.w.id === me.id;
+                return (
+                  <div key={e.w.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '8px 11px', borderRadius: 12,
+                    background: isMe ? `${accent}16` : `${ST.bg1}cc`,
+                    border: `1px solid ${isMe ? accent + '55' : ST.inkXLow}`,
+                  }}>
+                    <window.RankPill rank={i + 1} />
+                    <window.AnimalBadge animal={e.w.animal} size={30} ring={isMe} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: SFT, fontSize: 13, fontWeight: 600, color: ST.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.w.name}</div>
+                      <div style={{ fontFamily: SFM, fontSize: 9, color: ST.inkLow }}>{e.days} jour{e.days > 1 ? 's' : ''} actif{e.days > 1 ? 's' : ''}</div>
+                    </div>
+                    <span style={{ fontFamily: SFM, fontSize: 14, fontWeight: 700, color: isMe ? accent : ST.inkDim }}>{e.pts}<span style={{ fontSize: 8.5, color: ST.inkLow, marginLeft: 3 }}>pts</span></span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function Stepper({ onMinus, onPlus, accent }) {
+  const btn = {
+    width: 22, height: 22, borderRadius: 7, cursor: 'pointer',
+    border: `1px solid ${accent}33`, background: `${accent}10`, color: accent,
+    fontFamily: SFM, fontSize: 13, fontWeight: 700, display: 'grid', placeItems: 'center', lineHeight: 1,
+  };
+  return (
+    <div style={{ display: 'flex', gap: 5 }}>
+      <button onClick={onMinus} style={btn}>−</button>
+      <button onClick={onPlus} style={btn}>+</button>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PLUS (more menu)
+// ════════════════════════════════════════════════════════════════════════
+function MoreScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, onOpenSub }) {
+  const { AppBar, Card, Eyebrow, SectionTitle, AnimalBadge } = window;
+  const items = [
+    { icon: '🛡️', label: 'Tous les guerriers', sub: `${warriors.length} membres`, go: 'roster' },
+    { icon: '⚔️', label: 'Challenge du mois', sub: meta.challenge ? meta.challenge.title : 'aucun actif', go: 'challenge' },
+    { icon: '＋', label: 'Saisir un résultat', sub: 'nouveau bilan de tests', go: 'saisie' },
+    { icon: '📊', label: 'Classements par test', sub: 'VO2max, grip, plank…', go: 'rankings' },
+    { icon: '🧊', label: 'Suivi du corps', sub: 'poids & objectifs', go: 'corps' },
+  ];
+  return (
+    <>
+      <AppBar title="Plus" sub="Explorer" me={me} onProfile={onProfile} />
+      <div style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* Levels ladder */}
+        <div>
+          <SectionTitle>Échelle des niveaux</SectionTitle>
+          <Card style={{ padding: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
+              {window.ANIMALS.map((a) => {
+                const isMine = me.animal && me.animal.name === a.name;
+                return (
+                  <div key={a.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
+                    <div style={{
+                      width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 17,
+                      background: isMine ? `${accent}1f` : ST.inkXLow,
+                      border: `1.5px solid ${isMine ? accent : 'transparent'}`,
+                      boxShadow: isMine ? `0 0 12px ${accent}66` : 'none',
+                      filter: isMine ? 'none' : 'grayscale(0.4)', opacity: isMine ? 1 : 0.8,
+                    }}>{a.emoji}</div>
+                    <span style={{ fontFamily: SFM, fontSize: 7.5, color: isMine ? accent : ST.inkLow, letterSpacing: 0.3, textAlign: 'center' }}>{a.name}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 10, fontFamily: SFM, fontSize: 9.5, color: ST.inkDim, textAlign: 'center' }}>
+              Tu es <span style={{ color: accent, fontWeight: 700 }}>{me.animal ? me.animal.emoji + ' ' + me.animal.name : '—'}</span>{me.nextAnimal ? ` · ${me.nextAnimal.min - me.total} pts pour ${me.nextAnimal.emoji}` : ' · niveau max !'}
+            </div>
+          </Card>
+        </div>
+
+        {/* Menu */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 6 }}>
+          {items.map((it) => (
+            <div key={it.label} onClick={() => !it.soon && onOpenSub && onOpenSub(it.go)} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px',
+              borderRadius: 14, background: `${ST.bg1}cc`, border: `1px solid ${it.soon ? ST.inkXLow : accent + '2a'}`,
+              cursor: it.soon ? 'default' : 'pointer', opacity: it.soon ? 0.82 : 1,
+            }}>
+              <div style={{ fontSize: 20 }}>{it.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: SFT, fontSize: 14, fontWeight: 600, color: ST.ink }}>{it.label}</div>
+                <div style={{ fontFamily: SFM, fontSize: 9.5, color: ST.inkLow, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.sub}</div>
+              </div>
+              {it.soon
+                ? <span style={{ fontFamily: SFM, fontSize: 8, color: ST.inkLow, padding: '2px 7px', borderRadius: 99, border: `1px solid ${ST.inkXLow}`, letterSpacing: 0.5 }}>BIENTÔT</span>
+                : <span style={{ color: accent, fontSize: 18 }}>›</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+Object.assign(window, {
+  DashboardScreen, ClassementScreen, HabitsScreen, MoreScreen, Podium,
+});
+
+</script>
+<script type="text/babel" data-from="app-screens2.jsx">
+// app-screens2.jsx — Wave 2 screens: Challenge, Saisie résultat, Roster.
+// Atoms + tokens from app-shell.jsx (window.*).
+
+const S2 = window.APP_T;
+const S2FT = window.APP_FT;
+const S2FM = window.APP_FM;
+
+// ════════════════════════════════════════════════════════════════════════
+// CHALLENGE
+// ════════════════════════════════════════════════════════════════════════
+function ChallengeScreen({ me, meta, accent, onOpenFiche, reload }) {
+  const { Card, Eyebrow, SectionTitle, AnimalBadge, RankPill } = window;
+  const ch = meta.challenge;
+  const [myVal, setMyVal] = React.useState('');
+  const [state, setState] = React.useState({ phase: 'idle', msg: '' });
+
+  if (!ch) {
+    return (
+      <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>⚔️</div>
+        <div style={{ fontFamily: S2FT, fontSize: 16, color: S2.ink, marginBottom: 6 }}>Aucun challenge actif</div>
+        <div style={{ fontFamily: S2FM, fontSize: 11, color: S2.inkLow }}>Le prochain défi sera bientôt publié.</div>
+      </div>
+    );
+  }
+
+  const lb = ch.leaderboard;
+  const myEntry = lb.find((e) => e.w.id === me.id);
+  const myRank = myEntry ? lb.indexOf(myEntry) + 1 : null;
+
+  return (
+    <div style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Hero */}
+      <Card glow style={{ padding: 16, background: `linear-gradient(150deg, ${accent}1a, ${S2.bg0})`, border: `1px solid ${accent}33` }}>
+        <Eyebrow>⚔️ Challenge · {meta.activeMonthLabel}</Eyebrow>
+        <div style={{ fontFamily: S2FT, fontSize: 21, fontWeight: 700, color: S2.ink, margin: '6px 0 6px', lineHeight: 1.05 }}>{ch.title}</div>
+        {ch.description && <div style={{ fontFamily: S2FT, fontSize: 12.5, color: S2.inkDim, lineHeight: 1.5 }}>{ch.description}</div>}
+        <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+          {ch.unit && <span style={{ fontFamily: S2FM, fontSize: 10, color: accent, padding: '3px 9px', borderRadius: 99, background: `${accent}14`, border: `1px solid ${accent}33` }}>📏 {ch.unit}</span>}
+          <span style={{ fontFamily: S2FM, fontSize: 10, color: S2.inkDim, padding: '3px 9px', borderRadius: 99, background: S2.inkXLow }}>🎽 T-shirt au vainqueur</span>
+          <span style={{ fontFamily: S2FM, fontSize: 10, color: S2.inkDim, padding: '3px 9px', borderRadius: 99, background: S2.inkXLow }}>{lb.length} participants</span>
+        </div>
+      </Card>
+
+      {/* Submit my result */}
+      <Card style={{ padding: 14 }}>
+        <Eyebrow style={{ marginBottom: 8 }}>📤 Soumettre mon résultat</Eyebrow>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: S2.inkXLow, borderRadius: 11, padding: '0 12px', border: `1px solid ${S2.inkXLow}` }}>
+            <input
+              value={myVal}
+              onChange={(e) => { setMyVal(e.target.value); setState({ phase: 'idle', msg: '' }); }}
+              type="number" placeholder="0" inputMode="decimal"
+              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: S2.ink, fontFamily: S2FM, fontSize: 18, fontWeight: 700, width: '100%', padding: '10px 0' }}
+            />
+            <span style={{ fontFamily: S2FM, fontSize: 11, color: S2.inkLow }}>{ch.unit}</span>
+          </div>
+          <button onClick={async () => {
+            const v = parseFloat(myVal);
+            if (isNaN(v) || v <= 0) { setState({ phase: 'err', msg: 'Entre une valeur valide' }); return; }
+            if (state.phase === 'saving') return;
+            setState({ phase: 'saving', msg: '' });
+            try {
+              await window.submitChallengeLive({ challengeId: ch.id, warriorId: me.id, value: v });
+              setState({ phase: 'ok', msg: 'Résultat enregistré ✓' });
+              setMyVal('');
+              if (reload) reload();
+            } catch (e) {
+              setState({ phase: 'err', msg: 'Erreur : ' + (e.message || e) });
+            }
+          }} disabled={state.phase === 'saving'} style={{
+            padding: '0 16px', borderRadius: 11, cursor: state.phase === 'saving' ? 'wait' : 'pointer',
+            border: 'none', background: `linear-gradient(135deg, ${S2.accentBright || accent}, ${accent})`,
+            color: S2.bg0, fontFamily: S2FT, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+            boxShadow: `0 0 16px ${accent}55`, opacity: state.phase === 'saving' ? 0.7 : 1,
+          }}>{state.phase === 'saving' ? '…' : 'Enregistrer'}</button>
+        </div>
+        {state.phase === 'ok' && <div style={{ marginTop: 8, fontFamily: S2FM, fontSize: 10.5, color: S2.good }}>✅ {state.msg} — écrit dans Supabase</div>}
+        {state.phase === 'err' && <div style={{ marginTop: 8, fontFamily: S2FM, fontSize: 10, color: S2.bad }}>{state.msg}</div>}
+        {myRank && state.phase === 'idle' && <div style={{ marginTop: 8, fontFamily: S2FM, fontSize: 10, color: S2.inkDim }}>Ton meilleur actuel : <span style={{ color: accent, fontWeight: 700 }}>{myEntry.value} {ch.unit}</span> · #{myRank}</div>}
+      </Card>
+
+      {/* Leaderboard */}
+      <div style={{ paddingBottom: 6 }}>
+        <SectionTitle right={`${lb.length} résultats`}>🏅 Classement</SectionTitle>
+        {lb.length === 0 ? (
+          <div style={{ fontFamily: S2FM, fontSize: 11, color: S2.inkLow, padding: '16px 0', textAlign: 'center' }}>Aucun résultat encore. Sois le premier ! 💪</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {lb.map((e, i) => {
+              const isMe = e.w.id === me.id;
+              return (
+                <div key={e.w.id} onClick={() => onOpenFiche(e.w.id)} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                  padding: '8px 11px', borderRadius: 12,
+                  background: isMe ? `${accent}16` : `${S2.bg1}cc`,
+                  border: `1px solid ${isMe ? accent + '55' : S2.inkXLow}`,
+                }}>
+                  <RankPill rank={i + 1} />
+                  <AnimalBadge animal={e.w.animal} size={30} ring={isMe} />
+                  <span style={{ flex: 1, fontFamily: S2FT, fontSize: 13.5, fontWeight: 600, color: S2.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {e.w.name}{isMe && <span style={{ fontFamily: S2FM, fontSize: 8.5, color: accent, marginLeft: 6 }}>MOI</span>}
+                  </span>
+                  <span style={{ fontFamily: S2FM, fontSize: 15, fontWeight: 700, color: i === 0 ? accent : S2.inkDim }}>{e.value}<span style={{ fontSize: 8.5, color: S2.inkLow, marginLeft: 3 }}>{ch.unit}</span></span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SAISIE RÉSULTAT
+// ════════════════════════════════════════════════════════════════════════
+function SaisieScreen({ me, accent, reload }) {
+  const { Card, Eyebrow, SectionTitle, AnimalBadge, ProgressBar } = window;
+  const TEST_META = window.TEST_META;
+  const CAT_ORDER = window.CAT_ORDER;
+  const AXES = window.AXES;
+  const [vals, setVals] = React.useState({});
+  const [legMode, setLegMode] = React.useState('legext');
+  const [state, setState] = React.useState({ phase: 'idle', msg: '' });
+
+  const set = (id, v) => { setVals((s) => ({ ...s, [id]: v })); setState({ phase: 'idle', msg: '' }); };
+
+  const doSave = async () => {
+    if (state.phase === 'saving') return;
+    setState({ phase: 'saving', msg: '' });
+    try {
+      await window.saveResultLive({ warriorId: me.id, date: window.todayISO(), values: vals, legMode });
+      setState({ phase: 'ok', msg: 'Bilan enregistré dans Supabase ✓' });
+      if (reload) reload();
+    } catch (e) {
+      setState({ phase: 'err', msg: 'Erreur : ' + (e.message || e) });
+    }
+  };
+
+  // Build a result object and score it live
+  const warriorLike = { gender: me.gender || 'homme', weight: me.weight, height: me.height };
+  const result = { ...vals, legext_mode: legMode };
+  const stats = window.resultToStats(warriorLike, result);
+  const present = window.resultPresence(warriorLike, result);
+  const { total } = window.calcScoreLive(warriorLike, result);
+  const filledCount = present.filter(Boolean).length;
+  const animal = window.getAnimal(total);
+  const catColor = (cat) => accent;
+
+  // Group tests by category in canonical order
+  const byCat = {};
+  TEST_META.forEach((t) => { (byCat[t.cat] = byCat[t.cat] || []).push(t); });
+
+  const inputStyle = {
+    width: 64, background: S2.inkXLow, border: `1px solid ${S2.inkXLow}`, borderRadius: 9,
+    color: S2.ink, fontFamily: S2FM, fontSize: 14, fontWeight: 700, textAlign: 'right',
+    padding: '7px 9px', outline: 'none',
+  };
+
+  return (
+    <div style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Header with who + date */}
+      <Card style={{ padding: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AnimalBadge animal={me.animal} size={34} />
+          <div style={{ flex: 1 }}>
+            <Eyebrow>Saisie pour</Eyebrow>
+            <div style={{ fontFamily: S2FT, fontSize: 15, fontWeight: 600, color: S2.ink }}>{me.name}</div>
+          </div>
+          <div style={{ fontFamily: S2FM, fontSize: 11, color: S2.inkDim, padding: '6px 10px', borderRadius: 9, background: S2.inkXLow }}>📅 aujourd'hui</div>
+        </div>
+      </Card>
+
+      {/* Live score preview (sticky feel) */}
+      <Card glow style={{ padding: 14, background: `linear-gradient(150deg, ${accent}14, ${S2.bg0})`, border: `1px solid ${accent}33` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 54, height: 54, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 28, background: `radial-gradient(circle at 35% 30%, ${S2.bg2}, ${S2.bg0})`, border: `1.5px solid ${accent}`, boxShadow: `0 0 18px ${accent}44` }}>{animal.emoji}</div>
+          <div style={{ flex: 1 }}>
+            <Eyebrow>Score en direct</Eyebrow>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ fontFamily: S2FT, fontSize: 26, fontWeight: 700, color: S2.ink, lineHeight: 1 }}>{total > -900 ? total : 0}</span>
+              <span style={{ fontFamily: S2FM, fontSize: 12, fontWeight: 700, color: accent }}>{animal.name}</span>
+            </div>
+            <div style={{ fontFamily: S2FM, fontSize: 9, color: S2.inkLow, marginTop: 3 }}>{filledCount}/6 catégories renseignées</div>
+          </div>
+        </div>
+        {/* Mini per-axis bars */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)', gap: 6, marginTop: 12 }}>
+          {AXES.map((ax, i) => (
+            <div key={ax}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                <span style={{ fontFamily: S2FM, fontSize: 8, color: S2.inkLow, letterSpacing: 0.5 }}>{ax.slice(0, 4).toUpperCase()}</span>
+                <span style={{ fontFamily: S2FM, fontSize: 8, color: present[i] ? accent : S2.inkLow }}>{present[i] ? stats[i] : '·'}</span>
+              </div>
+              <ProgressBar value={present[i] ? stats[i] : 0} color={accent} height={4} />
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Test fields grouped by category */}
+      {CAT_ORDER.map((cat) => (
+        <div key={cat}>
+          <SectionTitle>{cat}</SectionTitle>
+          <Card style={{ padding: '6px 12px' }}>
+            {byCat[cat].map((t, idx) => {
+              const isLeg = t.id === 'legext';
+              const activeId = isLeg && legMode === 'backsquat' ? 'backsquat' : t.id;
+              const activeMeta = isLeg && legMode === 'backsquat' ? t.alt : t;
+              return (
+                <div key={t.id} style={{ padding: '9px 0', borderBottom: idx < byCat[cat].length - 1 ? `1px solid ${S2.inkXLow}` : 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: S2FT, fontSize: 13, color: S2.ink }}>{activeMeta.label}</div>
+                      {isLeg && (
+                        <div style={{ display: 'flex', gap: 4, marginTop: 5 }}>
+                          {['legext', 'backsquat'].map((m) => (
+                            <button key={m} onClick={() => setLegMode(m)} style={{
+                              fontFamily: S2FM, fontSize: 8.5, padding: '2px 8px', borderRadius: 99, cursor: 'pointer',
+                              border: `1px solid ${legMode === m ? accent : S2.inkXLow}`,
+                              background: legMode === m ? `${accent}1a` : 'transparent',
+                              color: legMode === m ? accent : S2.inkLow,
+                            }}>{m === 'legext' ? 'Leg ext.' : 'Back squat'}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <input type="number" inputMode="decimal" placeholder="—"
+                      value={vals[activeId] || ''}
+                      onChange={(e) => set(activeId, e.target.value)}
+                      style={inputStyle} />
+                    <span style={{ fontFamily: S2FM, fontSize: 9.5, color: S2.inkLow, width: 28 }}>{activeMeta.unit}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </Card>
+        </div>
+      ))}
+
+      {/* Save */}
+      <button onClick={doSave} disabled={state.phase === 'saving'} style={{
+        marginTop: 2, marginBottom: 8, padding: '14px', borderRadius: 14,
+        cursor: state.phase === 'saving' ? 'wait' : 'pointer',
+        border: 'none', background: `linear-gradient(135deg, ${S2.accentBright || accent}, ${accent})`,
+        color: S2.bg0, fontFamily: S2FT, fontSize: 15, fontWeight: 700,
+        boxShadow: `0 6px 20px ${accent}44`, opacity: state.phase === 'saving' ? 0.7 : 1,
+      }}>{state.phase === 'saving' ? 'Enregistrement…' : '💾 Enregistrer le bilan'}</button>
+      {state.phase === 'ok' && <div style={{ marginTop: -4, marginBottom: 8, fontFamily: S2FM, fontSize: 10.5, color: S2.good, textAlign: 'center' }}>✅ {state.msg}</div>}
+      {state.phase === 'err' && <div style={{ marginTop: -4, marginBottom: 8, fontFamily: S2FM, fontSize: 10, color: S2.bad, textAlign: 'center' }}>{state.msg}</div>}
+      <div style={{ fontFamily: S2FM, fontSize: 8.5, color: S2.inkLow, textAlign: 'center', marginTop: -2 }}>écrit directement dans ta base Supabase · date du jour</div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ROSTER (tous les guerriers)
+// ════════════════════════════════════════════════════════════════════════
+function RosterScreen({ warriors, me, accent, onOpenFiche }) {
+  const { Card, AnimalBadge, MiniHex } = window;
+  const [q, setQ] = React.useState('');
+  const [sort, setSort] = React.useState('rank'); // rank | name
+  const filtered = warriors
+    .filter((w) => w.name.toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => {
+      if (sort === 'name') return a.name.localeCompare(b.name);
+      // rank: data first by rank, then no-data
+      if (a.hasData && !b.hasData) return -1;
+      if (!a.hasData && b.hasData) return 1;
+      return (a.rank || 999) - (b.rank || 999);
+    });
+
+  return (
+    <div style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Search + sort */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: `${S2.bg1}cc`, borderRadius: 12, padding: '0 12px', border: `1px solid ${S2.inkXLow}` }}>
+          <span style={{ color: S2.inkLow, fontSize: 13 }}>⌕</span>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un guerrier…"
+            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: S2.ink, fontFamily: S2FT, fontSize: 13, padding: '10px 0' }} />
+        </div>
+        <button onClick={() => setSort((s) => (s === 'rank' ? 'name' : 'rank'))} style={{
+          padding: '0 12px', borderRadius: 12, cursor: 'pointer',
+          border: `1px solid ${S2.inkXLow}`, background: `${S2.bg1}cc`, color: S2.inkDim,
+          fontFamily: S2FM, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
+        }}>{sort === 'rank' ? '↑ rang' : '↑ A-Z'}</button>
+      </div>
+
+      <div style={{ fontFamily: S2FM, fontSize: 9.5, color: S2.inkLow, letterSpacing: 0.5, paddingLeft: 2 }}>
+        {filtered.length} guerrier{filtered.length > 1 ? 's' : ''}
+      </div>
+
+      {/* Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 10, paddingBottom: 6 }}>
+        {filtered.map((w) => {
+          const isMe = w.id === me.id;
+          return (
+            <Card key={w.id} onClick={() => onOpenFiche(w.id)} style={{
+              padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+              border: `1px solid ${isMe ? accent + '55' : S2.inkXLow}`,
+              background: isMe ? `${accent}10` : undefined,
+            }}>
+              <div style={{ position: 'relative' }}>
+                {w.hasData
+                  ? <MiniHex values={w.stats} accent={accent} size={68} />
+                  : <div style={{ width: 68, height: 68, display: 'grid', placeItems: 'center', fontSize: 24, opacity: 0.4 }}>❓</div>}
+                <div style={{ position: 'absolute', bottom: -2, right: -2, fontSize: 18 }}>{w.animal ? w.animal.emoji : ''}</div>
+              </div>
+              <div style={{ fontFamily: S2FT, fontSize: 12.5, fontWeight: 600, color: S2.ink, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                {w.name}
+              </div>
+              <div style={{ fontFamily: S2FM, fontSize: 8.5, color: S2.inkLow }}>
+                {w.hasData ? `#${w.rank} · score ${w.total}` : 'aucune mesure'}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { ChallengeScreen, SaisieScreen, RosterScreen });
+
+</script>
+<script type="text/babel" data-from="app-screens3.jsx">
+// app-screens3.jsx — Wave 3a: Rankings par test + Suivi du corps.
+const S3 = window.APP_T;
+const S3FT = window.APP_FT;
+const S3FM = window.APP_FM;
+
+// 4-tier pace colors (dark glacial)
+const PACE_COLORS = { green: '#4ade80', yellow: '#fde047', orange: '#fb923c', red: '#fb7185', grey: '#7c8a99' };
+const PACE_LABEL = {
+  green: 'dans le range', yellow: 'trop lent', orange: 'trop rapide',
+  red: 'mauvais sens', grey: '—',
+};
+// Format a signed kg/week pace as "±NNN g/sem"
+function paceText(kg) {
+  if (kg == null) return '—';
+  const g = Math.round(kg * 1000);
+  const sign = g > 0 ? '+' : g < 0 ? '−' : '';
+  return sign + Math.abs(g) + ' g/sem';
+}
+function fmtDateFr(d) {
+  if (!d) return '—';
+  const dt = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(dt)) return String(d);
+  return dt.toLocaleDateString('fr-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+function fmtDateShort(d) {
+  if (!d) return '—';
+  const dt = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(dt)) return String(d);
+  return dt.toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit' });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// CLASSEMENTS PAR TEST
+// ════════════════════════════════════════════════════════════════════════
+function RankingsScreen({ warriors, me, accent, onOpenFiche }) {
+  const { AnimalBadge, RankPill, MEDAL } = window;
+  const tests = window.RANK_TESTS;
+  const [active, setActive] = React.useState(tests[0].id);
+  const test = tests.find((t) => t.id === active);
+
+  const ranked = warriors
+    .filter((w) => w.raw && w.raw[active] != null)
+    .map((w) => ({ w, v: w.raw[active] }))
+    .sort((a, b) => (test.dir === 'asc' ? a.v - b.v : b.v - a.v));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Test tabs */}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '0 14px 2px' }} className="app-scroll">
+        {tests.map((t) => {
+          const on = t.id === active;
+          return (
+            <button key={t.id} onClick={() => setActive(t.id)} style={{
+              flexShrink: 0, padding: '7px 12px', borderRadius: 99, cursor: 'pointer',
+              border: `1px solid ${on ? accent : S3.inkXLow}`,
+              background: on ? `${accent}1a` : `${S3.bg1}cc`,
+              color: on ? accent : S3.inkDim,
+              fontFamily: S3FT, fontSize: 12, fontWeight: on ? 700 : 500, whiteSpace: 'nowrap',
+            }}>{t.emoji} {t.label}</button>
+          );
+        })}
+      </div>
+
+      <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ fontFamily: S3FM, fontSize: 9.5, color: S3.inkLow, letterSpacing: 0.5, paddingLeft: 2, marginBottom: 2 }}>
+          {ranked.length} guerrier{ranked.length > 1 ? 's' : ''} · {test.dir === 'asc' ? 'plus bas = mieux' : 'plus haut = mieux'}
+        </div>
+        {ranked.length === 0 ? (
+          <div style={{ fontFamily: S3FM, fontSize: 11, color: S3.inkLow, padding: '24px 0', textAlign: 'center' }}>Aucune mesure pour ce test.</div>
+        ) : ranked.map((e, i) => {
+          const isMe = e.w.id === me.id;
+          return (
+            <div key={e.w.id} onClick={() => onOpenFiche(e.w.id)} style={{
+              display: 'flex', alignItems: 'center', gap: 11, cursor: 'pointer',
+              padding: '9px 11px', borderRadius: 13,
+              background: isMe ? `${accent}16` : `${S3.bg1}cc`,
+              border: `1px solid ${isMe ? accent + '55' : i < 3 ? MEDAL[i] + '44' : S3.inkXLow}`,
+            }}>
+              <RankPill rank={i + 1} />
+              <AnimalBadge animal={e.w.animal} size={32} ring={isMe} />
+              <span style={{ flex: 1, fontFamily: S3FT, fontSize: 14, fontWeight: 600, color: S3.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {e.w.name}{isMe && <span style={{ fontFamily: S3FM, fontSize: 8.5, color: accent, marginLeft: 6 }}>MOI</span>}
+              </span>
+              <span style={{ fontFamily: S3FM, fontSize: 16, fontWeight: 700, color: i === 0 ? accent : S3.inkDim }}>
+                {e.v}<span style={{ fontSize: 9, color: S3.inkLow, marginLeft: 3 }}>{test.unit}</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SUIVI DU CORPS
+// ════════════════════════════════════════════════════════════════════════
+const GOAL_META = {
+  perte: { label: 'Perte', emoji: '📉', color: '#67e8f9' },
+  prise: { label: 'Prise', emoji: '📈', color: '#4ade80' },
+  recompo: { label: 'Recomposition', emoji: '🔄', color: '#a5f3fc' },
+};
+
+// ─── Balance qui se remplit (group challenge gauge) ────────────────────
+function GaugeBalance({ gc, accent }) {
+  const T = window.APP_T;
+  const pct = Math.max(0, Math.min(100, gc.pct));
+  const visPct = Math.max(pct, 3); // sliver of liquid even at 0%
+
+  // Top-down bathroom-scale platform
+  const px = 26, py = 18, pw = 188, ph = 196, prx = 34;
+  const bottom = py + ph, cx = px + pw / 2;
+  const level = bottom - (visPct / 100) * ph;
+  const lambda = 50, amp = 5;
+
+  const wavePath = (yShift) => {
+    const x0 = px - 2 * lambda, xEnd = px + pw + 2 * lambda;
+    const y = level + yShift;
+    let d = `M ${x0} ${y}`;
+    let x = x0, up = true;
+    while (x < xEnd) { d += ` q ${lambda / 4} ${up ? -amp : amp} ${lambda / 2} 0`; x += lambda / 2; up = !up; }
+    d += ` L ${xEnd} ${bottom} L ${x0} ${bottom} Z`;
+    return d;
+  };
+
+  // Display window (where you read your weight) — top centre
+  const dispW = 132, dispH = 50, dispX = cx - dispW / 2, dispY = py + 16;
+  // Foot pads (lower area)
+  const padW = 62, padH = 96, padY = bottom - padH - 16;
+
+  return (
+    <svg viewBox="0 0 258 244" width="100%" style={{ display: 'block', overflow: 'hidden', maxHeight: 252 }}>
+      <defs>
+        <clipPath id="balClip"><rect x={px} y={py} width={pw} height={ph} rx={prx} /></clipPath>
+        <linearGradient id="balLiquid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={T.accentBright || accent} stopOpacity="0.95" />
+          <stop offset="100%" stopColor={T.accentDark || accent} stopOpacity="0.8" />
+        </linearGradient>
+        <linearGradient id="balPlate" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={T.bg2} />
+          <stop offset="100%" stopColor={T.bg0} />
+        </linearGradient>
+        <radialGradient id="balShine" cx="34%" cy="22%" r="80%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.12" />
+          <stop offset="55%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      {/* drop shadow */}
+      <rect x={px + 4} y={py + 8} width={pw} height={ph} rx={prx} fill="#000" opacity="0.35" />
+      {/* platform body */}
+      <rect x={px} y={py} width={pw} height={ph} rx={prx} fill="url(#balPlate)" stroke={T.inkXLow} strokeWidth="1.5" />
+
+      {/* liquid fill (clipped to platform) */}
+      <g clipPath="url(#balClip)">
+        <path d={wavePath(3)} fill={T.accentDark || accent} opacity="0.4">
+          <animateTransform attributeName="transform" type="translate" from="0 0" to={`${-lambda} 0`} dur="4.8s" repeatCount="indefinite" />
+        </path>
+        <path d={wavePath(0)} fill="url(#balLiquid)">
+          <animateTransform attributeName="transform" type="translate" from="0 0" to={`${-lambda} 0`} dur="3.1s" repeatCount="indefinite" />
+        </path>
+        {/* milestone level lines */}
+        {gc.milestones.map((m) => {
+          const y = bottom - (m.pct / 100) * ph;
+          const reached = pct >= m.pct;
+          return <line key={m.pct} x1={px} y1={y} x2={px + pw} y2={y} stroke={reached ? '#ffffff' : T.inkLow} strokeOpacity={reached ? 0.45 : 0.22} strokeWidth="1" strokeDasharray="3 4" />;
+        })}
+      </g>
+
+      {/* foot pads (textured zones where you stand) */}
+      {[px + 16, px + pw - 16 - padW].map((fx, idx) => (
+        <g key={idx}>
+          <rect x={fx} y={padY} width={padW} height={padH} rx={16} fill="#ffffff" fillOpacity="0.04" stroke="#ffffff" strokeOpacity="0.10" />
+          {[0, 1, 2, 3].map((i) => (
+            <line key={i} x1={fx + 12} y1={padY + 20 + i * 16} x2={fx + padW - 12} y2={padY + 20 + i * 16} stroke="#ffffff" strokeOpacity="0.06" strokeWidth="2" strokeLinecap="round" />
+          ))}
+        </g>
+      ))}
+
+      {/* glass shine + accent rim */}
+      <rect x={px} y={py} width={pw} height={ph} rx={prx} fill="url(#balShine)" />
+      <rect x={px + 3} y={py + 3} width={pw - 6} height={ph - 6} rx={prx - 3} fill="none" stroke={accent} strokeOpacity="0.28" strokeWidth="1.2" />
+
+      {/* corner sensor dots */}
+      {[[px + 14, py + 14], [px + pw - 14, py + 14], [px + 14, bottom - 14], [px + pw - 14, bottom - 14]].map((p, i) => (
+        <circle key={i} cx={p[0]} cy={p[1]} r="2.5" fill={accent} opacity="0.5" />
+      ))}
+
+      {/* DISPLAY WINDOW — the weight readout */}
+      <rect x={dispX} y={dispY} width={dispW} height={dispH} rx={12} fill={T.bg0} fillOpacity="0.85" stroke={accent} strokeOpacity="0.55" strokeWidth="1.4" />
+      <rect x={dispX} y={dispY} width={dispW} height={dispH} rx={12} fill="none" stroke="#fff" strokeOpacity="0.06" strokeWidth="1" />
+      <text x={cx} y={dispY + dispH / 2 + 11} textAnchor="middle" fontFamily={S3FM} fontSize="33" fontWeight="700" fill={accent} style={{ filter: `drop-shadow(0 0 6px ${accent}66)` }}>
+        {pct}<tspan fontSize="16" dx="1">%</tspan>
+      </text>
+
+      {/* brand label */}
+      <text x={cx} y={bottom - 9} textAnchor="middle" fontFamily={S3FM} fontSize="7.5" fill={T.inkLow} letterSpacing="3">FROZEN · BEACH BODY</text>
+
+      {/* milestone emoji tabs on the right */}
+      {gc.milestones.map((m) => {
+        const y = bottom - (m.pct / 100) * ph;
+        const reached = pct >= m.pct;
+        return (
+          <g key={'e' + m.pct}>
+            <line x1={px + pw} y1={y} x2={px + pw + 8} y2={y} stroke={reached ? accent : T.inkLow} strokeOpacity={reached ? 0.7 : 0.3} strokeWidth="1.2" />
+            <circle cx={px + pw + 19} cy={y} r={10.5} fill={reached ? `${accent}22` : T.bg1} stroke={reached ? accent : T.inkXLow} strokeWidth="1.2" />
+            <text x={px + pw + 19} y={y + 4} textAnchor="middle" fontSize="11" opacity={reached ? 1 : 0.5}>{m.emoji}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function WeightSpark({ entries, width = 90, height = 28, color }) {
+  if (!entries || entries.length < 2) return <div style={{ width, height }} />;
+  const ws = entries.map((e) => e.weight);
+  const min = Math.min(...ws), max = Math.max(...ws);
+  const span = Math.max(0.5, max - min);
+  const pts = ws.map((w, i) => [
+    (i / (ws.length - 1)) * (width - 4) + 2,
+    height - 3 - ((w - min) / span) * (height - 8),
+  ]);
+  const d = 'M' + pts.map((p) => p.join(',')).join(' L');
+  const last = pts[pts.length - 1];
+  return (
+    <svg width={width} height={height} style={{ display: 'block' }}>
+      <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r="2.4" fill={color} />
+    </svg>
+  );
+}
+
+// Multi-series line chart (responsive via viewBox). entries: [{date, ...}].
+// series: [{ key, label, color }]. Connects non-null points, breaks on gaps.
+function LineChartMulti({ entries, series, yMin, yMax, height = 120, unit = '', integer = false }) {
+  const W = 300, padL = 30, padR = 8, padT = 10, padB = 18;
+  const plotW = W - padL - padR, plotH = height - padT - padB;
+  const n = entries.length;
+  // domain
+  let lo = yMin, hi = yMax;
+  if (lo == null || hi == null) {
+    const all = [];
+    series.forEach((s) => entries.forEach((e) => { if (e[s.key] != null) all.push(e[s.key]); }));
+    if (all.length) { lo = lo == null ? Math.min(...all) : lo; hi = hi == null ? Math.max(...all) : hi; }
+    if (lo == null) { lo = 0; hi = 1; }
+    if (hi - lo < 0.5) { hi = lo + 1; }
+    // pad
+    const pad = (hi - lo) * 0.12;
+    lo -= pad; hi += pad;
+  }
+  const xAt = (i) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yAt = (v) => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
+  const fmt = (v) => integer ? Math.round(v).toLocaleString('fr-FR') : (Math.round(v * 10) / 10);
+
+  // build path per series, splitting on nulls
+  const paths = series.map((s) => {
+    let d = '', pen = false, lastPt = null;
+    entries.forEach((e, i) => {
+      const v = e[s.key];
+      if (v == null) { pen = false; return; }
+      const x = xAt(i), y = yAt(v);
+      d += (pen ? ' L' : ' M') + x + ',' + y;
+      pen = true; lastPt = [x, y, v];
+    });
+    return { ...s, d, lastPt };
+  });
+
+  const dateLbl = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`; };
+
+  return (
+    <svg viewBox={`0 0 ${W} ${height}`} width="100%" style={{ display: 'block', overflow: 'visible' }}>
+      {/* gridlines */}
+      {[0, 0.5, 1].map((f, i) => {
+        const y = padT + plotH * f;
+        const val = hi - (hi - lo) * f;
+        return (
+          <g key={i}>
+            <line x1={padL} y1={y} x2={W - padR} y2={y} stroke={S3.inkXLow} strokeWidth={0.7} strokeDasharray={i === 2 ? '' : '2 4'} />
+            <text x={padL - 5} y={y + 3} textAnchor="end" fontFamily={S3FM} fontSize={7.5} fill={S3.inkLow}>{fmt(val)}</text>
+          </g>
+        );
+      })}
+      {/* x labels (first / mid / last) */}
+      {n > 0 && [0, Math.floor((n - 1) / 2), n - 1].filter((v, idx, a) => a.indexOf(v) === idx).map((i) => (
+        <text key={i} x={xAt(i)} y={height - 5} textAnchor="middle" fontFamily={S3FM} fontSize={7.5} fill={S3.inkLow}>{dateLbl(entries[i].date)}</text>
+      ))}
+      {/* series */}
+      {paths.map((p) => (
+        <g key={p.key}>
+          <path d={p.d} fill="none" stroke={p.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          {p.lastPt && <circle cx={p.lastPt[0]} cy={p.lastPt[1]} r={2.8} fill={p.color} />}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function ChartCard({ title, unit, children, legend }) {
+  const { Card, Eyebrow } = window;
+  return (
+    <Card style={{ padding: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+        <Eyebrow>{title}</Eyebrow>
+        {unit && <span style={{ fontFamily: S3FM, fontSize: 9, color: S3.inkLow }}>{unit}</span>}
+      </div>
+      {children}
+      {legend && (
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+          {legend.map((l) => (
+            <span key={l.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: S3FM, fontSize: 9, color: S3.inkDim }}>
+              <span style={{ width: 9, height: 3, borderRadius: 2, background: l.color }} />{l.label}
+            </span>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function BodyEncodeForm({ b, me, accent, reload }) {
+  const todayISO = window.todayISO;
+  const [open, setOpen] = React.useState(false);
+  const [editId, setEditId] = React.useState(null);
+  const [date, setDate] = React.useState(todayISO());
+  const [vals, setVals] = React.useState({ weight: b.current != null ? String(b.current) : '', sportHours: '', avgSteps: '', energy: '', motivation: '', cravings: '' });
+  const [state, setState] = React.useState({ phase: 'idle', msg: '' });
+  const set = (k, v) => { setVals((s) => ({ ...s, [k]: v })); setState({ phase: 'idle', msg: '' }); };
+
+  const entries = b.entries || [];
+  const recent = entries.slice().reverse().slice(0, 6);
+
+  const loadEntry = (e) => {
+    setEditId(e.id);
+    setDate(e.date);
+    setVals({
+      weight: e.weight != null ? String(e.weight) : '',
+      sportHours: e.sportHours != null ? String(e.sportHours) : '',
+      avgSteps: e.avgSteps != null ? String(e.avgSteps) : '',
+      energy: e.energy != null ? String(e.energy) : '',
+      motivation: e.motivation != null ? String(e.motivation) : '',
+      cravings: e.cravings != null ? String(e.cravings) : '',
+    });
+    setOpen(true);
+  };
+
+  const resetForm = () => {
+    setEditId(null); setDate(todayISO());
+    setVals({ weight: b.current != null ? String(b.current) : '', sportHours: '', avgSteps: '', energy: '', motivation: '', cravings: '' });
+  };
+
+  const doSave = async () => {
+    const w = parseFloat(vals.weight);
+    if (isNaN(w) || w <= 0) { setState({ phase: 'err', msg: 'Entre un poids valide' }); return; }
+    if (state.phase === 'saving') return;
+    setState({ phase: 'saving', msg: '' });
+    // compute resulting weekly status for sound (vs previous entry before this date)
+    const prior = entries.filter((e) => e.date < date);
+    let color = 'green';
+    if (prior.length) {
+      const prev = prior[prior.length - 1];
+      const days = Math.max(1, (new Date(date) - new Date(prev.date)) / 86400000);
+      const paceKg = ((w - prev.weight) / days) * 7;
+      color = window.bodyPaceColor(b, paceKg);
+    }
+    try {
+      await window.saveBodyEntryLive({
+        warriorId: b.w.id, entryDate: date, weight: w,
+        sportHours: vals.sportHours, avgSteps: vals.avgSteps,
+        energy: vals.energy, cravings: vals.cravings, motivation: vals.motivation,
+      });
+      window.playBodySound(color === 'green' ? 'celebration' : color === 'red' ? 'bad' : 'good');
+      setState({ phase: 'ok', msg: editId ? 'Encodage corrigé ✓' : 'Encodage enregistré ✓' });
+      resetForm();
+      if (reload) reload();
+    } catch (e) {
+      setState({ phase: 'err', msg: 'Erreur : ' + (e.message || e) });
+    }
+  };
+
+  const doDelete = async (e) => {
+    if (!window.confirm('Supprimer l\'encodage du ' + fmtDateShort(e.date) + ' ?')) return;
+    try { await window.deleteBodyEntryLive(e.id); if (reload) reload(); } catch (err) {}
+  };
+
+  const field = (label, k, unit, step) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <label style={{ fontFamily: S3FM, fontSize: 8.5, color: S3.inkLow, letterSpacing: 0.4 }}>{label}</label>
+      <div style={{ display: 'flex', alignItems: 'center', background: S3.inkXLow, borderRadius: 9, padding: '0 9px', border: `1px solid ${S3.inkXLow}` }}>
+        <input value={vals[k]} onChange={(ev) => set(k, ev.target.value)} type="number" step={step || 'any'} inputMode="decimal" placeholder="—"
+          style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: S3.ink, fontFamily: S3FM, fontSize: 14, fontWeight: 700, width: '100%', padding: '9px 0' }} />
+        {unit && <span style={{ fontFamily: S3FM, fontSize: 9, color: S3.inkLow }}>{unit}</span>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ borderRadius: 14, border: `1px solid ${accent}33`, background: `${S3.bg1}cc`, padding: 12 }}>
+      <button onClick={() => { if (open) resetForm(); setOpen((o) => !o); setState({ phase: 'idle', msg: '' }); }} style={{
+        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer',
+        background: 'none', border: 'none', color: S3.ink, fontFamily: S3FT, fontSize: 13, fontWeight: 700, padding: 0,
+      }}>
+        <span>✎ Encoder / corriger mon poids</span>
+        <span style={{ color: accent, fontSize: 16 }}>{open ? '▾' : '＋'}</span>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 11, display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <label style={{ fontFamily: S3FM, fontSize: 8.5, color: S3.inkLow, letterSpacing: 0.4 }}>DATE {editId ? '(correction)' : ''}</label>
+            <input value={date} onChange={(e) => setDate(e.target.value)} type="date"
+              style={{ background: S3.inkXLow, border: `1px solid ${S3.inkXLow}`, borderRadius: 9, padding: '9px', color: S3.ink, fontFamily: S3FM, fontSize: 13 }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
+            {field('POIDS', 'weight', 'kg')}
+            {field('SPORT / SEM', 'sportHours', 'h')}
+            {field('PAS MOYENS', 'avgSteps', 'pas')}
+            {field('ÉNERGIE', 'energy', '/5')}
+            {field('MOTIVATION', 'motivation', '/5')}
+            {field('ENVIES ALIM.', 'cravings', '/5')}
+          </div>
+          <button onClick={doSave} disabled={state.phase === 'saving'} style={{
+            padding: '12px', borderRadius: 11, cursor: state.phase === 'saving' ? 'wait' : 'pointer', border: 'none',
+            background: `linear-gradient(135deg, ${S3.accentBright || accent}, ${accent})`, color: S3.bg0,
+            fontFamily: S3FT, fontSize: 14, fontWeight: 700, boxShadow: `0 4px 16px ${accent}44`, opacity: state.phase === 'saving' ? 0.7 : 1,
+          }}>{state.phase === 'saving' ? 'Enregistrement…' : editId ? '💾 Corriger' : '💾 Enregistrer'}</button>
+          {state.phase === 'ok' && <div style={{ fontFamily: S3FM, fontSize: 10, color: PACE_COLORS.green, textAlign: 'center' }}>✅ {state.msg}</div>}
+          {state.phase === 'err' && <div style={{ fontFamily: S3FM, fontSize: 10, color: PACE_COLORS.red, textAlign: 'center' }}>{state.msg}</div>}
+          {editId && <button onClick={resetForm} style={{ background: 'none', border: 'none', color: S3.inkLow, fontFamily: S3FM, fontSize: 10, cursor: 'pointer' }}>+ nouvel encodage</button>}
+
+          {/* recent entries to correct/delete */}
+          {recent.length > 0 && (
+            <div style={{ marginTop: 4, borderTop: `1px solid ${S3.inkXLow}`, paddingTop: 8 }}>
+              <div style={{ fontFamily: S3FM, fontSize: 8.5, color: S3.inkLow, letterSpacing: 0.4, marginBottom: 6 }}>DERNIERS ENCODAGES</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {recent.map((e) => (
+                  <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: S3FM, fontSize: 11, color: S3.inkDim }}>
+                    <span style={{ width: 42 }}>{fmtDateShort(e.date)}</span>
+                    <span style={{ flex: 1, color: S3.ink, fontWeight: 700 }}>{e.weight} kg</span>
+                    <button onClick={() => loadEntry(e)} style={{ background: 'none', border: `1px solid ${S3.inkXLow}`, borderRadius: 7, color: accent, cursor: 'pointer', fontSize: 11, padding: '3px 8px' }}>✎</button>
+                    <button onClick={() => doDelete(e)} style={{ background: 'none', border: `1px solid ${S3.inkXLow}`, borderRadius: 7, color: PACE_COLORS.red, cursor: 'pointer', fontSize: 11, padding: '3px 8px' }}>🗑</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BodyDetailScreen({ b, me, accent, onBack, onOpenFiche, reload }) {
+  const { AnimalBadge, ProgressBar } = window;
+  const g = GOAL_META[b.goalType] || GOAL_META.recompo;
+  const entries = b.entries || [];
+  const has = (k) => entries.some((e) => e[k] != null);
+  const canEdit = me && b.w.id === me.id;
+
+  const avg = window.avgPaceKg(entries);
+  const weekDelta = window.lastWeekDeltaKg(entries);
+  const avgColor = PACE_COLORS[window.bodyPaceColor(b, avg)] || PACE_COLORS.grey;
+  // weekly delta color: normalize to 7d over the last gap
+  let weekColor = PACE_COLORS.grey;
+  if (entries.length >= 2) {
+    const a = entries[entries.length - 2], c = entries[entries.length - 1];
+    const days = Math.max(1, (new Date(c.date) - new Date(a.date)) / 86400000);
+    weekColor = PACE_COLORS[window.bodyPaceColor(b, ((c.weight - a.weight) / days) * 7)] || PACE_COLORS.grey;
+  }
+  const proj = window.projectionDate(b, entries);
+
+  return (
+    <div style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* back + identity */}
+      <button onClick={onBack} style={{
+        alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+        background: 'none', border: 'none', color: S3.inkDim, fontFamily: S3FM, fontSize: 11, padding: '2px 0',
+      }}>‹ retour aux objectifs</button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <AnimalBadge animal={b.w.animal} size={44} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: S3FT, fontSize: 19, fontWeight: 700, color: S3.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.w.name}</div>
+          <div style={{ fontFamily: S3FM, fontSize: 10, color: S3.inkLow }}>{g.emoji} {g.label} · {entries.length} encodage{entries.length > 1 ? 's' : ''}</div>
+        </div>
+        <button onClick={() => onOpenFiche(b.w.id)} style={{
+          padding: '7px 11px', borderRadius: 10, cursor: 'pointer',
+          border: `1px solid ${accent}33`, background: `${accent}12`, color: accent,
+          fontFamily: S3FM, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
+        }}>radar ›</button>
+      </div>
+
+      {/* KPI row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
+        <div style={{ borderRadius: 12, border: `1px solid ${S3.inkXLow}`, background: `${S3.bg1}cc`, padding: '10px 8px', textAlign: 'center' }}>
+          <div style={{ fontFamily: S3FM, fontSize: 18, fontWeight: 700, color: accent }}>{b.current != null ? b.current : '—'}<span style={{ fontSize: 9, color: S3.inkLow }}> kg</span></div>
+          <div style={{ fontFamily: S3FM, fontSize: 8, color: S3.inkLow, letterSpacing: 0.4, marginTop: 2 }}>POIDS ACTUEL</div>
+        </div>
+        <div style={{ borderRadius: 12, border: `1px solid ${S3.inkXLow}`, background: `${S3.bg1}cc`, padding: '10px 8px', textAlign: 'center' }}>
+          <div style={{ fontFamily: S3FM, fontSize: 15, fontWeight: 700, color: weekColor }}>{weekDelta != null ? paceText(weekDelta) : '—'}</div>
+          <div style={{ fontFamily: S3FM, fontSize: 8, color: S3.inkLow, letterSpacing: 0.4, marginTop: 2 }}>Δ DERNIÈRE SEM.</div>
+        </div>
+        <div style={{ borderRadius: 12, border: `2px solid ${avgColor}`, background: `${avgColor}14`, padding: '10px 8px', textAlign: 'center' }}>
+          <div style={{ fontFamily: S3FM, fontSize: 15, fontWeight: 700, color: avgColor }}>{paceText(avg)}</div>
+          <div style={{ fontFamily: S3FM, fontSize: 8, color: avgColor, letterSpacing: 0.4, marginTop: 2, fontWeight: 700 }}>CADENCE MOY.</div>
+        </div>
+      </div>
+
+      {/* target range + projection + last encode */}
+      <div style={{ borderRadius: 14, border: `1px solid ${S3.inkXLow}`, background: `${S3.bg1}cc`, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: S3FM, fontSize: 11 }}>
+          <span style={{ color: S3.inkLow }}>départ {b.start != null ? b.start + 'kg' : '—'}</span>
+          <span style={{ color: accent, fontWeight: 700, fontSize: 15 }}>{b.current != null ? b.current + ' kg' : '—'}</span>
+          <span style={{ color: S3.inkLow }}>cible {b.target != null ? b.target + 'kg' : '—'}</span>
+        </div>
+        <ProgressBar value={b.pct} max={100} color={g.color} height={7} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: S3FM, fontSize: 9, color: S3.inkDim }}>
+          <span>{b.pct}% de l'objectif</span>
+          {b.weeklyPace != null && b.paceRange != null && (
+            <span>cible cadence : {b.goalType === 'recompo' ? '±' : ''}{b.weeklyPace} ±{b.paceRange} g/sem</span>
+          )}
+        </div>
+        {proj && (
+          <div style={{ marginTop: 2, fontFamily: S3FT, fontSize: 12, fontWeight: 700, color: accent }}>
+            🎯 Objectif atteint le <span style={{ textDecoration: 'underline' }}>{fmtDateFr(proj)}</span> à cette cadence
+          </div>
+        )}
+        <div style={{ fontFamily: S3FM, fontSize: 9, color: S3.inkLow }}>
+          🕑 Dernier encodage : {fmtDateFr(b.lastDate)}
+        </div>
+      </div>
+
+      {/* cadence legend */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', fontFamily: S3FM, fontSize: 8.5, color: S3.inkLow }}>
+        {['green', 'yellow', 'orange', 'red'].map((c) => (
+          <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: PACE_COLORS[c] }} />{PACE_LABEL[c]}
+          </span>
+        ))}
+      </div>
+
+      {canEdit && <BodyEncodeForm b={b} me={me} accent={accent} reload={reload} />}
+
+      {entries.length < 2 ? (
+        <div style={{ padding: '24px', textAlign: 'center', fontFamily: S3FM, fontSize: 11, color: S3.inkLow }}>
+          Pas assez d'encodages pour tracer des courbes.
+        </div>
+      ) : (
+        <>
+          <ChartCard title="Évolution du poids" unit="kg">
+            <LineChartMulti entries={entries} series={[{ key: 'weight', label: 'Poids', color: accent }]} height={130} />
+          </ChartCard>
+
+          {has('sportHours') && (
+            <ChartCard title="Heures de sport / semaine" unit="h">
+              <LineChartMulti entries={entries} series={[{ key: 'sportHours', label: 'Sport', color: '#4ade80' }]} yMin={0} height={110} />
+            </ChartCard>
+          )}
+
+          {has('avgSteps') && (
+            <ChartCard title="Pas moyens / jour" unit="pas">
+              <LineChartMulti entries={entries} series={[{ key: 'avgSteps', label: 'Pas', color: '#a5f3fc' }]} yMin={0} height={110} integer />
+            </ChartCard>
+          )}
+
+          {(has('energy') || has('motivation') || has('cravings')) && (
+            <ChartCard title="Bien-être" unit="/ 5" legend={[
+              { label: 'Énergie', color: '#67e8f9' },
+              { label: 'Motivation', color: '#4ade80' },
+              { label: 'Envies alim.', color: '#fbbf24' },
+            ]}>
+              <LineChartMulti entries={entries} yMin={0.5} yMax={5.5} height={120} series={[
+                { key: 'energy', label: 'Énergie', color: '#67e8f9' },
+                { key: 'motivation', label: 'Motivation', color: '#4ade80' },
+                { key: 'cravings', label: 'Envies alim.', color: '#fbbf24' },
+              ]} />
+            </ChartCard>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+function CorpsScreen({ meta, me, accent, onOpenFiche, reload }) {
+  const { Card, Eyebrow, SectionTitle, AnimalBadge, ProgressBar } = window;
+  const body = meta.body || [];
+  const [selId, setSelId] = React.useState(null);
+  const selected = selId && body.find((b) => b.w.id === selId);
+  if (selected) return <BodyDetailScreen b={selected} me={me} accent={accent} onBack={() => setSelId(null)} onOpenFiche={onOpenFiche} reload={reload} />;
+  const mine = body.find((b) => b.w.id === me.id);
+  const others = body.filter((b) => b.w.id !== me.id);
+
+  if (body.length === 0) {
+    return (
+      <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>🧊</div>
+        <div style={{ fontFamily: S3FT, fontSize: 16, color: S3.ink, marginBottom: 6 }}>Aucun suivi du corps</div>
+        <div style={{ fontFamily: S3FM, fontSize: 11, color: S3.inkLow, lineHeight: 1.5 }}>Personne n'a encore configuré d'objectif poids.</div>
+      </div>
+    );
+  }
+
+  const renderCard = (b, isMe) => {
+    const g = GOAL_META[b.goalType] || GOAL_META.recompo;
+    const delta = (b.current != null && b.start != null) ? Math.round((b.current - b.start) * 10) / 10 : null;
+    const avg = window.avgPaceKg(b.entries);
+    const avgColor = PACE_COLORS[window.bodyPaceColor(b, avg)] || PACE_COLORS.grey;
+    return (
+      <Card key={b.w.id} glow={isMe} onClick={() => setSelId(b.w.id)} style={{
+        padding: 14, border: `1px solid ${isMe ? accent + '55' : S3.inkXLow}`,
+        background: isMe ? `${accent}10` : undefined,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 10 }}>
+          <AnimalBadge animal={b.w.animal} size={36} ring={isMe} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: S3FT, fontSize: 14, fontWeight: 600, color: S3.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.w.name}</div>
+            <div style={{ fontFamily: S3FM, fontSize: 9, color: S3.inkLow, marginTop: 1 }}>{g.emoji} {g.label}{delta != null ? ` · ${delta > 0 ? '+' : ''}${delta} kg` : ''}</div>
+          </div>
+          {/* cadence chip (colored) */}
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0,
+          }}>
+            <span style={{
+              fontFamily: S3FM, fontSize: 11, fontWeight: 700, color: avgColor,
+              padding: '3px 8px', borderRadius: 99, border: `1px solid ${avgColor}55`, background: `${avgColor}1a`,
+              whiteSpace: 'nowrap',
+            }}>{avg != null ? paceText(avg) : '— g/sem'}</span>
+            <span style={{ fontFamily: S3FM, fontSize: 7.5, color: S3.inkLow, letterSpacing: 0.4 }}>CADENCE MOY.</span>
+          </div>
+        </div>
+        {/* start → current → target */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: S3FM, fontSize: 10, marginBottom: 5 }}>
+          <span style={{ color: S3.inkLow }}>départ {b.start != null ? b.start + 'kg' : '—'}</span>
+          <span style={{ color: accent, fontWeight: 700 }}>{b.current != null ? b.current + 'kg' : '—'}</span>
+          <span style={{ color: S3.inkLow }}>cible {b.target != null ? b.target + 'kg' : '—'}</span>
+        </div>
+        <ProgressBar value={b.pct} max={100} color={g.color} height={7} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: S3FM, fontSize: 9, color: S3.inkDim, marginTop: 5 }}>
+          <span style={{ color: S3.inkLow }}>🕑 {b.lastDate ? fmtDateShort(b.lastDate) : '—'}</span>
+          <span>{b.pct}% · voir les courbes ›</span>
+        </div>
+      </Card>
+    );
+  };
+
+  return (
+    <div style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {meta.groupChallenge && meta.groupChallenge.totalToLose > 0 && (
+        <div>
+          <SectionTitle right={`${meta.groupChallenge.memberCount} membres`}>Beach Body — défi de groupe</SectionTitle>
+          <Card glow style={{ padding: '12px 12px 14px', background: `linear-gradient(170deg, ${S3.bg1}, ${S3.bg0})` }}>
+            <GaugeBalance gc={meta.groupChallenge} accent={accent} />
+            <div style={{ textAlign: 'center', marginTop: 4, marginBottom: 2 }}>
+              <span style={{ fontFamily: S3FM, fontSize: 15, fontWeight: 700, color: accent }}>{meta.groupChallenge.totalProgress}</span>
+              <span style={{ fontFamily: S3FM, fontSize: 12, color: S3.inkDim }}> / {meta.groupChallenge.totalToLose} kg accomplis</span>
+              <span style={{ fontFamily: S3FM, fontSize: 11, color: S3.inkLow }}> · {meta.groupChallenge.memberCount} guerriers</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 7, marginTop: 12 }}>
+              {meta.groupChallenge.milestones.map((m) => {
+                const reached = meta.groupChallenge.pct >= m.pct;
+                return (
+                  <div key={m.pct} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 11,
+                    background: reached ? `${accent}14` : `${S3.bg1}aa`,
+                    border: `1px solid ${reached ? accent + '44' : S3.inkXLow}`,
+                    opacity: reached ? 1 : 0.72,
+                  }}>
+                    <span style={{ fontSize: 17, filter: reached ? 'none' : 'grayscale(0.5)' }}>{m.emoji}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: S3FT, fontSize: 11.5, fontWeight: 700, color: reached ? S3.ink : S3.inkDim }}>{m.pct}% · {m.label}</div>
+                      <div style={{ fontFamily: S3FM, fontSize: 8, color: S3.inkLow, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.desc}</div>
+                    </div>
+                    {reached && <span style={{ color: accent, fontSize: 12 }}>✓</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* cadence color legend */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', fontFamily: S3FM, fontSize: 8.5, color: S3.inkLow, marginTop: -4 }}>
+        {['green', 'yellow', 'orange', 'red'].map((c) => (
+          <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: PACE_COLORS[c] }} />{PACE_LABEL[c]}
+          </span>
+        ))}
+      </div>
+
+      {mine && (
+        <div>
+          <SectionTitle>Mon objectif</SectionTitle>
+          {renderCard(mine, true)}
+        </div>
+      )}
+      <div>
+        <SectionTitle right={`${others.length}`}>{mine ? 'La tribu' : 'Objectifs de l\'équipe'}</SectionTitle>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 6 }}>
+          {others.map((b) => renderCard(b, false))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { RankingsScreen, CorpsScreen, BodyDetailScreen, LineChartMulti, GaugeBalance });
+
+</script>
+<script type="text/babel" data-from="app-social.jsx">
+// app-social.jsx — Encouragements: reactions on feed items (1 per person),
+// stacked reactor avatars, home banner + "Encouragements" inbox with badge.
+
+const SOC = window.APP_T;
+const SOCFT = window.APP_FT;
+const SOCFM = window.APP_FM;
+
+const REACTIONS = [
+  { type: 'ahou',    emoji: '🛡️', label: 'AHOU',    color: '#67e8f9' },
+  { type: 'respect', emoji: '👊', label: 'RESPECT', color: '#fbbf24' },
+  { type: 'frozen',  emoji: '❄️', label: 'FROZEN',  color: '#a5d8ea' },
+  { type: 'fire',    emoji: '🔥', label: 'FIRE',    color: '#fb7185' },
+];
+const REACTION_BY_TYPE = REACTIONS.reduce((m, r) => { m[r.type] = r; return m; }, {});
+
+// ─── small reactor avatar (animal emoji or fallback) ───────────────────
+function ReactorDot({ animal, size = 22, ring = SOC.bg1 }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: SOC.bg2, border: `2px solid ${ring}`,
+      display: 'grid', placeItems: 'center', fontSize: size * 0.52,
+      boxShadow: `0 0 0 1px ${SOC.inkXLow}`,
+    }}>{animal && animal.emoji ? animal.emoji : '🧊'}</div>
+  );
+}
+
+// ─── encouragement helpers ─────────────────────────────────────────────
+function myReceivedEncouragements(feed, meId) {
+  if (!meId) return [];
+  const out = [];
+  (feed || []).forEach((item) => {
+    if (item.warriorId !== meId) return;
+    (item.reactions || []).forEach((r) => {
+      if (r.warriorId === meId) return; // ignore self-reactions
+      out.push({ r, item });
+    });
+  });
+  out.sort((a, b) => String(b.r.createdAt || '').localeCompare(String(a.r.createdAt || '')));
+  return out;
+}
+
+function encSeenKey(meId) { return 'fw_enc_seen_' + meId; }
+function getEncSeen(meId) { try { return localStorage.getItem(encSeenKey(meId)) || ''; } catch (e) { return ''; } }
+function markEncSeen(meId) { try { localStorage.setItem(encSeenKey(meId), new Date().toISOString()); } catch (e) {} }
+
+function encBadgeCount(feed, meId) {
+  const seen = getEncSeen(meId);
+  return myReceivedEncouragements(feed, meId).filter(({ r }) => (r.createdAt || '') > seen).length;
+}
+
+function recentReactorCount(feed, meId, days = 7) {
+  const since = Date.now() - days * 86400000;
+  const ids = new Set();
+  myReceivedEncouragements(feed, meId).forEach(({ r }) => {
+    const t = r.createdAt ? new Date(r.createdAt).getTime() : 0;
+    if (t >= since) ids.add(r.warriorId);
+  });
+  return ids.size;
+}
+
+// ─── reaction bar (the 4 pills) ────────────────────────────────────────
+function ReactionBar({ reactions, mine, onReact, accent }) {
+  const counts = {};
+  (reactions || []).forEach((r) => { counts[r.type] = (counts[r.type] || 0) + 1; });
+  return (
+    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+      {REACTIONS.map((R) => {
+        const n = counts[R.type] || 0;
+        const active = mine === R.type;
+        return (
+          <button key={R.type} onClick={(e) => { e.stopPropagation(); onReact(R.type); }} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: n > 0 ? '4px 9px' : '4px 8px', borderRadius: 99, cursor: 'pointer',
+            border: `1px solid ${active ? R.color : SOC.inkXLow}`,
+            background: active ? `${R.color}22` : `${SOC.bg2}99`,
+            transition: 'transform 0.12s ease',
+            transform: active ? 'scale(1.04)' : 'scale(1)',
+          }}>
+            <span style={{ fontSize: 12, lineHeight: 1 }}>{R.emoji}</span>
+            {n > 0 && <span style={{ fontFamily: SOCFM, fontSize: 10, fontWeight: 700, color: active ? R.color : SOC.inkDim }}>{n}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── feed item with reactions + reactor stack ──────────────────────────
+function FeedItem({ f, me, accent, onReact }) {
+  const FEED_ICONS = window.FEED_ICONS;
+  const relativeTime = window.relativeTime;
+  const [local, setLocal] = React.useState(f.reactions || []);
+  const [open, setOpen] = React.useState(false);
+  const sig = (f.reactions || []).map((r) => r.warriorId + r.type).join('|');
+  React.useEffect(() => { setLocal(f.reactions || []); }, [sig]);
+
+  const mine = (local.find((r) => r.warriorId === (me && me.id)) || {}).type || null;
+
+  const react = (type) => {
+    const remove = mine === type;
+    // optimistic
+    let next = local.filter((r) => r.warriorId !== me.id);
+    if (!remove) next = next.concat([{ id: 'fr_' + f.id + '_' + me.id, warriorId: me.id, warriorName: me.name, type, animal: me.animal || null, createdAt: new Date().toISOString() }]);
+    setLocal(next);
+    if (onReact) onReact(f.id, type, remove);
+  };
+
+  const isMine = f.warriorId && me && f.warriorId === me.id;
+  const shown = local.slice(0, 6);
+  const extra = local.length - shown.length;
+
+  return (
+    <div style={{
+      display: 'flex', gap: 10, alignItems: 'flex-start', padding: '9px 11px', borderRadius: 12,
+      background: isMine ? `${accent}10` : `${SOC.bg1}99`,
+      border: `1px solid ${isMine ? accent + '44' : SOC.inkXLow}`,
+    }}>
+      <div style={{ fontSize: 16, lineHeight: 1.2, flexShrink: 0 }}>{FEED_ICONS[f.type] || '⚡'}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: SOCFT, fontSize: 12, color: SOC.inkDim, lineHeight: 1.35 }}>{f.message}</div>
+        <div style={{ fontFamily: SOCFM, fontSize: 8.5, color: SOC.inkLow, marginTop: 3 }}>
+          {relativeTime(f.createdAt)}{isMine ? ' · toi' : ''}
+        </div>
+
+        {/* reactor stack (2A) */}
+        {local.length > 0 && (
+          <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, cursor: 'pointer' }}>
+            <div style={{ display: 'flex' }}>
+              {shown.map((r, i) => (
+                <div key={r.id || i} style={{ marginLeft: i === 0 ? 0 : -7, position: 'relative' }}>
+                  <ReactorDot animal={r.animal} />
+                  <span style={{ position: 'absolute', right: -3, bottom: -3, fontSize: 9 }}>{(REACTION_BY_TYPE[r.type] || {}).emoji}</span>
+                </div>
+              ))}
+            </div>
+            {extra > 0 && <span style={{ fontFamily: SOCFM, fontSize: 10, color: SOC.inkLow, marginLeft: 2 }}>+{extra}</span>}
+            <span style={{ fontFamily: SOCFM, fontSize: 9, color: SOC.inkLow }}>{open ? '▾' : '·'}</span>
+          </div>
+        )}
+
+        {/* expanded reactor list */}
+        {open && local.length > 0 && (
+          <div style={{ marginTop: 7, display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 9px', borderRadius: 10, background: `${SOC.bg2}aa`, border: `1px solid ${SOC.inkXLow}` }}>
+            {local.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).map((r, i) => (
+              <div key={r.id || i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ReactorDot animal={r.animal} size={18} ring={SOC.bg2} />
+                <span style={{ flex: 1, fontFamily: SOCFT, fontSize: 11, color: SOC.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {r.warriorId === (me && me.id) ? 'Toi' : r.warriorName}
+                </span>
+                <span style={{ fontSize: 12 }}>{(REACTION_BY_TYPE[r.type] || {}).emoji}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* reaction bar (1A) */}
+        <div style={{ marginTop: 8 }}>
+          <ReactionBar reactions={local} mine={mine} onReact={react} accent={accent} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── home banner (3C) ──────────────────────────────────────────────────
+function EncouragementBanner({ feed, me, accent, onOpen }) {
+  const n = recentReactorCount(feed, me && me.id, 7);
+  if (!n) return null;
+  const recent = myReceivedEncouragements(feed, me && me.id).slice(0, 4);
+  return (
+    <div onClick={onOpen} style={{
+      display: 'flex', alignItems: 'center', gap: 11, cursor: 'pointer',
+      padding: '12px 14px', borderRadius: 14, marginBottom: 4,
+      background: `linear-gradient(120deg, ${accent}22, ${SOC.bg1}aa)`,
+      border: `1px solid ${accent}55`,
+    }}>
+      <div style={{ fontSize: 22 }}>👏</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: SOCFT, fontSize: 13, fontWeight: 700, color: SOC.ink }}>
+          {n} guerrier{n > 1 ? 's' : ''} t'{n > 1 ? 'ont' : 'a'} encouragé cette semaine
+        </div>
+        <div style={{ fontFamily: SOCFM, fontSize: 9.5, color: SOC.inkDim, marginTop: 1 }}>Touche pour voir qui →</div>
+      </div>
+      <div style={{ display: 'flex' }}>
+        {recent.map(({ r }, i) => (
+          <div key={r.id || i} style={{ marginLeft: i === 0 ? 0 : -7 }}><ReactorDot animal={r.animal} /></div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── encouragements inbox (3A) ─────────────────────────────────────────
+function EncouragementsScreen({ feed, me, accent, onOpenFiche }) {
+  const list = myReceivedEncouragements(feed, me && me.id);
+  const relativeTime = window.relativeTime;
+  React.useEffect(() => { markEncSeen(me && me.id); }, [me && me.id]);
+
+  if (!list.length) {
+    return (
+      <div style={{ padding: '46px 28px', textAlign: 'center' }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>👏</div>
+        <div style={{ fontFamily: SOCFT, fontSize: 16, color: SOC.ink, marginBottom: 6 }}>Pas encore d'encouragement</div>
+        <div style={{ fontFamily: SOCFM, fontSize: 11, color: SOC.inkLow, lineHeight: 1.5 }}>
+          Quand un guerrier réagira à un de tes records ou bonnes habitudes, ça apparaîtra ici.
+        </div>
+      </div>
+    );
+  }
+
+  // group consecutive by feed item for context
+  return (
+    <div style={{ padding: '4px 14px 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontFamily: SOCFM, fontSize: 9.5, color: SOC.inkLow, letterSpacing: 0.5, paddingLeft: 2 }}>
+        {list.length} encouragement{list.length > 1 ? 's' : ''} reçu{list.length > 1 ? 's' : ''}
+      </div>
+      {list.map(({ r, item }, i) => {
+        const R = REACTION_BY_TYPE[r.type] || {};
+        return (
+          <div key={(r.id || i) + '_' + i} style={{
+            display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 13,
+            background: `${SOC.bg1}cc`, border: `1px solid ${SOC.inkXLow}`,
+          }}>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <ReactorDot animal={r.animal} size={34} />
+              <span style={{ position: 'absolute', right: -4, bottom: -4, fontSize: 14 }}>{R.emoji}</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: SOCFT, fontSize: 12.5, color: SOC.ink }}>
+                <b>{r.warriorName}</b> t'a envoyé <b style={{ color: R.color }}>{R.label}</b>
+              </div>
+              <div style={{ fontFamily: SOCFM, fontSize: 9.5, color: SOC.inkLow, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                sur : {item.message}
+              </div>
+            </div>
+            <span style={{ fontFamily: SOCFM, fontSize: 8.5, color: SOC.inkLow, flexShrink: 0 }}>{relativeTime(r.createdAt)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+Object.assign(window, {
+  REACTIONS, REACTION_BY_TYPE, ReactionBar, FeedItem, ReactorDot,
+  EncouragementBanner, EncouragementsScreen,
+  myReceivedEncouragements, encBadgeCount, recentReactorCount, markEncSeen,
+});
+
+</script>
+<script type="text/babel">
+function MobileRoot(){
+  const [vh,setVh]=React.useState(window.innerHeight);
+  React.useEffect(()=>{const r=()=>setVh(window.innerHeight);window.addEventListener('resize',r);return ()=>window.removeEventListener('resize',r);},[]);
+  return <div style={{height:vh+'px',width:'100%'}}><FWApp accent="#67e8f9" particlesOn={true} /></div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<MobileRoot />);
+</script>
+</body>
+</html>
