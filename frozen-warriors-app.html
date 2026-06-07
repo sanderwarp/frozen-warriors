@@ -1109,6 +1109,18 @@ async function deleteBodyEntryLive(id) {
   if (!res.ok) throw new Error('HTTP ' + res.status);
 }
 
+// Create a new warrior (self-registration). Returns the new id.
+async function createWarriorLive({ name, gender, weight, height }) {
+  const id = 'w_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+  const num = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+  await sbWrite('warriors', {
+    id, name: String(name).trim(),
+    gender: gender === 'femme' ? 'femme' : 'homme',
+    weight: num(weight), height: num(height),
+  }, 'return=minimal');
+  return id;
+}
+
 // Save a test-result row (reuses the existing id for that warrior+date so a
 // re-save updates instead of duplicating — mirrors the production app).
 async function saveResultLive({ warriorId, date, values, legMode }) {
@@ -1422,6 +1434,32 @@ async function loadLiveWarriors() {
   const monthAgg = habitAgg(activeYm);
   const prevMonthAgg = habitAgg(prevActiveYm);
 
+  // ISO week key (yyyy-Www) for a date
+  function isoWeek(dateStr) {
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    const wk = Math.ceil((((t - yearStart) / 86400000) + 1) / 7);
+    return t.getUTCFullYear() + '-W' + String(wk).padStart(2, '0');
+  }
+  // Active week = week of most recent habit row
+  const habitWeeks = (habits || []).map((h) => isoWeek(h.date)).filter(Boolean).sort();
+  const activeWk = habitWeeks.length ? habitWeeks[habitWeeks.length - 1] : isoWeek(now.toISOString());
+  function habitAggWeek(wk) {
+    const byW = {};
+    (habits || []).forEach((h) => {
+      if (isoWeek(h.date) !== wk) return;
+      const rec = (byW[h.warrior_id] = byW[h.warrior_id] || { pts: 0, days: new Set() });
+      rec.pts += calcHabitPointsLive(h, weightById[h.warrior_id]);
+      rec.days.add(h.date);
+    });
+    return byW;
+  }
+  const weekAgg = habitAggWeek(activeWk);
+
   const built = (warriors || []).map((w) => {
     const warrior = { gender: w.gender || 'homme', weight: w.weight, height: w.height };
     const rs = (resultsByWarrior[w.id] || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
@@ -1510,6 +1548,27 @@ async function loadLiveWarriors() {
     .filter((e) => e.w && e.pts > 0)
     .sort((a, b) => b.pts - a.pts);
   const habitsPrevWinner = prevPairs[0] || null;
+
+  // Habits leaderboard (active week)
+  const habitsWeekLb = Object.entries(weekAgg)
+    .map(([id, rec]) => ({ w: byId[id], pts: Math.round(rec.pts * 10) / 10, days: rec.days.size }))
+    .filter((e) => e.w && e.pts > 0)
+    .sort((a, b) => b.pts - a.pts);
+  // Readable week range label (Mon–Sun) for the active ISO week
+  function weekLabel(wk) {
+    if (!wk) return '';
+    const m = wk.match(/(\d{4})-W(\d{2})/);
+    if (!m) return '';
+    const year = +m[1], week = +m[2];
+    const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+    const dow = simple.getUTCDay() || 7;
+    const monday = new Date(simple);
+    monday.setUTCDate(simple.getUTCDate() - dow + 1);
+    const sunday = new Date(monday);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+    const fmt = (d) => d.getUTCDate() + ' ' + ['jan','fév','mar','avr','mai','juin','juil','aoû','sep','oct','nov','déc'][d.getUTCMonth()];
+    return fmt(monday) + ' – ' + fmt(sunday);
+  }
 
   // Challenge leaderboard for the latest challenge
   let challengeLb = [];
@@ -1628,7 +1687,10 @@ async function loadLiveWarriors() {
     activeMonthLabel: monthLabelFr(activeYm),
     prevMonthLabel: monthLabelFr(prevActiveYm),
     habitsMonthLb,
+    habitsWeekLb,
+    weekLabel: weekLabel(activeWk),
     habitsPrevWinner,
+    challengeWinner: challengeLb[0] || null,
     challenge: latestChallenge ? {
       id: latestChallenge.id,
       title: latestChallenge.title || latestChallenge.name || 'Challenge',
@@ -1655,7 +1717,7 @@ Object.assign(window, {
   saveResultLive, saveHabitsLive, submitChallengeLive, todayISO,
   writeReactionLive,
   avgPaceKg, bodyPaceColor, lastWeekDeltaKg, projectionDate, playBodySound,
-  saveBodyEntryLive, deleteBodyEntryLive,
+  saveBodyEntryLive, deleteBodyEntryLive, createWarriorLive,
 });
 
 </script>
@@ -1818,7 +1880,7 @@ function AppBar({ title, sub, me, onProfile, onBell, bellBadge = 0 }) {
 // ─── Bottom tab bar ────────────────────────────────────────────────────
 const TABS = [
   { id: 'home', label: 'Accueil', icon: '◆' },
-  { id: 'rank', label: 'Classement', icon: '▲' },
+  { id: 'rank', label: 'Fitness', icon: '▲' },
   { id: 'habits', label: 'Habitudes', icon: '🔥' },
   { id: 'more', label: 'Plus', icon: '⋯' },
 ];
@@ -1874,6 +1936,154 @@ function CenterMsg({ children, spin }) {
           animation: spin ? 'appSpin 0.9s linear infinite' : 'none',
         }} />
         <div style={{ fontFamily: FM, fontSize: 11, color: T.inkDim, letterSpacing: 1 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Identity gate (first launch) ──────────────────────────────────────
+function IdentityGate({ warriors, accent, onPick, reload }) {
+  const [q, setQ] = React.useState('');
+  const [mode, setMode] = React.useState('pick'); // 'pick' | 'create'
+  const [form, setForm] = React.useState({ name: '', gender: 'homme', weight: '', height: '' });
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState('');
+
+  const sorted = warriors.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const filtered = q ? sorted.filter((w) => w.name.toLowerCase().includes(q.toLowerCase())) : sorted;
+
+  const create = async () => {
+    if (!form.name.trim()) { setErr('Entre ton nom'); return; }
+    if (busy) return;
+    setBusy(true); setErr('');
+    try {
+      const id = await window.createWarriorLive(form);
+      if (reload) await reload();
+      onPick(id);
+    } catch (e) { setErr('Erreur : ' + (e.message || e)); setBusy(false); }
+  };
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 70, background: `radial-gradient(120% 70% at 50% 0%, ${T.bg2} 0%, ${T.bg1} 45%, ${T.bg0} 85%)`,
+      display: 'flex', flexDirection: 'column',
+      paddingTop: 'max(54px, calc(env(safe-area-inset-top) + 18px))',
+      paddingBottom: 'calc(18px + env(safe-area-inset-bottom))',
+    }} className="app-fade">
+      <div style={{ padding: '0 20px 12px' }}>
+        <div style={{ fontFamily: FM, fontSize: 11, letterSpacing: 2, color: accent, textTransform: 'uppercase' }}>❄️ Frozen Warriors</div>
+        <div style={{ fontFamily: FT, fontSize: 27, fontWeight: 700, color: T.ink, letterSpacing: -0.5, marginTop: 4 }}>
+          {mode === 'pick' ? 'Qui es-tu ?' : 'Crée ton profil'}
+        </div>
+        <div style={{ fontFamily: FM, fontSize: 11, color: T.inkDim, marginTop: 4 }}>
+          {mode === 'pick' ? 'Choisis-toi une seule fois — tu resteras connecté sur ce téléphone.' : 'Tu rejoins la tribu. Tes mesures viendront ensuite.'}
+        </div>
+      </div>
+
+      {mode === 'pick' ? (
+        <>
+          <div style={{ padding: '0 16px 10px' }}>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher mon nom…"
+              style={{ width: '100%', boxSizing: 'border-box', background: T.inkXLow, border: `1px solid ${T.inkXLow}`, borderRadius: 12, padding: '12px 14px', color: T.ink, fontFamily: FT, fontSize: 15, outline: 'none' }} />
+          </div>
+          <div className="app-scroll" style={{ flex: 1, padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {filtered.map((w) => (
+              <div key={w.id} onClick={() => onPick(w.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 13, cursor: 'pointer',
+                background: `${T.bg1}cc`, border: `1px solid ${T.inkXLow}`,
+              }}>
+                <AnimalBadge animal={w.animal} size={38} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: FT, fontSize: 15, fontWeight: 600, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.name}</div>
+                  <div style={{ fontFamily: FM, fontSize: 9.5, color: T.inkLow }}>{w.hasData ? `${w.animal ? w.animal.name : ''} · score ${w.total}` : 'aucune mesure'}</div>
+                </div>
+                <span style={{ color: accent, fontSize: 18 }}>›</span>
+              </div>
+            ))}
+            {filtered.length === 0 && <div style={{ fontFamily: FM, fontSize: 11, color: T.inkLow, textAlign: 'center', padding: 18 }}>Aucun nom trouvé.</div>}
+          </div>
+          <div style={{ padding: '12px 16px 0' }}>
+            <button onClick={() => { setMode('create'); setErr(''); }} style={{
+              width: '100%', padding: '13px', borderRadius: 12, cursor: 'pointer',
+              border: `1px dashed ${accent}66`, background: `${accent}12`, color: accent,
+              fontFamily: FT, fontSize: 14, fontWeight: 700,
+            }}>Je ne suis pas dans la liste → créer mon profil</button>
+          </div>
+        </>
+      ) : (
+        <div className="app-scroll" style={{ flex: 1, padding: '4px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label style={{ fontFamily: FM, fontSize: 9, color: T.inkLow, letterSpacing: 0.5 }}>NOM</label>
+            <input value={form.name} onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setErr(''); }} placeholder="Ton nom de guerrier"
+              style={{ background: T.inkXLow, border: `1px solid ${T.inkXLow}`, borderRadius: 11, padding: '12px 13px', color: T.ink, fontFamily: FT, fontSize: 15, outline: 'none' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <label style={{ fontFamily: FM, fontSize: 9, color: T.inkLow, letterSpacing: 0.5 }}>CATÉGORIE (barème)</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[['homme', 'Homme'], ['femme', 'Femme']].map(([v, lbl]) => (
+                <button key={v} onClick={() => setForm((f) => ({ ...f, gender: v }))} style={{
+                  flex: 1, padding: '11px', borderRadius: 11, cursor: 'pointer',
+                  border: `1px solid ${form.gender === v ? accent : T.inkXLow}`,
+                  background: form.gender === v ? `${accent}1a` : 'transparent',
+                  color: form.gender === v ? accent : T.inkDim, fontFamily: FT, fontSize: 14, fontWeight: 600,
+                }}>{lbl}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontFamily: FM, fontSize: 9, color: T.inkLow, letterSpacing: 0.5 }}>POIDS (kg)</label>
+              <input value={form.weight} onChange={(e) => setForm((f) => ({ ...f, weight: e.target.value }))} type="number" inputMode="decimal" placeholder="—"
+                style={{ background: T.inkXLow, border: `1px solid ${T.inkXLow}`, borderRadius: 11, padding: '11px 12px', color: T.ink, fontFamily: FM, fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontFamily: FM, fontSize: 9, color: T.inkLow, letterSpacing: 0.5 }}>TAILLE (cm)</label>
+              <input value={form.height} onChange={(e) => setForm((f) => ({ ...f, height: e.target.value }))} type="number" inputMode="decimal" placeholder="—"
+                style={{ background: T.inkXLow, border: `1px solid ${T.inkXLow}`, borderRadius: 11, padding: '11px 12px', color: T.ink, fontFamily: FM, fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+            </div>
+          </div>
+          {err && <div style={{ fontFamily: FM, fontSize: 10, color: '#fb7185' }}>{err}</div>}
+          <button onClick={create} disabled={busy} style={{
+            padding: '14px', borderRadius: 12, cursor: busy ? 'wait' : 'pointer', border: 'none',
+            background: `linear-gradient(135deg, ${T.accentBright || accent}, ${accent})`, color: T.bg0,
+            fontFamily: FT, fontSize: 15, fontWeight: 700, boxShadow: `0 6px 20px ${accent}44`, opacity: busy ? 0.7 : 1,
+          }}>{busy ? 'Création…' : '❄️ Rejoindre les Frozen Warriors'}</button>
+          <button onClick={() => { setMode('pick'); setErr(''); }} style={{ background: 'none', border: 'none', color: T.inkLow, fontFamily: FM, fontSize: 11, cursor: 'pointer' }}>‹ retour à la liste</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── "Mon profil" sheet (identity locked, with change link) ────────────
+function MyProfileSheet({ me, accent, onClose, onChangeIdentity }) {
+  return (
+    <div onClick={onClose} style={{
+      position: 'absolute', inset: 0, zIndex: 60,
+      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)',
+      display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: T.bg1, borderTop: `1px solid ${T.inkXLow}`,
+        borderRadius: '20px 20px 0 0', padding: '14px 16px calc(28px + env(safe-area-inset-bottom))',
+      }}>
+        <div style={{ width: 38, height: 4, borderRadius: 2, background: T.inkXLow, margin: '0 auto 14px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <AnimalBadge animal={me.animal} size={46} ring />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: FM, fontSize: 9, color: T.inkLow, letterSpacing: 1, textTransform: 'uppercase' }}>Connecté en tant que</div>
+            <div style={{ fontFamily: FT, fontSize: 18, fontWeight: 700, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{me.name}</div>
+            <div style={{ fontFamily: FM, fontSize: 9.5, color: T.inkLow }}>{me.hasData ? `#${me.rank} · ${me.animal ? me.animal.name : ''}` : 'aucune mesure'}</div>
+          </div>
+        </div>
+        <button onClick={onChangeIdentity} style={{
+          width: '100%', padding: '12px', borderRadius: 11, cursor: 'pointer',
+          border: `1px solid ${T.inkXLow}`, background: 'transparent', color: T.inkDim,
+          fontFamily: FT, fontSize: 13, fontWeight: 600,
+        }}>Ce n'est pas moi — changer d'identité</button>
+        <div style={{ fontFamily: FM, fontSize: 8.5, color: T.inkLow, textAlign: 'center', marginTop: 8 }}>
+          Tu resteras connecté sur ce téléphone jusqu'à ce que tu changes ici.
+        </div>
       </div>
     </div>
   );
@@ -1946,10 +2156,17 @@ function FWApp({ accent, particlesOn = true }) {
     setPickerOpen(false);
   };
 
+  const clearMe = () => {
+    setMeId(null);
+    try { localStorage.removeItem('fw_me'); } catch (e) {}
+    setPickerOpen(false);
+    setTab('home'); setSub(null); setFicheId(null);
+  };
+
   const ready = status === 'ok';
   const warriors = ready ? list : [];
   const meta = ready ? list._meta : null;
-  const me = ready ? (warriors.find((w) => w.id === meId) || warriors.find((w) => /nico/i.test(w.name)) || warriors.find((w) => w.hasData) || warriors[0]) : null;
+  const me = ready ? (warriors.find((w) => w.id === meId) || null) : null;
   const fiche = ficheId ? warriors.find((w) => w.id === ficheId) : null;
 
   const acc = accent || T.accent;
@@ -1982,7 +2199,12 @@ function FWApp({ accent, particlesOn = true }) {
       {status === 'error' && <CenterMsg>Hors-ligne — impossible de charger</CenterMsg>}
       {status === 'empty' && <CenterMsg>Aucun guerrier</CenterMsg>}
 
-      {ready && (
+      {/* First-launch identity gate */}
+      {ready && !me && (
+        <IdentityGate warriors={warriors} accent={acc} onPick={setMe} reload={reload} />
+      )}
+
+      {ready && me && (
         <div style={{ position: 'relative', height: '100%', zIndex: 2 }}>
           {/* Screen body */}
           <div className="app-scroll" style={{ paddingTop: 'max(44px, calc(env(safe-area-inset-top) + 8px))', paddingBottom: 'calc(96px + env(safe-area-inset-bottom))', height: '100%' }}>
@@ -2053,8 +2275,8 @@ function FWApp({ accent, particlesOn = true }) {
         </div>
       )}
 
-      {pickerOpen && ready && (
-        <ProfileSheet warriors={warriors} meId={me && me.id} onPick={setMe} onClose={() => setPickerOpen(false)} />
+      {pickerOpen && ready && me && (
+        <MyProfileSheet me={me} accent={acc} onClose={() => setPickerOpen(false)} onChangeIdentity={clearMe} />
       )}
     </div>
   );
@@ -2194,21 +2416,25 @@ function DashboardScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, o
           </div>
         )}
 
-        {/* Vainqueur du mois précédent */}
-        {meta.habitsPrevWinner && (
-          <Card style={{ padding: 14, background: `linear-gradient(150deg, ${accent}14, ${ST.bg0})`, border: `1px solid ${accent}33` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontSize: 30 }}>👑</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Eyebrow>Vainqueur habitudes · {meta.prevMonthLabel}</Eyebrow>
-                <div style={{ fontFamily: SFT, fontSize: 17, fontWeight: 700, color: ST.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta.habitsPrevWinner.w.name}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: SFM, fontSize: 18, fontWeight: 700, color: accent }}>{meta.habitsPrevWinner.pts}</div>
-                <div style={{ fontFamily: SFM, fontSize: 9, color: ST.inkLow }}>points</div>
-              </div>
-            </div>
-          </Card>
+        {/* Vainqueurs : mois · semaine · dernier challenge */}
+        {(meta.habitsMonthLb.length > 0 || meta.habitsWeekLb.length > 0 || meta.challengeWinner) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {meta.habitsMonthLb[0] && (
+              <WinnerCard icon="👑" eyebrow={`Habitudes · ${meta.activeMonthLabel}`}
+                name={meta.habitsMonthLb[0].w.name} value={meta.habitsMonthLb[0].pts} unit="pts"
+                accent={accent} onClick={() => onOpenFiche(meta.habitsMonthLb[0].w.id)} />
+            )}
+            {meta.habitsWeekLb[0] && (
+              <WinnerCard icon="🔥" eyebrow={`Habitudes · semaine (${meta.weekLabel})`}
+                name={meta.habitsWeekLb[0].w.name} value={meta.habitsWeekLb[0].pts} unit="pts"
+                accent={accent} onClick={() => onOpenFiche(meta.habitsWeekLb[0].w.id)} />
+            )}
+            {meta.challengeWinner && meta.challenge && (
+              <WinnerCard icon="⚔️" eyebrow={`Dernier challenge · ${meta.challenge.title}`}
+                name={meta.challengeWinner.w.name} value={meta.challengeWinner.value} unit={meta.challenge.unit}
+                accent={accent} onClick={() => onOpenSub && onOpenSub('challenge')} />
+            )}
+          </div>
         )}
 
         {/* Feed */}
@@ -2224,6 +2450,27 @@ function DashboardScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, o
         )}
       </div>
     </>
+  );
+}
+
+function WinnerCard({ icon, eyebrow, name, value, unit, accent, onClick }) {
+  const { Eyebrow } = window;
+  return (
+    <div onClick={onClick} style={{
+      padding: '11px 14px', borderRadius: 14, cursor: onClick ? 'pointer' : 'default',
+      background: `linear-gradient(150deg, ${accent}14, ${ST.bg0})`, border: `1px solid ${accent}33`,
+      display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+      <div style={{ fontSize: 26 }}>{icon}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <Eyebrow>{eyebrow}</Eyebrow>
+        <div style={{ fontFamily: SFT, fontSize: 16, fontWeight: 700, color: ST.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
+      </div>
+      <div style={{ textAlign: 'right' }}>
+        <div style={{ fontFamily: SFM, fontSize: 17, fontWeight: 700, color: accent }}>{value}</div>
+        <div style={{ fontFamily: SFM, fontSize: 8.5, color: ST.inkLow }}>{unit}</div>
+      </div>
+    </div>
   );
 }
 
@@ -2258,7 +2505,7 @@ function ClassementScreen({ warriors, meId, accent, onOpenFiche, onProfile, me }
 
   return (
     <>
-      <AppBar title="Classement" sub={`${ranked.length} guerriers classés`} me={me} onProfile={onProfile} />
+      <AppBar title="Classement fitness" sub={`${ranked.length} guerriers classés`} me={me} onProfile={onProfile} />
       <div style={{ padding: '4px 14px 6px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {ranked.map((w) => {
           const isMe = w.id === meId;
@@ -2303,8 +2550,18 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
   const [checked, setChecked] = React.useState({});
   const [showers, setShowers] = React.useState(0);
   const [hydro, setHydro] = React.useState(0);
+  const [encDate, setEncDate] = React.useState(window.todayISO());
+  const [lbScope, setLbScope] = React.useState('week');
   const [state, setState] = React.useState({ phase: 'idle', msg: '' });
   const target = window.hydrationTarget ? window.hydrationTarget(me.weight) : 2500;
+
+  const todayIso = window.todayISO();
+  const isToday = encDate === todayIso;
+  const dateLabelFr = (() => {
+    const d = new Date(encDate + 'T00:00:00');
+    if (isNaN(d)) return encDate;
+    return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  })();
 
   const basePts = Object.values(checked).filter(Boolean).length;
   const pts = Math.round((basePts + showers * 0.2 + (hydro >= target ? 1 : 0)) * 10) / 10;
@@ -2315,8 +2572,8 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
     if (state.phase === 'saving') return;
     setState({ phase: 'saving', msg: '' });
     try {
-      await window.saveHabitsLive({ warriorId: me.id, date: window.todayISO(), checks: checked, showers, hydrationMl: hydro });
-      setState({ phase: 'ok', msg: 'Habitudes du jour enregistrées ✓' });
+      await window.saveHabitsLive({ warriorId: me.id, date: encDate, checks: checked, showers, hydrationMl: hydro });
+      setState({ phase: 'ok', msg: `Habitudes enregistrées (${isToday ? 'aujourd\u2019hui' : dateLabelFr}) ✓` });
       if (reload) reload();
     } catch (e) {
       setState({ phase: 'err', msg: 'Erreur : ' + (e.message || e) });
@@ -2334,9 +2591,18 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
 
         {/* Today encode */}
         <Card style={{ padding: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-            <Eyebrow>Aujourd'hui</Eyebrow>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+            <Eyebrow>{isToday ? 'Aujourd’hui' : 'Journée encodée'}</Eyebrow>
             <span style={{ fontFamily: SFM, fontSize: 15, fontWeight: 700, color: accent }}>{pts} <span style={{ fontSize: 9, color: ST.inkLow }}>pts</span></span>
+          </div>
+          {/* Date selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '8px 10px', borderRadius: 11, background: ST.inkXLow, border: isToday ? '1px solid transparent' : `1px solid ${accent}55` }}>
+            <span style={{ fontSize: 14 }}>📅</span>
+            <span style={{ flex: 1, fontFamily: SFT, fontSize: 12, color: ST.ink, textTransform: 'capitalize' }}>{dateLabelFr}</span>
+            <input type="date" value={encDate} max={todayIso}
+              onChange={(e) => { if (e.target.value) { setEncDate(e.target.value); setState({ phase: 'idle', msg: '' }); } }}
+              style={{ background: ST.bg0, border: `1px solid ${ST.inkXLow}`, borderRadius: 8, color: accent, fontFamily: SFM, fontSize: 11, padding: '4px 6px', colorScheme: 'dark' }} />
+            {!isToday && <button onClick={() => { setEncDate(todayIso); setState({ phase: 'idle', msg: '' }); }} style={{ background: 'none', border: 'none', color: ST.inkLow, fontFamily: SFM, fontSize: 9.5, cursor: 'pointer', whiteSpace: 'nowrap' }}>auj.</button>}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
             {defs.map((h) => {
@@ -2393,7 +2659,7 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
           {state.phase === 'ok' && <div style={{ marginTop: 8, fontFamily: SFM, fontSize: 10, color: ST.good, textAlign: 'center' }}>✅ {state.msg}</div>}
           {state.phase === 'err' && <div style={{ marginTop: 8, fontFamily: SFM, fontSize: 10, color: ST.bad, textAlign: 'center' }}>{state.msg}</div>}
           <div style={{ marginTop: 8, fontFamily: SFM, fontSize: 8.5, color: ST.inkLow, textAlign: 'center', letterSpacing: 0.4 }}>
-            écrit dans ta base Supabase · date du jour
+            écrit dans ta base Supabase · {isToday ? 'date du jour' : 'date choisie'}
           </div>
         </Card>
 
@@ -2422,12 +2688,31 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
           </Card>
         </div>
 
-        {/* Classement habitudes */}
-        {meta.habitsMonthLb.length > 0 && (
+        {/* Classement habitudes : semaine / mois */}
+        {(meta.habitsWeekLb.length > 0 || meta.habitsMonthLb.length > 0) && (() => {
+          const lb = lbScope === 'week' ? meta.habitsWeekLb : meta.habitsMonthLb;
+          const periodLabel = lbScope === 'week' ? meta.weekLabel : meta.activeMonthLabel;
+          return (
           <div style={{ paddingBottom: 6 }}>
-            <SectionTitle right={meta.activeMonthLabel}>Classement habitudes</SectionTitle>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <SectionTitle style={{ margin: 0 }}>Classement habitudes</SectionTitle>
+              <div style={{ display: 'flex', gap: 0, background: ST.inkXLow, borderRadius: 9, padding: 2 }}>
+                {[['week', 'Semaine'], ['month', 'Mois']].map(([v, lbl]) => (
+                  <button key={v} onClick={() => setLbScope(v)} style={{
+                    padding: '5px 12px', borderRadius: 7, cursor: 'pointer', border: 'none',
+                    background: lbScope === v ? accent : 'transparent',
+                    color: lbScope === v ? ST.bg0 : ST.inkDim,
+                    fontFamily: SFT, fontSize: 11, fontWeight: 700,
+                  }}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ fontFamily: SFM, fontSize: 9, color: ST.inkLow, marginBottom: 6, letterSpacing: 0.3 }}>{periodLabel}</div>
+            {lb.length === 0 ? (
+              <div style={{ fontFamily: SFM, fontSize: 11, color: ST.inkLow, textAlign: 'center', padding: 16 }}>Aucune activité {lbScope === 'week' ? 'cette semaine' : 'ce mois'}.</div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {meta.habitsMonthLb.map((e, i) => {
+              {lb.map((e, i) => {
                 const isMe = e.w.id === me.id;
                 return (
                   <div key={e.w.id} style={{
@@ -2447,8 +2732,10 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
                 );
               })}
             </div>
+            )}
           </div>
-        )}
+          );
+        })()}
       </div>
     </>
   );
@@ -2537,7 +2824,7 @@ function MoreScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, onOpen
 }
 
 Object.assign(window, {
-  DashboardScreen, ClassementScreen, HabitsScreen, MoreScreen, Podium,
+  DashboardScreen, ClassementScreen, HabitsScreen, MoreScreen, Podium, WinnerCard,
 });
 
 </script>
@@ -3476,6 +3763,15 @@ function CorpsScreen({ meta, me, accent, onOpenFiche, reload }) {
     const delta = (b.current != null && b.start != null) ? Math.round((b.current - b.start) * 10) / 10 : null;
     const avg = window.avgPaceKg(b.entries);
     const avgColor = PACE_COLORS[window.bodyPaceColor(b, avg)] || PACE_COLORS.grey;
+    // weekly delta (last gap normalized to 7d) + its color
+    const weekDelta = window.lastWeekDeltaKg(b.entries);
+    let weekColor = PACE_COLORS.grey;
+    if (b.entries && b.entries.length >= 2) {
+      const a = b.entries[b.entries.length - 2], c = b.entries[b.entries.length - 1];
+      const days = Math.max(1, (new Date(c.date) - new Date(a.date)) / 86400000);
+      weekColor = PACE_COLORS[window.bodyPaceColor(b, ((c.weight - a.weight) / days) * 7)] || PACE_COLORS.grey;
+    }
+    const weekTxt = weekDelta != null ? `${weekDelta > 0 ? '+' : ''}${weekDelta} kg` : '—';
     return (
       <Card key={b.w.id} glow={isMe} onClick={() => setSelId(b.w.id)} style={{
         padding: 14, border: `1px solid ${isMe ? accent + '55' : S3.inkXLow}`,
@@ -3487,16 +3783,24 @@ function CorpsScreen({ meta, me, accent, onOpenFiche, reload }) {
             <div style={{ fontFamily: S3FT, fontSize: 14, fontWeight: 600, color: S3.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.w.name}</div>
             <div style={{ fontFamily: S3FM, fontSize: 9, color: S3.inkLow, marginTop: 1 }}>{g.emoji} {g.label}{delta != null ? ` · ${delta > 0 ? '+' : ''}${delta} kg` : ''}</div>
           </div>
-          {/* cadence chip (colored) */}
-          <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0,
-          }}>
-            <span style={{
-              fontFamily: S3FM, fontSize: 11, fontWeight: 700, color: avgColor,
-              padding: '3px 8px', borderRadius: 99, border: `1px solid ${avgColor}55`, background: `${avgColor}1a`,
-              whiteSpace: 'nowrap',
-            }}>{avg != null ? paceText(avg) : '— g/sem'}</span>
-            <span style={{ fontFamily: S3FM, fontSize: 7.5, color: S3.inkLow, letterSpacing: 0.4 }}>CADENCE MOY.</span>
+          {/* cadence + week delta chips (colored) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <span style={{
+                fontFamily: S3FM, fontSize: 10.5, fontWeight: 700, color: weekColor,
+                padding: '3px 7px', borderRadius: 99, border: `1px solid ${weekColor}55`, background: `${weekColor}1a`,
+                whiteSpace: 'nowrap',
+              }}>{weekTxt}</span>
+              <span style={{ fontFamily: S3FM, fontSize: 7, color: S3.inkLow, letterSpacing: 0.3 }}>Δ SEM.</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <span style={{
+                fontFamily: S3FM, fontSize: 10.5, fontWeight: 700, color: avgColor,
+                padding: '3px 7px', borderRadius: 99, border: `1px solid ${avgColor}55`, background: `${avgColor}1a`,
+                whiteSpace: 'nowrap',
+              }}>{avg != null ? paceText(avg) : '—'}</span>
+              <span style={{ fontFamily: S3FM, fontSize: 7, color: S3.inkLow, letterSpacing: 0.3 }}>CADENCE</span>
+            </div>
           </div>
         </div>
         {/* start → current → target */}
