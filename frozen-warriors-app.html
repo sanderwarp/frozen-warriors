@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; background: #03070d; overscroll-behavior: none; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #03070d; overscroll-behavior: none; overflow: hidden; }
   #root { position: fixed; inset: 0; overflow: hidden; }
 </style>
 <style id="fw-splash-style">
@@ -983,7 +983,7 @@ function HiFiCharacter({
 }
 
 Object.assign(window, {
-  HiFiCharacter, HexRadarDark, FrostParticles, ICE, HI_FONT_TITLE, HI_FONT_MONO,
+  HiFiCharacter, HexRadarDark, FrostParticles, CountUp, ICE, HI_FONT_TITLE, HI_FONT_MONO,
 });
 
 </script>
@@ -1136,11 +1136,41 @@ function fwTone(ac, f, start, dur, opts) {
   o.start(start); o.stop(start + dur + 0.03);
 }
 
+// ─── Réglage son global (localStorage) ────────────────────────────────
+function fwSoundOn() { try { return localStorage.getItem('fw_sound') !== 'off'; } catch (e) { return true; } }
+function fwSetSound(on) { try { localStorage.setItem('fw_sound', on ? 'on' : 'off'); } catch (e) {} }
+// Variante de son « douche froide » choisie (3 propositions au thème glacé/eau)
+function fwColdVariant() { try { return localStorage.getItem('fw_cold_snd') || 'shiver'; } catch (e) { return 'shiver'; } }
+function fwSetColdVariant(v) { try { localStorage.setItem('fw_cold_snd', v); } catch (e) {} }
+
+// Bruit filtré (eau / souffle) — brique pour les sons « froid » et « hydratation ».
+function fwNoise(ac, start, dur, opts) {
+  opts = opts || {};
+  const n = Math.max(1, Math.floor(ac.sampleRate * dur));
+  const buf = ac.createBuffer(1, n, ac.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+  const src = ac.createBufferSource(); src.buffer = buf;
+  const filt = ac.createBiquadFilter();
+  filt.type = opts.filter || 'bandpass';
+  filt.frequency.setValueAtTime(opts.freq || 1200, start);
+  if (opts.freqTo) { try { filt.frequency.exponentialRampToValueAtTime(opts.freqTo, start + dur); } catch (e) {} }
+  filt.Q.value = opts.q != null ? opts.q : 0.8;
+  const g = ac.createGain();
+  const peak = opts.gain != null ? opts.gain : 0.1;
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(peak, start + (opts.attack || 0.03));
+  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  src.connect(filt); filt.connect(g); g.connect(ac.destination);
+  src.start(start); src.stop(start + dur + 0.03);
+}
+
 // Body-tracking feedback (poids hebdo) — 3 cas distincts :
 //   'celebration' = dans la cible (victoire, le plus intense)
 //   'good'        = bon sens mais hors cible (pièce rétro, moins intense)
 //   'bad'         = mauvais sens (défaite)
 function playBodySound(type) {
+  if (!fwSoundOn()) return;
   try {
     const ac = fwAudioCtx(); if (!ac) return; try { ac.resume(); } catch (e) {}
     const t = ac.currentTime;
@@ -1160,6 +1190,7 @@ function playBodySound(type) {
 
 // Habit feedback : 'coin' (case cochée) | 'off' (décochée) | 'save' (journée enregistrée)
 function playHabitSound(kind) {
+  if (!fwSoundOn()) return;
   try {
     const ac = fwAudioCtx(); if (!ac) return; try { ac.resume(); } catch (e) {}
     const t = ac.currentTime;
@@ -1173,6 +1204,92 @@ function playHabitSound(kind) {
       fwTone(ac, 1318.51, t + 0.07, 0.4, { type: 'square', gain: 0.17 });
     }
   } catch (e) {}
+}
+
+// ─── Son « douche froide » — 3 propositions au thème glacé/eau ─────────
+//   'shiver' (A · Frisson glacé) : sifflement d'eau + carillon glacé descendant + frisson grave
+//   'drop'   (B · Goutte gelée)  : gouttes d'eau pitchées + paillettes cristallines
+//   'polar'  (C · Souffle polaire): bourrasque filtrée + souffle grave + tintements
+function playColdShowerSound(variant) {
+  if (!fwSoundOn()) return;
+  try {
+    const ac = fwAudioCtx(); if (!ac) return; try { ac.resume(); } catch (e) {}
+    const t = ac.currentTime;
+    const v = variant || fwColdVariant();
+    if (v === 'drop') {
+      fwTone(ac, 1600, t, 0.12, { type: 'sine', gain: 0.13, slideTo: 520 });
+      fwTone(ac, 2100, t + 0.13, 0.14, { type: 'sine', gain: 0.11, slideTo: 720 });
+      fwNoise(ac, t + 0.02, 0.2, { filter: 'highpass', freq: 3800, gain: 0.045 });
+      [2637, 3136].forEach((f, i) => fwTone(ac, f, t + 0.28 + i * 0.05, 0.18, { type: 'triangle', gain: 0.06 }));
+    } else if (v === 'polar') {
+      fwNoise(ac, t, 0.5, { filter: 'bandpass', freq: 600, freqTo: 1900, q: 0.6, gain: 0.09, attack: 0.12 });
+      fwTone(ac, 165, t, 0.5, { type: 'sawtooth', gain: 0.05, slideTo: 88 });
+      [1318, 1568, 1976].forEach((f, i) => fwTone(ac, f, t + 0.18 + i * 0.04, 0.22, { type: 'sine', gain: 0.05 }));
+    } else { // 'shiver'
+      fwNoise(ac, t, 0.22, { filter: 'highpass', freq: 2200, gain: 0.06, attack: 0.02 });
+      [2093, 1760, 1568, 1319].forEach((f, i) => fwTone(ac, f, t + 0.04 + i * 0.07, 0.16, { type: 'triangle', gain: 0.09 }));
+      fwTone(ac, 220, t + 0.05, 0.45, { type: 'sine', gain: 0.06 });
+    }
+  } catch (e) {}
+}
+
+// Son « hydratation » : 'sip' (gorgée, à chaque ajout d'eau) · 'full' (cible atteinte)
+function playHydrationSound(kind) {
+  if (!fwSoundOn()) return;
+  try {
+    const ac = fwAudioCtx(); if (!ac) return; try { ac.resume(); } catch (e) {}
+    const t = ac.currentTime;
+    if (kind === 'full') {
+      [659, 880, 1175].forEach((f, i) => fwTone(ac, f, t + i * 0.08, 0.14, { type: 'triangle', gain: 0.12 }));
+      fwTone(ac, 1568, t + 0.26, 0.4, { type: 'sine', gain: 0.08 });
+    } else { // 'sip' — goutte d'eau qui monte
+      fwTone(ac, 760, t, 0.1, { type: 'sine', gain: 0.12, slideTo: 1180 });
+      fwNoise(ac, t, 0.12, { filter: 'bandpass', freq: 1100, q: 1.2, gain: 0.04, attack: 0.03 });
+    }
+  } catch (e) {}
+}
+
+// Sons d'interface : 'tab' (ouverture d'onglet) · 'react' (encouragement) · 'levelup' (montée de palier)
+function playUiSound(kind) {
+  if (!fwSoundOn()) return;
+  try {
+    const ac = fwAudioCtx(); if (!ac) return; try { ac.resume(); } catch (e) {}
+    const t = ac.currentTime;
+    if (kind === 'tab') {
+      fwTone(ac, 880, t, 0.05, { type: 'sine', gain: 0.05, slideTo: 1320 });
+    } else if (kind === 'react') {
+      fwTone(ac, 1046, t, 0.06, { type: 'triangle', gain: 0.1, slideTo: 1568 });
+      fwTone(ac, 1568, t + 0.05, 0.12, { type: 'sine', gain: 0.07 });
+    } else if (kind === 'levelup') {
+      [523, 659, 784, 1047, 1319].forEach((f, i) => fwTone(ac, f, t + i * 0.09, 0.13, { type: 'square', gain: 0.15 }));
+      fwTone(ac, 1568, t + 0.5, 0.5, { type: 'triangle', gain: 0.13 });
+      fwTone(ac, 2093, t + 0.56, 0.6, { type: 'sine', gain: 0.08 });
+    }
+  } catch (e) {}
+}
+
+// ─── Couleur par rang/animal (rampe gris-bleu → or-électrique) ─────────
+const ANIMAL_COLORS = {
+  'Escargot': '#8b9bb0', 'Écureuil': '#6fb8d6', 'Loup': '#67e8f9',
+  'Tigre': '#5be0c4', 'T-Rex': '#9bdc84', 'Dragon': '#f0a85a', 'Odin': '#ffd23f',
+};
+function animalColor(animal, fallback) {
+  const name = animal && animal.name ? animal.name : animal;
+  return ANIMAL_COLORS[name] || fallback || '#67e8f9';
+}
+
+// ─── Streak d'habitudes : jours consécutifs (jusqu'à aujourd'hui/hier) ──
+async function loadHabitStreakLive(warriorId) {
+  const local = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const today = new Date();
+  const from = new Date(today.getTime() - 120 * 86400000);
+  let map = {};
+  try { map = await loadHabitRangeLive(warriorId, local(from), local(today)) || {}; } catch (e) { return 0; }
+  let streak = 0;
+  const cur = new Date(today);
+  if (!map[local(cur)]) cur.setDate(cur.getDate() - 1); // streak peut compter depuis hier si auj. pas encore encodé
+  while (map[local(cur)]) { streak++; cur.setDate(cur.getDate() - 1); }
+  return streak;
 }
 
 // Write / correct a body entry (one row per warrior+date — re-save updates).
@@ -1883,6 +2000,9 @@ Object.assign(window, {
   loadHabitDayLive, loadHabitRangeLive,
   writeReactionLive, writeFeedLive,
   avgPaceKg, bodyPaceColor, lastWeekDeltaKg, projectionDate, playBodySound, playHabitSound,
+  playColdShowerSound, playHydrationSound, playUiSound,
+  fwSoundOn, fwSetSound, fwColdVariant, fwSetColdVariant,
+  ANIMAL_COLORS, animalColor, loadHabitStreakLive,
   saveBodyEntryLive, deleteBodyEntryLive, createWarriorLive,
 });
 
@@ -1950,12 +2070,13 @@ function SectionTitle({ children, right }) {
 }
 
 function AnimalBadge({ animal, size = 44, ring = true }) {
+  const c = window.animalColor ? window.animalColor(animal, T.accent) : T.accent;
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
       background: `radial-gradient(circle at 35% 30%, ${T.bg2}, ${T.bg0})`,
-      border: ring ? `1.5px solid ${T.accent}` : `1px solid ${T.inkXLow}`,
-      boxShadow: ring ? `0 0 18px ${T.accent}33, inset 0 0 10px ${T.accent}1f` : 'none',
+      border: ring ? `1.5px solid ${c}` : `1px solid ${T.inkXLow}`,
+      boxShadow: ring ? `0 0 18px ${c}44, inset 0 0 10px ${c}22` : 'none',
       display: 'grid', placeItems: 'center', fontSize: size * 0.5,
     }}>{animal ? animal.emoji : '❓'}</div>
   );
@@ -2000,6 +2121,210 @@ function relativeTime(iso) {
   const mo = Math.floor(j / 30); return `il y a ${mo} mois`;
 }
 
+// ─── Game-juice atoms : aurore, liseré HUD, point « live » ─────────────
+// Aurore boréale animée — blob dégradé flou qui dérive + change de teinte.
+function Aurora({ accent = T.accent, height = 360 }) {
+  return (
+    <div aria-hidden="true" style={{
+      position: 'absolute', top: 0, left: 0, right: 0, height, overflow: 'hidden',
+      pointerEvents: 'none', zIndex: 0,
+      WebkitMaskImage: 'linear-gradient(180deg, #000 52%, transparent)',
+      maskImage: 'linear-gradient(180deg, #000 52%, transparent)',
+    }}>
+      <div className="fw-aurora-blob" style={{
+        position: 'absolute', inset: '-25% -15%',
+        background: `radial-gradient(38% 60% at 28% 30%, ${accent}52, transparent 70%), radial-gradient(44% 56% at 72% 36%, #34d39944, transparent 70%), radial-gradient(42% 52% at 52% 70%, #818cf83a, transparent 72%)`,
+        filter: 'blur(32px)', opacity: 0.9,
+        animation: 'fwAurora 17s ease-in-out infinite, fwHue 24s linear infinite alternate',
+      }} />
+    </div>
+  );
+}
+
+// Cadre HUD : liseré conique qui tourne autour du contenu (lumière qui balaie).
+function HudFrame({ children, accent = T.accent, radius = 18, speed = 4.6, style = {} }) {
+  return (
+    <div style={{ position: 'relative', borderRadius: radius, padding: 1.6, overflow: 'hidden', background: T.inkXLow, ...style }}>
+      <div className="fw-hud-sweep" style={{
+        position: 'absolute', inset: '-60%', zIndex: 0,
+        background: `conic-gradient(from 0deg, transparent 0 66%, ${accent} 82%, ${T.accentBright} 90%, transparent 100%)`,
+        animation: `fwSpinBorder ${speed}s linear infinite`,
+      }} />
+      <div style={{ position: 'relative', zIndex: 1, borderRadius: radius - 1.6 }}>{children}</div>
+    </div>
+  );
+}
+
+// Petit point « live » qui clignote (statut en ligne / temps réel).
+function LiveDot({ size = 9, color = T.accent, style = {} }) {
+  return (
+    <span className="fw-livedot" aria-hidden="true" style={{
+      width: size, height: size, borderRadius: '50%', background: color,
+      display: 'inline-block', flexShrink: 0,
+      boxShadow: `0 0 6px ${color}, 0 0 0 0 ${color}`,
+      animation: 'fwLivePulse 1.8s ease-out infinite',
+      ...style,
+    }} />
+  );
+}
+
+// ─── Streak de feu : flamme qui grandit avec les jours consécutifs ─────
+function streakTier(n) {
+  if (n >= 30) return { name: 'Brasier éternel', col: '#ffd23f', scale: 1.46 };
+  if (n >= 14) return { name: 'Inferno', col: '#fb7185', scale: 1.32 };
+  if (n >= 7) return { name: 'Brasier ardent', col: '#fb923c', scale: 1.18 };
+  if (n >= 3) return { name: 'Belle flamme', col: '#f59e0b', scale: 1.04 };
+  return { name: 'Étincelle', col: '#67e8f9', scale: 0.9 };
+}
+function StreakFlame({ days = 0, style = {} }) {
+  const tier = streakTier(days);
+  const lit = days > 0;
+  const col = lit ? tier.col : T.inkLow;
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 13, padding: '12px 15px', borderRadius: 16,
+      background: lit ? `linear-gradient(120deg, ${col}24, ${T.bg0})` : `${T.bg1}cc`,
+      border: `1px solid ${lit ? col + '55' : T.inkXLow}`, ...style,
+    }}>
+      <style>{`
+        @keyframes fwFlick { 0%,100%{transform:scale(var(--s)) translateY(0) rotate(-1.5deg)} 30%{transform:scale(calc(var(--s)*1.08),calc(var(--s)*1.15)) translateY(-1px) rotate(1.5deg)} 60%{transform:scale(calc(var(--s)*0.96),calc(var(--s)*1.05)) rotate(-1deg)} }
+        @media (prefers-reduced-motion: reduce){ .fw-flame{animation:none!important} }
+      `}</style>
+      <div style={{ position: 'relative', width: 46, height: 46, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+        {lit && <div style={{ position: 'absolute', width: 40, height: 40, borderRadius: '50%', background: col, opacity: 0.3, filter: 'blur(12px)' }} />}
+        <span className="fw-flame" style={{
+          ['--s']: tier.scale, fontSize: 26, lineHeight: 1, position: 'relative',
+          filter: lit ? `drop-shadow(0 0 7px ${col})` : 'grayscale(0.7)',
+          opacity: lit ? 1 : 0.45,
+          animation: lit ? 'fwFlick 0.9s ease-in-out infinite' : 'none',
+        }}>🔥</span>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: FM, fontSize: 9.5, letterSpacing: 1.4, color: lit ? col : T.inkLow, textTransform: 'uppercase' }}>Série en cours</div>
+        <div style={{ fontFamily: FT, fontSize: 19, fontWeight: 700, color: T.ink, lineHeight: 1.05 }}>
+          {lit ? <>{days} jour{days > 1 ? 's' : ''} <span style={{ fontSize: 12, fontWeight: 600, color: col }}>· {tier.name}</span></> : 'Aucune série'}
+        </div>
+        <div style={{ fontFamily: FM, fontSize: 9.5, color: T.inkDim, marginTop: 1 }}>
+          {lit ? 'Encode aujourd’hui pour garder la flamme' : 'Encode une journée pour l’allumer 🔥'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Anneaux de progression (façon Apple Watch) ─────────────────
+function ActivityRings({ rings, size = 96, stroke = 9, gap = 4 }) {
+  const cx = size / 2, cy = size / 2;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+      {rings.map((r, i) => {
+        const radius = (size / 2) - stroke / 2 - i * (stroke + gap);
+        const circ = 2 * Math.PI * radius;
+        const v = Math.max(0, Math.min(1, r.value || 0));
+        return (
+          <g key={i}>
+            <circle cx={cx} cy={cy} r={radius} fill="none" stroke={r.color} strokeOpacity={0.16} strokeWidth={stroke} />
+            <circle cx={cx} cy={cy} r={radius} fill="none" stroke={r.color} strokeWidth={stroke}
+              strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - v)}
+              style={{ transition: 'stroke-dashoffset 0.7s cubic-bezier(.2,.8,.2,1)', filter: `drop-shadow(0 0 4px ${r.color}aa)` }} />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── Jauge d'hydratation : verre qui se remplit ───────────────────
+function HydroGauge({ value = 0, max = 2500, accent = T.accent, width = 42, height = 64 }) {
+  const pct = Math.max(0, Math.min(1, max ? value / max : 0));
+  const full = pct >= 1;
+  return (
+    <div style={{
+      position: 'relative', width, height, borderRadius: 11, overflow: 'hidden', flexShrink: 0,
+      border: `1.5px solid ${full ? accent : accent + '66'}`, background: `${T.bg0}`,
+      boxShadow: full ? `0 0 14px ${accent}66` : `inset 0 0 8px ${T.bg0}`,
+    }}>
+      <style>{`
+        @keyframes fwBob { 0%,100%{transform:translateX(-25%)} 50%{transform:translateX(-30%)} }
+        @media (prefers-reduced-motion: reduce){ .fw-wave{animation:none!important} }
+      `}</style>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: `${pct * 100}%`,
+        background: `linear-gradient(180deg, ${accent}, ${accent}aa)`,
+        transition: 'height 0.6s cubic-bezier(.2,.8,.2,1)',
+      }}>
+        <div className="fw-wave" style={{
+          position: 'absolute', top: -4, left: 0, width: '160%', height: 8,
+          background: `radial-gradient(circle at 20% 0, transparent 60%, ${accent} 61%), radial-gradient(circle at 60% 0, transparent 60%, ${accent} 61%)`,
+          backgroundSize: '24px 8px', animation: 'fwBob 2.4s ease-in-out infinite',
+        }} />
+      </div>
+      <div style={{
+        position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
+        fontFamily: FM, fontSize: 11.5, fontWeight: 700, color: pct > 0.52 ? T.bg0 : T.ink,
+        textShadow: pct > 0.52 ? 'none' : `0 1px 3px ${T.bg0}`,
+      }}>{Math.round(pct * 100)}%</div>
+    </div>
+  );
+}
+
+// ─── Montée de palier plein écran (level-up) ───────────────────
+function LevelUpOverlay({ animal, prevAnimal, onDone }) {
+  const c = window.animalColor ? window.animalColor(animal, T.accent) : T.accent;
+  React.useEffect(() => {
+    try { window.playUiSound && window.playUiSound('levelup'); } catch (e) {}
+    const t = setTimeout(onDone, 4400); return () => clearTimeout(t);
+  }, []);
+  const bits = React.useMemo(() => Array.from({ length: 26 }, (_, i) => {
+    const ang = (Math.PI * 2 * i) / 26 + (Math.random() * 0.3 - 0.15);
+    const dist = 90 + Math.random() * 150;
+    return { key: i, dx: Math.cos(ang) * dist, dy: Math.sin(ang) * dist, dur: 0.9 + Math.random() * 0.8, delay: 0.1 + Math.random() * 0.25, ch: ['✦', '✧', '◆', '❄'][i % 4], size: 11 + Math.random() * 14 };
+  }), []);
+  return (
+    <div onClick={onDone} style={{
+      position: 'absolute', inset: 0, zIndex: 95, display: 'grid', placeItems: 'center',
+      background: 'radial-gradient(120% 80% at 50% 42%, rgba(0,0,0,0.72), rgba(0,0,0,0.92))',
+      backdropFilter: 'blur(3px)', cursor: 'pointer',
+    }} className="app-fade">
+      <style>{`
+        @keyframes fwLvlRays { to { transform: rotate(360deg); } }
+        @keyframes fwLvlPop { 0%{transform:scale(.2);opacity:0} 40%{transform:scale(1.18);opacity:1} 60%{transform:scale(.96)} 100%{transform:scale(1);opacity:1} }
+        @keyframes fwLvlText { 0%{opacity:0;transform:translateY(14px)} 100%{opacity:1;transform:translateY(0)} }
+        @keyframes fwLvlBurst { 0%{transform:translate(0,0) scale(.3);opacity:0} 16%{opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(1);opacity:0} }
+        @media (prefers-reduced-motion: reduce){ .fw-lvl-rays{animation:none!important} }
+      `}</style>
+      <div className="fw-lvl-rays" aria-hidden="true" style={{
+        position: 'absolute', width: 520, height: 520,
+        background: `conic-gradient(from 0deg, ${c}00 0deg, ${c}33 12deg, ${c}00 24deg, ${c}00 36deg, ${c}2a 48deg, ${c}00 60deg)`,
+        animation: 'fwLvlRays 14s linear infinite', opacity: 0.7,
+        WebkitMaskImage: 'radial-gradient(circle, #000 30%, transparent 72%)', maskImage: 'radial-gradient(circle, #000 30%, transparent 72%)',
+      }} />
+      {bits.map((b) => (
+        <span key={b.key} style={{
+          position: 'absolute', fontSize: b.size, color: c, ['--dx']: b.dx + 'px', ['--dy']: b.dy + 'px',
+          textShadow: `0 0 8px ${c}`, animation: `fwLvlBurst ${b.dur}s cubic-bezier(.2,.7,.3,1) ${b.delay}s forwards`,
+        }}>{b.ch}</span>
+      ))}
+      <div style={{ position: 'relative', textAlign: 'center', padding: '0 30px' }}>
+        <div style={{ position: 'relative', display: 'grid', placeItems: 'center', marginBottom: 18 }}>
+          <div style={{ position: 'absolute', width: 132, height: 132, borderRadius: '50%', background: c, opacity: 0.22, filter: 'blur(26px)' }} />
+          <div style={{
+            width: 118, height: 118, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 62,
+            background: `radial-gradient(circle at 38% 32%, ${T.bg2}, ${T.bg0})`, border: `2px solid ${c}`,
+            boxShadow: `0 0 40px ${c}88, inset 0 0 22px ${c}33`, animation: 'fwLvlPop 0.9s cubic-bezier(.2,.8,.2,1) both',
+          }}>{animal ? animal.emoji : '⭐'}</div>
+        </div>
+        <div style={{ fontFamily: FM, fontSize: 12, letterSpacing: 5, color: c, textTransform: 'uppercase', animation: 'fwLvlText 0.5s ease-out 0.25s both' }}>✨ Niveau supérieur</div>
+        <div style={{ fontFamily: FT, fontSize: 34, fontWeight: 800, color: '#fff', letterSpacing: -0.5, marginTop: 6, textShadow: `0 0 26px ${c}`, animation: 'fwLvlText 0.5s ease-out 0.38s both' }}>{animal ? animal.name : ''}</div>
+        <div style={{ fontFamily: FM, fontSize: 12, color: T.inkDim, marginTop: 8, animation: 'fwLvlText 0.5s ease-out 0.5s both' }}>
+          {prevAnimal ? <>{prevAnimal.emoji} {prevAnimal.name} → {animal.emoji} {animal.name}</> : 'Tu as franchi un palier !'}
+        </div>
+        <div style={{ fontFamily: FM, fontSize: 9.5, color: T.inkLow, marginTop: 22, letterSpacing: 1, animation: 'fwLvlText 0.5s ease-out 0.7s both' }}>touche pour continuer</div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Top app bar ───────────────────────────────────────────────────────
 function AppBar({ title, sub, me, onProfile, onBell, bellBadge = 0 }) {
   return (
@@ -2013,10 +2338,11 @@ function AppBar({ title, sub, me, onProfile, onBell, bellBadge = 0 }) {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {onBell && (
-          <button onClick={onBell} style={{
+          <button onClick={onBell} className={bellBadge > 0 ? 'fw-pulse' : ''} style={{
             position: 'relative', width: 38, height: 38, borderRadius: 12, cursor: 'pointer',
-            border: `1px solid ${T.inkXLow}`, background: `${T.bg1}cc`, color: T.ink,
+            border: `1px solid ${bellBadge > 0 ? T.accent + '66' : T.inkXLow}`, background: `${T.bg1}cc`, color: T.ink,
             fontSize: 17, display: 'grid', placeItems: 'center', flexShrink: 0,
+            animation: bellBadge > 0 ? 'fwLivePulse 1.9s ease-out infinite' : 'none',
           }}>
             🔔
             {bellBadge > 0 && (
@@ -2035,7 +2361,10 @@ function AppBar({ title, sub, me, onProfile, onBell, bellBadge = 0 }) {
               <div style={{ fontFamily: FM, fontSize: 8.5, color: T.inkLow, letterSpacing: 1, textTransform: 'uppercase' }}>moi</div>
               <div style={{ fontFamily: FT, fontSize: 12, fontWeight: 600, color: T.ink, maxWidth: 78, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{me.name}</div>
             </div>
-            <AnimalBadge animal={me.animal} size={38} />
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <AnimalBadge animal={me.animal} size={38} />
+              <LiveDot size={10} style={{ position: 'absolute', right: -1, bottom: -1, border: `2px solid ${T.bg0}`, boxSizing: 'content-box' }} />
+            </div>
           </div>
         )}
       </div>
@@ -2242,6 +2571,7 @@ function MyProfileSheet({ me, accent, onClose, onChangeIdentity }) {
             <div style={{ fontFamily: FM, fontSize: 9.5, color: T.inkLow }}>{me.hasData ? `#${me.rank} · ${me.animal ? me.animal.name : ''}` : 'aucune mesure'}</div>
           </div>
         </div>
+        <SoundSettings accent={accent} />
         <button onClick={onChangeIdentity} style={{
           width: '100%', padding: '12px', borderRadius: 11, cursor: 'pointer',
           border: `1px solid ${T.inkXLow}`, background: 'transparent', color: T.inkDim,
@@ -2256,6 +2586,58 @@ function MyProfileSheet({ me, accent, onClose, onChangeIdentity }) {
 }
 
 // ─── Profile picker sheet ──────────────────────────────────────────────
+// ─── Réglages son (toggle global + choix du son douche froide) ──────
+function SoundSettings({ accent }) {
+  const [snd, setSnd] = React.useState(() => (window.fwSoundOn ? window.fwSoundOn() : true));
+  const [cold, setCold] = React.useState(() => (window.fwColdVariant ? window.fwColdVariant() : 'shiver'));
+  const setSound = (v) => {
+    setSnd(v);
+    try { window.fwSetSound && window.fwSetSound(v); } catch (e) {}
+    if (v) { try { window.playUiSound && window.playUiSound('react'); } catch (e) {} }
+  };
+  const pickCold = (v) => {
+    setCold(v);
+    try { window.fwSetColdVariant && window.fwSetColdVariant(v); } catch (e) {}
+    try { window.fwSetSound && window.fwSetSound(true); } catch (e) {}
+    setSnd(true);
+    try { window.playColdShowerSound && window.playColdShowerSound(v); } catch (e) {}
+  };
+  const COLD = [['shiver', 'Frisson'], ['drop', 'Goutte'], ['polar', 'Souffle']];
+  return (
+    <div style={{ marginBottom: 12, padding: '11px 13px', borderRadius: 13, background: `${T.bg0}`, border: `1px solid ${T.inkXLow}` }}>
+      <div onClick={() => setSound(!snd)} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+        <span style={{ fontSize: 16 }}>{snd ? '🔊' : '🔇'}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: FT, fontSize: 13, fontWeight: 600, color: T.ink }}>Sons &amp; effets</div>
+          <div style={{ fontFamily: FM, fontSize: 9, color: T.inkLow }}>pièces, fanfares, frissons…</div>
+        </div>
+        <div style={{
+          width: 42, height: 24, borderRadius: 99, flexShrink: 0, position: 'relative',
+          background: snd ? accent : T.inkXLow, transition: 'background 0.2s ease',
+        }}>
+          <div style={{
+            position: 'absolute', top: 3, left: snd ? 21 : 3, width: 18, height: 18, borderRadius: '50%',
+            background: snd ? T.bg0 : T.inkDim, transition: 'left 0.2s cubic-bezier(.2,.8,.2,1)',
+          }} />
+        </div>
+      </div>
+      <div style={{ marginTop: 11, opacity: snd ? 1 : 0.4, pointerEvents: snd ? 'auto' : 'none' }}>
+        <div style={{ fontFamily: FM, fontSize: 8.5, letterSpacing: 1, color: T.inkLow, textTransform: 'uppercase', marginBottom: 6 }}>🚿 Son douche froide · touche pour écouter</div>
+        <div style={{ display: 'flex', gap: 5 }}>
+          {COLD.map(([v, lbl]) => (
+            <button key={v} onClick={() => pickCold(v)} style={{
+              flex: 1, padding: '7px 0', borderRadius: 9, cursor: 'pointer',
+              border: `1px solid ${cold === v ? accent : T.inkXLow}`,
+              background: cold === v ? `${accent}1c` : 'transparent',
+              color: cold === v ? accent : T.inkDim, fontFamily: FT, fontSize: 11, fontWeight: 700,
+            }}>{lbl}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProfileSheet({ warriors, meId, onPick, onClose }) {
   return (
     <div onClick={onClose} style={{
@@ -2340,10 +2722,30 @@ function FWApp({ accent, particlesOn = true }) {
   // Encouragements: write reaction to Supabase, then silent refresh.
   const reactToFeed = React.useCallback((feedId, type, remove) => {
     if (!me || !window.writeReactionLive) return;
+    if (!remove) { try { window.playUiSound && window.playUiSound('react'); } catch (e) {} }
     window.writeReactionLive({ feedId, warriorId: me.id, warriorName: me.name, type, remove })
       .then(() => reload())
       .catch(() => {});
   }, [me, reload]);
+
+  // Détection de montée de palier (level-up) : compare l'animal courant au dernier vu.
+  const [levelUp, setLevelUp] = React.useState(null);
+  React.useEffect(() => {
+    if (!me || !me.animal || !window.ANIMALS) return;
+    const idx = window.ANIMALS.findIndex((a) => a.name === me.animal.name);
+    if (idx < 0) return;
+    const key = 'fw_tier_' + me.id;
+    let stored = null; try { stored = localStorage.getItem(key); } catch (e) {}
+    const storedIdx = stored == null ? null : parseInt(stored, 10);
+    if (storedIdx == null) { try { localStorage.setItem(key, String(idx)); } catch (e) {} return; }
+    if (idx > storedIdx) setLevelUp({ animal: me.animal, prevAnimal: window.ANIMALS[storedIdx] || null });
+    if (idx !== storedIdx) { try { localStorage.setItem(key, String(idx)); } catch (e) {} }
+  }, [me && me.id, me && me.animal && me.animal.name]);
+
+  const goTab = React.useCallback((tb) => {
+    try { window.playUiSound && window.playUiSound('tab'); } catch (e) {}
+    setTab(tb);
+  }, []);
 
   return (
     <div style={{
@@ -2355,8 +2757,24 @@ function FWApp({ accent, particlesOn = true }) {
         @keyframes appSpin { to { transform: rotate(360deg); } }
         @keyframes appFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .app-fade { animation: appFade 0.45s ease-out both; }
-        .app-scroll { overflow-y: auto; overflow-x: hidden; height: 100%; }
+        .app-scroll { overflow-y: auto; overflow-x: hidden; height: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
         .app-scroll::-webkit-scrollbar { width: 0; }
+        @keyframes fwAurora {
+          0%   { transform: translate(-7%, -5%) scale(1.15) rotate(0deg); }
+          50%  { transform: translate(7%, 5%) scale(1.32) rotate(8deg); }
+          100% { transform: translate(-7%, -5%) scale(1.15) rotate(0deg); }
+        }
+        @keyframes fwHue { from { filter: blur(34px) hue-rotate(-14deg); } to { filter: blur(34px) hue-rotate(26deg); } }
+        @keyframes fwSpinBorder { to { transform: rotate(360deg); } }
+        @keyframes fwLivePulse {
+          0%   { box-shadow: 0 0 0 0 rgba(103,232,249,0.55); }
+          70%  { box-shadow: 0 0 0 7px rgba(103,232,249,0); }
+          100% { box-shadow: 0 0 0 0 rgba(103,232,249,0); }
+        }
+        @keyframes fwDotPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.78); } }
+        @media (prefers-reduced-motion: reduce) {
+          .fw-aurora-blob, .fw-hud-sweep, .fw-livedot, .fw-pulse { animation: none !important; }
+        }
       `}</style>
 
       {particlesOn && window.FrostParticles && <window.FrostParticles width={APP_W} height={APP_H} count={22} />}
@@ -2374,13 +2792,13 @@ function FWApp({ accent, particlesOn = true }) {
         <div style={{ position: 'relative', height: '100%', zIndex: 2 }}>
           {/* Screen body */}
           <div className="app-scroll" style={{ paddingTop: 'max(44px, calc(env(safe-area-inset-top) + 8px))', paddingBottom: 'calc(96px + env(safe-area-inset-bottom))', height: '100%' }}>
-            {tab === 'home' && <DashboardScreen me={me} warriors={warriors} meta={meta} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} onTab={setTab} onOpenSub={setSub} onReact={reactToFeed} />}
+            {tab === 'home' && <DashboardScreen me={me} warriors={warriors} meta={meta} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} onTab={goTab} onOpenSub={setSub} onReact={reactToFeed} />}
             {tab === 'rank' && <ClassementScreen warriors={warriors} meId={me && me.id} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} me={me} />}
             {tab === 'habits' && <HabitsScreen me={me} warriors={warriors} meta={meta} accent={acc} onProfile={() => setPickerOpen(true)} reload={reload} />}
             {tab === 'more' && <MoreScreen me={me} warriors={warriors} meta={meta} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} onOpenSub={setSub} />}
           </div>
 
-          <TabBar tab={tab} onTab={setTab} />
+          <TabBar tab={tab} onTab={goTab} />
         </div>
       )}
 
@@ -2444,6 +2862,8 @@ function FWApp({ accent, particlesOn = true }) {
       {pickerOpen && ready && me && (
         <MyProfileSheet me={me} accent={acc} onClose={() => setPickerOpen(false)} onChangeIdentity={clearMe} />
       )}
+
+      {levelUp && <LevelUpOverlay animal={levelUp.animal} prevAnimal={levelUp.prevAnimal} onDone={() => setLevelUp(null)} />}
     </div>
   );
 }
@@ -2467,6 +2887,7 @@ function MiniHex({ values, accent = T.accent, size = 56 }) {
 
 Object.assign(window, {
   Card, Eyebrow, SectionTitle, AnimalBadge, RankPill, ProgressBar,
+  Aurora, HudFrame, LiveDot, StreakFlame, streakTier, ActivityRings, HydroGauge, LevelUpOverlay,
   relativeTime, AppBar, FEED_ICONS, MEDAL, MiniHex, APP_T: T, APP_FT: FT, APP_FM: FM,
 });
 
@@ -2487,32 +2908,40 @@ function pageWrap(children) {
 // ACCUEIL
 // ════════════════════════════════════════════════════════════════════════
 function DashboardScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, onTab, onOpenSub, onReact }) {
-  const { Card, Eyebrow, SectionTitle, AnimalBadge, RankPill, ProgressBar, AppBar, relativeTime, FEED_ICONS, EncouragementBanner, FeedItem, encBadgeCount } = window;
+  const { Card, Eyebrow, SectionTitle, AnimalBadge, RankPill, ProgressBar, AppBar, relativeTime, FEED_ICONS, EncouragementBanner, FeedItem, encBadgeCount, Aurora, HudFrame, LiveDot, CountUp } = window;
   const total = warriors.length;
   const myNext = me.nextAnimal;
   const challenge = meta.challenge;
   const myChallenge = challenge ? challenge.leaderboard.find((e) => e.w.id === me.id) : null;
   const myChallengeRank = myChallenge ? challenge.leaderboard.indexOf(myChallenge) + 1 : null;
   const encBadge = encBadgeCount(meta.feed, me.id);
+  const [streak, setStreak] = React.useState(0);
+  React.useEffect(() => {
+    if (window.loadHabitStreakLive) window.loadHabitStreakLive(me.id).then((n) => setStreak(n || 0)).catch(() => {});
+  }, [me.id]);
 
   return (
-    <>
+    <div style={{ position: 'relative' }}>
+      <Aurora accent={accent} />
+      <div style={{ position: 'relative', zIndex: 1 }}>
       <AppBar title="Tableau de bord" sub="Frozen Warriors · S3" me={me} onProfile={onProfile}
         onBell={() => onOpenSub('encouragements')} bellBadge={encBadge} />
       <div style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
         <EncouragementBanner feed={meta.feed} me={me} accent={accent} onOpen={() => onOpenSub('encouragements')} />
 
-        {/* Hero — my standing */}
+        {/* Hero — my standing (liseré HUD animé) */}
+        <HudFrame accent={accent} radius={18}>
         <Card glow onClick={() => onOpenFiche(me.id)} style={{ padding: 16 }}>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
             <AnimalBadge animal={me.animal} size={62} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <Eyebrow>{me.animal ? me.animal.name : '—'} · niveau</Eyebrow>
               <div style={{ fontFamily: SFT, fontSize: 22, fontWeight: 700, color: ST.ink, lineHeight: 1, margin: '2px 0 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{me.name}</div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <span style={{ fontFamily: SFM, fontSize: 11, fontWeight: 700, color: accent, padding: '2px 8px', borderRadius: 99, background: `${accent}14`, border: `1px solid ${accent}33` }}>#{me.rank}/{total}</span>
-                <span style={{ fontFamily: SFM, fontSize: 11, fontWeight: 700, color: ST.inkDim, padding: '2px 8px', borderRadius: 99, background: ST.inkXLow }}>score {me.total}</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: SFM, fontSize: 11, fontWeight: 700, color: accent, padding: '2px 8px', borderRadius: 99, background: `${accent}14`, border: `1px solid ${accent}33` }}>#<CountUp to={me.rank} dur={850} />/{total}</span>
+                <span style={{ fontFamily: SFM, fontSize: 11, fontWeight: 700, color: ST.inkDim, padding: '2px 8px', borderRadius: 99, background: ST.inkXLow }}>score <CountUp to={me.total} dur={1100} /></span>
+                {streak > 0 && <span style={{ fontFamily: SFM, fontSize: 11, fontWeight: 700, color: '#fb923c', padding: '2px 8px', borderRadius: 99, background: '#fb923c1e', border: '1px solid #fb923c44' }}>🔥 {streak}j</span>}
               </div>
             </div>
             <span style={{ color: ST.inkLow, fontSize: 20 }}>›</span>
@@ -2527,6 +2956,7 @@ function DashboardScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, o
             </div>
           )}
         </Card>
+        </HudFrame>
 
         {/* Quick actions */}
         <div style={{ display: 'flex', gap: 8 }}>
@@ -2618,7 +3048,8 @@ function DashboardScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, o
           </div>
         )}
       </div>
-    </>
+      </div>
+    </div>
   );
 }
 
@@ -2655,7 +3086,13 @@ function Podium({ entries, accent, onOpenFiche, unit = 'pts' }) {
           border: `1px solid ${i === 0 ? accent + '33' : 'transparent'}`,
         }}>
           <RankPill rank={i + 1} />
-          <AnimalBadge animal={e.w.animal} size={30} ring={i === 0} />
+          {i === 0 ? (
+            <span className="fw-pulse" style={{ borderRadius: '50%', display: 'inline-flex', animation: 'fwLivePulse 2.1s ease-out infinite' }}>
+              <AnimalBadge animal={e.w.animal} size={30} ring={true} />
+            </span>
+          ) : (
+            <AnimalBadge animal={e.w.animal} size={30} ring={false} />
+          )}
           <span style={{ flex: 1, fontFamily: SFT, fontSize: 14, fontWeight: i === 0 ? 600 : 500, color: ST.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.w.name}</span>
           <span style={{ fontFamily: SFM, fontSize: 14, fontWeight: 700, color: i === 0 ? accent : ST.inkDim }}>{e.pts != null ? e.pts : e.value}<span style={{ fontSize: 8.5, color: ST.inkLow, marginLeft: 3 }}>{unit}</span></span>
         </div>
@@ -2713,7 +3150,7 @@ function ClassementScreen({ warriors, meId, accent, onOpenFiche, onProfile, me }
 // HABITUDES
 // ════════════════════════════════════════════════════════════════════════
 function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
-  const { AppBar, Card, Eyebrow, SectionTitle, HABIT_DEFS } = window;
+  const { AppBar, Card, Eyebrow, SectionTitle, HABIT_DEFS, StreakFlame, ActivityRings, HydroGauge } = window;
   const defs = (meta && meta.habitDefs) || window.HABIT_DEFS || [];
   // Local interactive encode state
   const [checked, setChecked] = React.useState({});
@@ -2740,6 +3177,13 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
     window.loadHabitRangeLive(me.id, weekDates[0], weekDates[6]).then((s) => setWeekDone(s || {})).catch(() => {});
   }, [me.id, weekDates]);
   React.useEffect(() => { fetchWeek(); }, [fetchWeek]);
+  // Streak de feu : jours consécutifs d'encodage (live).
+  const [streak, setStreak] = React.useState(0);
+  const fetchStreak = React.useCallback(() => {
+    if (!window.loadHabitStreakLive) return;
+    window.loadHabitStreakLive(me.id).then((n) => setStreak(n || 0)).catch(() => {});
+  }, [me.id]);
+  React.useEffect(() => { fetchStreak(); }, [fetchStreak]);
   // Préremplir le formulaire avec les habitudes DÉJÀ enregistrées pour aujourd'hui
   // (au montage / changement de guerrier) — sinon à la réouverture l'écran semble vide.
   React.useEffect(() => {
@@ -2775,6 +3219,30 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
   const basePts = Object.values(checked).filter(Boolean).length;
   const pts = Math.round((basePts + showers * 0.2 + (hydro >= target ? 1 : 0)) * 10) / 10;
 
+  // Anneaux de progression du jour (façon Apple Watch)
+  const ringActivite = Math.min(1, basePts / 8);
+  const coldUnits = showers + (checked.bain_froid ? 1 : 0) + (checked.sauna ? 1 : 0);
+  const ringFroid = Math.min(1, coldUnits / 2);
+  const ringHydro = target ? Math.min(1, hydro / target) : 0;
+  const TEAL = '#5be0c4', ICE = '#a5d8ea';
+  // Ajout d'eau (son « gorgée », ou « cible atteinte » au passage du seuil)
+  const addHydro = (ml) => {
+    setHydro((h) => {
+      const next = h + ml;
+      try {
+        if (h < target && next >= target) window.playHydrationSound && window.playHydrationSound('full');
+        else window.playHydrationSound && window.playHydrationSound('sip');
+      } catch (e) {}
+      return next;
+    });
+    setState({ phase: 'idle', msg: '' });
+  };
+  const addShower = () => {
+    setShowers((s) => s + 1);
+    try { window.playColdShowerSound && window.playColdShowerSound(); } catch (e) {}
+    setState({ phase: 'idle', msg: '' });
+  };
+
   const toggle = (k) => {
     setChecked((c) => {
       const next = { ...c, [k]: !c[k] };
@@ -2809,6 +3277,7 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
       setCelebrate({ pts });
       if (reload) reload();
       fetchWeek();
+      fetchStreak();
     } catch (e) {
       setState({ phase: 'err', msg: 'Erreur : ' + (e.message || e) });
     }
@@ -2822,6 +3291,39 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
     <>
       <AppBar title="Habitudes" sub="Encoder ma journée" me={me} onProfile={onProfile} />
       <div ref={contentRef} style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* Streak de feu */}
+        <StreakFlame days={streak} />
+
+        {/* Anneaux de progression du jour */}
+        <Card style={{ padding: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ position: 'relative', width: 96, height: 96, flexShrink: 0 }}>
+              <ActivityRings size={96} stroke={9} gap={4} rings={[
+                { value: ringActivite, color: accent },
+                { value: ringFroid, color: ICE },
+                { value: ringHydro, color: TEAL },
+              ]} />
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontFamily: SFM, fontSize: 17, fontWeight: 800, color: ST.ink, lineHeight: 1 }}>{pts}</span>
+                <span style={{ fontFamily: SFM, fontSize: 7.5, color: ST.inkLow, letterSpacing: 0.5 }}>PTS</span>
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { c: accent, lbl: 'Activité', v: basePts + '/8 habitudes' },
+                { c: ICE, lbl: 'Froid', v: coldUnits + ' / 2 · douche+sauna' },
+                { c: TEAL, lbl: 'Hydratation', v: (hydro / 1000).toFixed(1) + ' / ' + (target / 1000).toFixed(1) + ' L' },
+              ].map((r) => (
+                <div key={r.lbl} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: r.c, boxShadow: `0 0 6px ${r.c}`, flexShrink: 0 }} />
+                  <span style={{ fontFamily: SFT, fontSize: 11.5, fontWeight: 600, color: ST.ink, width: 78, flexShrink: 0 }}>{r.lbl}</span>
+                  <span style={{ fontFamily: SFM, fontSize: 9.5, color: ST.inkLow, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
 
         {/* Today encode */}
         <Card style={{ padding: 14 }}>
@@ -2871,30 +3373,35 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
             })}
           </div>
 
-          {/* Cold showers + hydration */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <div style={{ flex: 1, padding: '8px 10px', borderRadius: 11, background: ST.inkXLow, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: SFT, fontSize: 11, color: ST.inkDim }}>🚿 Douches froides</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Stepper onMinus={() => setShowers((s) => Math.max(0, s - 1))} onPlus={() => setShowers((s) => s + 1)} accent={accent} />
-                <span style={{ fontFamily: SFM, fontSize: 13, fontWeight: 700, color: accent, width: 14, textAlign: 'center' }}>{showers}</span>
+          {/* Cold showers — ligne agrandie, son glacé à chaque ajout */}
+          <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 14, background: `linear-gradient(150deg, ${ICE}1c, ${ST.bg0})`, border: `1px solid ${ICE}30` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 23, background: `${ICE}22`, border: `1px solid ${ICE}44`, boxShadow: showers > 0 ? `0 0 12px ${ICE}55` : 'none' }}>🚿</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: SFT, fontSize: 14, fontWeight: 600, color: ST.ink }}>Douches froides</div>
+                <div style={{ fontFamily: SFM, fontSize: 9.5, color: ST.inkLow, marginTop: 1 }}>+0,2 pt chacune · réveille le guerrier ❄️</div>
               </div>
+              <BigStepper value={showers} onMinus={() => setShowers((s) => Math.max(0, s - 1))} onPlus={addShower} accent={ICE} />
             </div>
           </div>
-          <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 11, background: ST.inkXLow }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontFamily: SFT, fontSize: 11, color: ST.inkDim }}>💧 Hydratation</span>
-              <span style={{ fontFamily: SFM, fontSize: 10, color: hydro >= target ? accent : ST.inkLow }}>{(hydro / 1000).toFixed(1)} / {(target / 1000).toFixed(1)} L</span>
-            </div>
-            <div style={{ display: 'flex', gap: 5 }}>
-              {[0.25, 0.5, 0.5, 0.75].map((l, i) => (
-                <button key={i} onClick={() => setHydro((h) => h + l * 1000)} style={{
-                  flex: 1, padding: '5px 0', borderRadius: 8, cursor: 'pointer',
-                  border: `1px solid ${accent}33`, background: `${accent}10`, color: accent,
-                  fontFamily: SFM, fontSize: 10, fontWeight: 700,
-                }}>+{l}L</button>
-              ))}
-              <button onClick={() => setHydro(0)} style={{ padding: '5px 9px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${ST.inkXLow}`, background: 'transparent', color: ST.inkLow, fontFamily: SFM, fontSize: 10 }}>↺</button>
+          {/* Hydration — jauge qui se remplit + ajout d'eau sonore */}
+          <div style={{ marginTop: 8, padding: '12px 14px', borderRadius: 14, background: `linear-gradient(150deg, ${TEAL}16, ${ST.bg0})`, border: `1px solid ${TEAL}2e`, display: 'flex', gap: 13, alignItems: 'center' }}>
+            <HydroGauge value={hydro} max={target} accent={TEAL} width={42} height={66} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                <span style={{ fontFamily: SFT, fontSize: 14, fontWeight: 600, color: ST.ink }}>💧 Hydratation</span>
+                <span style={{ fontFamily: SFM, fontSize: 11, fontWeight: 700, color: hydro >= target ? TEAL : ST.inkLow }}>{(hydro / 1000).toFixed(2)} / {(target / 1000).toFixed(1)} L</span>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[0.25, 0.5, 0.75].map((l, i) => (
+                  <button key={i} onClick={() => addHydro(l * 1000)} style={{
+                    flex: 1, padding: '9px 0', borderRadius: 10, cursor: 'pointer',
+                    border: `1px solid ${TEAL}55`, background: `${TEAL}16`, color: TEAL,
+                    fontFamily: SFM, fontSize: 12, fontWeight: 700,
+                  }}>+{l}L</button>
+                ))}
+                <button onClick={() => { setHydro(0); setState({ phase: 'idle', msg: '' }); }} style={{ padding: '9px 12px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${ST.inkXLow}`, background: 'transparent', color: ST.inkLow, fontFamily: SFM, fontSize: 13 }}>↺</button>
+              </div>
             </div>
           </div>
           <button onClick={doSave} disabled={state.phase === 'saving'} style={{
@@ -3053,11 +3560,56 @@ function Stepper({ onMinus, onPlus, accent }) {
   );
 }
 
+// Stepper agrandi (cibles tactiles 40px) pour la ligne douche froide.
+function BigStepper({ value, onMinus, onPlus, accent }) {
+  const btn = {
+    width: 40, height: 40, borderRadius: 12, cursor: 'pointer',
+    border: `1px solid ${accent}55`, background: `${accent}18`, color: accent,
+    fontFamily: SFM, fontSize: 22, fontWeight: 700, display: 'grid', placeItems: 'center', lineHeight: 1,
+  };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
+      <button onClick={onMinus} style={btn}>−</button>
+      <span style={{ fontFamily: SFM, fontSize: 20, fontWeight: 800, color: value > 0 ? accent : ST.inkDim, minWidth: 20, textAlign: 'center' }}>{value}</span>
+      <button onClick={onPlus} style={btn}>+</button>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // PLUS (more menu)
 // ════════════════════════════════════════════════════════════════════════
+// Hauts faits : calcule la liste des badges (acquis / verrouillés) depuis les données live.
+function computeBadges(me, meta, streak) {
+  const inTop = (lb, n) => !!(lb && lb.slice(0, n).some((e) => e.w && e.w.id === me.id));
+  const myBody = ((meta && meta.body) || []).find((b) => b.w && b.w.id === me.id);
+  const challengeWon =
+    !!(meta && meta.challengeWinner && meta.challengeWinner.w && meta.challengeWinner.w.id === me.id) ||
+    !!(meta && meta.prevChallengeWinner && meta.prevChallengeWinner.w && meta.prevChallengeWinner.w.id === me.id);
+  return [
+    { emoji: '🩸', label: 'Baptême', sub: 'Première mesure', earned: !!me.hasData },
+    { emoji: me.animal ? me.animal.emoji : '⭐', label: me.animal ? me.animal.name : 'Niveau', sub: 'Palier actuel', earned: !!me.hasData, col: window.animalColor ? window.animalColor(me.animal) : null },
+    { emoji: '🥇', label: 'Podium fitness', sub: 'Top 3 au classement', earned: !!me.hasData && me.rank <= 3 },
+    { emoji: '🔥', label: 'Série de 7', sub: '7 jours d’affilée', earned: streak >= 7, col: '#fb923c' },
+    { emoji: '❄️', label: 'Série de 30', sub: '30 jours d’affilée', earned: streak >= 30, col: '#ffd23f' },
+    { emoji: '👑', label: 'Roi des habitudes', sub: 'Top 3 du mois', earned: inTop(meta && meta.habitsMonthLb, 3) },
+    { emoji: '💪', label: 'Assidu', sub: '15 jours actifs / mois', earned: (me.habitDaysMonth || 0) >= 15 },
+    { emoji: '⚔️', label: 'Compétiteur', sub: 'Inscrit à un challenge', earned: me.challengeRank != null },
+    { emoji: '🏆', label: 'Champion', sub: 'Challenge remporté', earned: challengeWon },
+    { emoji: '🏖️', label: 'Beach body', sub: 'Objectif poids atteint', earned: !!(myBody && myBody.pct >= 100) },
+  ];
+}
+
 function MoreScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, onOpenSub }) {
   const { AppBar, Card, Eyebrow, SectionTitle, AnimalBadge } = window;
+  const [streak, setStreak] = React.useState(0);
+  React.useEffect(() => {
+    if (!window.loadHabitStreakLive) return;
+    window.loadHabitStreakLive(me.id).then((n) => setStreak(n || 0)).catch(() => {});
+  }, [me.id]);
+  const badges = computeBadges(me, meta, streak, accent);
+  const earnedCount = badges.filter((b) => b.earned).length;
+  const myIdx = me.animal && window.ANIMALS ? window.ANIMALS.findIndex((a) => a.name === me.animal.name) : -1;
   const items = [
     { icon: '🛡️', label: 'Tous les guerriers', sub: `${warriors.length} membres`, go: 'roster' },
     { icon: '⚔️', label: 'Challenge du mois', sub: meta.challenge ? meta.challenge.title : 'aucun actif', go: 'challenge' },
@@ -3075,24 +3627,57 @@ function MoreScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, onOpen
           <SectionTitle>Échelle des niveaux</SectionTitle>
           <Card style={{ padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
-              {window.ANIMALS.map((a) => {
-                const isMine = me.animal && me.animal.name === a.name;
+              {window.ANIMALS.map((a, i) => {
+                const reached = myIdx >= 0 && i <= myIdx;
+                const isMine = i === myIdx;
+                const ac = window.animalColor ? window.animalColor(a, accent) : accent;
                 return (
                   <div key={a.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
                     <div style={{
                       width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 17,
-                      background: isMine ? `${accent}1f` : ST.inkXLow,
-                      border: `1.5px solid ${isMine ? accent : 'transparent'}`,
-                      boxShadow: isMine ? `0 0 12px ${accent}66` : 'none',
-                      filter: isMine ? 'none' : 'grayscale(0.4)', opacity: isMine ? 1 : 0.8,
+                      background: isMine ? `${ac}26` : reached ? `${ac}16` : ST.inkXLow,
+                      border: `1.5px solid ${isMine ? ac : reached ? ac + '55' : 'transparent'}`,
+                      boxShadow: isMine ? `0 0 12px ${ac}77` : reached ? `0 0 6px ${ac}33` : 'none',
+                      filter: reached ? 'none' : 'grayscale(0.55)', opacity: reached ? 1 : 0.6,
                     }}>{a.emoji}</div>
-                    <span style={{ fontFamily: SFM, fontSize: 7.5, color: isMine ? accent : ST.inkLow, letterSpacing: 0.3, textAlign: 'center' }}>{a.name}</span>
+                    <span style={{ fontFamily: SFM, fontSize: 7.5, color: isMine ? ac : reached ? ST.inkDim : ST.inkLow, letterSpacing: 0.3, textAlign: 'center', fontWeight: isMine ? 700 : 400 }}>{a.name}</span>
                   </div>
                 );
               })}
             </div>
             <div style={{ marginTop: 10, fontFamily: SFM, fontSize: 9.5, color: ST.inkDim, textAlign: 'center' }}>
               Tu es <span style={{ color: accent, fontWeight: 700 }}>{me.animal ? me.animal.emoji + ' ' + me.animal.name : '—'}</span>{me.nextAnimal ? ` · ${me.nextAnimal.min - me.total} pts pour ${me.nextAnimal.emoji}` : ' · niveau max !'}
+            </div>
+          </Card>
+        </div>
+
+        {/* Hauts faits / badges */}
+        <div>
+          <SectionTitle right={`${earnedCount}/${badges.length}`}>Hauts faits</SectionTitle>
+          <Card style={{ padding: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {badges.map((b) => {
+                const col = b.col || accent;
+                return (
+                  <div key={b.label} style={{
+                    width: 'calc(50% - 4px)', boxSizing: 'border-box',
+                    display: 'flex', alignItems: 'center', gap: 9, padding: '9px 10px', borderRadius: 12,
+                    background: b.earned ? `linear-gradient(150deg, ${col}1e, ${ST.bg0})` : ST.inkXLow,
+                    border: `1px solid ${b.earned ? col + '55' : 'transparent'}`,
+                    opacity: b.earned ? 1 : 0.5,
+                  }}>
+                    <span style={{
+                      width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 18,
+                      background: b.earned ? `${col}24` : ST.bg0, border: `1px solid ${b.earned ? col + '44' : ST.inkXLow}`,
+                      boxShadow: b.earned ? `0 0 10px ${col}44` : 'none',
+                    }}>{b.earned ? b.emoji : '🔒'}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: SFT, fontSize: 11.5, fontWeight: 700, color: b.earned ? ST.ink : ST.inkLow, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.label}</div>
+                      <div style={{ fontFamily: SFM, fontSize: 8, color: ST.inkLow, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.sub}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
         </div>
@@ -4529,7 +5114,7 @@ function MobileRoot(){
   // d'adresse iOS nativement, sans re-render au scroll (sinon l'écran « remonte tout seul »).
   return (
     <React.Fragment>
-      <style>{`.fw-app-root{height:100vh;height:100dvh;width:100%;}`}</style>
+      <style>{`.fw-app-root{height:100%;width:100%;}`}</style>
       <div className="fw-app-root"><FWApp accent="#67e8f9" particlesOn={true} /></div>
     </React.Fragment>
   );
