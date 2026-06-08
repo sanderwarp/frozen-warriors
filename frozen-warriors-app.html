@@ -2778,6 +2778,21 @@ function HabitsScreen({ me, warriors, meta, accent, onProfile, reload }) {
       await window.saveHabitsLive({ warriorId: me.id, date: encDate, checks: checked, showers, hydrationMl: hydro });
       setState({ phase: 'ok', msg: `Habitudes enregistrées (${isToday ? 'aujourd\u2019hui' : dateLabelFr}) ✓` });
       try { window.playHabitSound && window.playHabitSound('save'); } catch (e2) {}
+      // Feed: chaque encodage d'habitude publie un message (id déterministe → anti-doublon par jour)
+      try {
+        if (window.writeFeedLive) {
+          const labels = (defs || []).filter((h) => checked[h.key]).map((h) => h.label);
+          if (showers > 0) labels.push(showers + '× douche froide');
+          if (target > 0 && hydro >= target) labels.push('hydratation ✓');
+          const summary = labels.length ? labels.slice(0, 5).join(' · ') + (labels.length > 5 ? '…' : '') : 'séance encodée';
+          const dayTxt = isToday ? 'aujourd\u2019hui' : dateLabelFr;
+          window.writeFeedLive({
+            id: 'fd_habit_' + me.id + '_' + encDate,
+            type: 'habit_entry', warriorId: me.id,
+            message: me.name + ' a encodé ses habitudes (' + dayTxt + ') · ' + pts + ' pts — ' + summary,
+          });
+        }
+      } catch (e3) {}
       setCelebrate({ pts });
       if (reload) reload();
       fetchWeek();
@@ -3688,6 +3703,49 @@ function WeightSpark({ entries, width = 90, height = 28, color }) {
   );
 }
 
+// Mini-courbe « tech » pleine largeur pour les cartes membres : aire dégradée,
+// ligne accent + glow, points jalons discrets, et DERNIÈRE mesure = point bleu
+// qui clignote/pulse (halo identique aux pics du radar fitness).
+function WeightSparkTech({ entries, accent, gid, height = 48 }) {
+  if (!entries || entries.length < 2) return null;
+  const W = 320, padX = 6, padT = 9, padB = 8;
+  const ws = entries.map((e) => e.weight);
+  const min = Math.min.apply(null, ws), max = Math.max.apply(null, ws);
+  const span = Math.max(0.4, max - min);
+  const n = ws.length;
+  const xAt = (i) => padX + (n <= 1 ? 0 : (i / (n - 1)) * (W - padX * 2));
+  const yAt = (w) => padT + (1 - (w - min) / span) * (height - padT - padB);
+  const pts = ws.map((w, i) => [xAt(i), yAt(w)]);
+  const line = 'M' + pts.map((p) => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' L');
+  const last = pts[n - 1];
+  const area = line + ' L' + last[0].toFixed(1) + ',' + (height - 1) + ' L' + pts[0][0].toFixed(1) + ',' + (height - 1) + ' Z';
+  const id = 'ws_' + String(gid || 'x').replace(/[^a-zA-Z0-9_]/g, '');
+  return (
+    <svg viewBox={'0 0 ' + W + ' ' + height} width="100%" style={{ display: 'block', overflow: 'visible' }}>
+      <defs>
+        <linearGradient id={id + '_f'} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={accent} stopOpacity="0.30" />
+          <stop offset="100%" stopColor={accent} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={'url(#' + id + '_f)'} />
+      <path d={line} fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        style={{ filter: `drop-shadow(0 0 3px ${accent}99)` }} />
+      {pts.slice(0, -1).map((p, i) => (
+        <circle key={i} cx={p[0]} cy={p[1]} r="1.4" fill={accent} opacity="0.4" />
+      ))}
+      {/* dernière mesure : point bleu qui clignote/pulse */}
+      <circle cx={last[0]} cy={last[1]} r="3" fill={accent} opacity="0.45">
+        <animate attributeName="r" values="3;11;3" dur="1.8s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.55;0;0.55" dur="1.8s" repeatCount="indefinite" />
+      </circle>
+      <circle cx={last[0]} cy={last[1]} r="3.1" fill={accent} stroke="#eaf9ff" strokeWidth="0.8">
+        <animate attributeName="opacity" values="1;0.5;1" dur="1.8s" repeatCount="indefinite" />
+      </circle>
+    </svg>
+  );
+}
+
 // Multi-series line chart (responsive via viewBox). entries: [{date, ...}].
 // series: [{ key, label, color }]. Connects non-null points, breaks on gaps.
 function LineChartMulti({ entries, series, yMin, yMax, height = 120, unit = '', integer = false }) {
@@ -4119,6 +4177,15 @@ function CorpsScreen({ meta, me, accent, onOpenFiche, reload }) {
           <span style={{ color: S3.inkLow }}>cible {b.target != null ? b.target + 'kg' : '—'}</span>
         </div>
         <ProgressBar value={b.pct} max={100} color={g.color} height={7} />
+        {b.entries && b.entries.length >= 2 && (
+          <div style={{ marginTop: 9, padding: '7px 10px 5px', borderRadius: 11, background: S3.bg0, border: `1px solid ${S3.inkXLow}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
+              <span style={{ fontFamily: S3FM, fontSize: 7.5, letterSpacing: 0.6, color: S3.inkLow }}>COURBE POIDS</span>
+              <span style={{ fontFamily: S3FM, fontSize: 7.5, color: S3.inkLow }}>{b.entries.length} mesures</span>
+            </div>
+            <WeightSparkTech entries={b.entries} accent={accent} gid={b.w.id} />
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: S3FM, fontSize: 9, color: S3.inkDim, marginTop: 5 }}>
           <span style={{ color: S3.inkLow }}>🕑 {b.lastDate ? fmtDateShort(b.lastDate) : '—'}</span>
           <span>{b.pct}% · voir les courbes ›</span>
