@@ -590,7 +590,7 @@ function SparkDark({ values, width = 70, height = 22, accent = ICE.accent, trend
 }
 
 // ─── Header ────────────────────────────────────────────────────────────
-function HFHeader() {
+function HFHeader({ onMenu }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -603,11 +603,12 @@ function HFHeader() {
           color: ICE.inkLow, textTransform: 'uppercase',
         }}>Frozen Warriors · S3</span>
       </div>
-      <div style={{
-        width: 26, height: 26, borderRadius: 8,
-        border: `1px solid ${ICE.inkXLow}`,
-        display: 'grid', placeItems: 'center', color: ICE.inkDim, fontSize: 14,
-      }}>≡</div>
+      <button onClick={onMenu} title="Historique des résultats" style={{
+        width: 30, height: 30, borderRadius: 8, cursor: onMenu ? 'pointer' : 'default',
+        border: `1px solid ${onMenu ? ICE.accent + '55' : ICE.inkXLow}`,
+        background: onMenu ? ICE.accent + '14' : 'transparent',
+        display: 'grid', placeItems: 'center', color: onMenu ? ICE.accent : ICE.inkDim, fontSize: 15,
+      }}>≡</button>
     </div>
   );
 }
@@ -847,7 +848,7 @@ function fmtMonth(iso) {
 function HiFiCharacter({
   warrior, teamAvg, totalWarriors,
   accent = ICE.accent, pulse = true, ghostOn = true, particlesOn = true,
-  selector = null,
+  selector = null, onMenu = null,
 }) {
   const w = warrior || WARRIORS[0];
   const avg = teamAvg || TEAM_AVG;
@@ -910,7 +911,7 @@ function HiFiCharacter({
       }} />
 
       <div className="hf-scroll" style={{ paddingTop: 50, paddingBottom: 40, position: 'relative', zIndex: 2 }}>
-        <HFHeader />
+        <HFHeader onMenu={onMenu} />
         {selector}
         <HFIdentity w={w} delta={totalDelta} hasPrev={hasPrev} measuredCount={measuredCount} totalWarriors={total} />
 
@@ -1361,6 +1362,31 @@ async function deleteBodyEntryLive(id) {
   if (!res.ok) throw new Error('HTTP ' + res.status);
 }
 
+// Update / create a body-goal profile (poids départ/cible, cadence, marge, type).
+// Fetches the existing row by warrior to keep its id + untouched fields (calories…).
+async function saveBodyProfileLive({ warriorId, goalType, startWeight, targetWeight, weeklyPace, paceRange }) {
+  const num = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+  let existing = null;
+  try {
+    const ex = await sbFetch('body_profiles?warrior_id=eq.' + encodeURIComponent(warriorId));
+    if (ex && ex.length) existing = ex[0];
+  } catch (e) {}
+  const id = existing ? existing.id : ('bp_' + warriorId + '_' + Date.now());
+  const row = {
+    id, warrior_id: warriorId,
+    goal_type: goalType || (existing && existing.goal_type) || 'recompo',
+    start_weight: num(startWeight),
+    target_weight: num(targetWeight),
+    weekly_pace: num(weeklyPace),
+    pace_range: num(paceRange),
+    calorie_target: existing ? existing.calorie_target : null,
+    protein_target: existing ? existing.protein_target : null,
+    visibility: (existing && existing.visibility) || 'public',
+  };
+  await sbWrite('body_profiles', row, 'resolution=merge-duplicates,return=minimal');
+  return id;
+}
+
 // Create a new warrior (self-registration). Returns the new id.
 async function createWarriorLive({ name, gender, weight, height }) {
   const id = 'w_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -1690,6 +1716,21 @@ async function loadLiveWarriors() {
     (resultsByWarrior[r.warrior_id] = resultsByWarrior[r.warrior_id] || []).push(r);
   });
 
+  // Carry-forward merge: walk sessions oldest→newest and keep the last known
+  // value per test. Mirrors the production app (which pre-fills the form so each
+  // saved row stays complete) — so encoding a NEW session that only fills a few
+  // tests never wipes the others / collapses the score.
+  const RESULT_FIELDS = ['grip_g', 'grip_d', 'deadhang', 'legext', 'backsquat', 'wimhof', 'vo2max', 'broadjump', 'pushups', 'plank_f', 'plank_s', 'bp'];
+  function mergeResultRows(rowsAsc) {
+    const eff = {};
+    rowsAsc.forEach((r) => {
+      RESULT_FIELDS.forEach((f) => { const v = r[f]; if (v != null && v !== '') eff[f] = v; });
+      if (r.legext_mode) eff.legext_mode = r.legext_mode;
+      if (r.date) eff.date = r.date;
+    });
+    return Object.keys(eff).length ? eff : null;
+  }
+
   // Weight lookup for hydration target
   const weightById = {};
   (warriors || []).forEach((w) => { weightById[w.id] = w.weight; });
@@ -1757,20 +1798,33 @@ async function loadLiveWarriors() {
   const built = (warriors || []).map((w) => {
     const warrior = { gender: w.gender || 'homme', weight: w.weight, height: w.height };
     const rs = (resultsByWarrior[w.id] || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const rsAsc = rs.slice().reverse();
     const latest = rs[0] || null;
     const prev = rs[1] || null;
-    const stats = latest ? resultToStats(warrior, latest) : [0, 0, 0, 0, 0, 0];
-    const prevStats = prev ? resultToStats(warrior, prev) : stats;
-    const present = latest ? resultPresence(warrior, latest) : [false, false, false, false, false, false];
-    const prevPresent = prev ? resultPresence(warrior, prev) : present;
+    const latestDate = latest ? latest.date : null;
+    // Effective current standing (carry-forward) + previous (everything before the latest session).
+    const effLatest = mergeResultRows(rsAsc);
+    const effPrev = mergeResultRows(latestDate ? rsAsc.filter((r) => String(r.date) < String(latestDate)) : []);
+    const stats = effLatest ? resultToStats(warrior, effLatest) : [0, 0, 0, 0, 0, 0];
+    const prevStats = effPrev ? resultToStats(warrior, effPrev) : stats;
+    const present = effLatest ? resultPresence(warrior, effLatest) : [false, false, false, false, false, false];
+    const prevPresent = effPrev ? resultPresence(warrior, effPrev) : present;
 
-    // Per-axis history (chronological asc), one point per test session
-    const chrono = rs.slice().reverse();
-    const histByCat = [0, 1, 2, 3, 4, 5].map((axis) =>
-      chrono.map((r) => resultToStats(warrior, r)[axis])
-    );
+    // Per-session cumulative snapshots (carry-forward) → history list + per-axis charts.
+    const acc = {};
+    const sessions = rsAsc.map((r) => {
+      RESULT_FIELDS.forEach((f) => { const v = r[f]; if (v != null && v !== '') acc[f] = v; });
+      if (r.legext_mode) acc.legext_mode = r.legext_mode;
+      const snap = Object.assign({}, acc);
+      const st = resultToStats(warrior, snap);
+      const tot = calcScoreLive(warrior, snap).total;
+      const entered = {};
+      RESULT_FIELDS.forEach((f) => { if (r[f] != null && r[f] !== '') entered[f] = parseFloat(r[f]); });
+      return { date: r.date, stats: st, total: Math.round(tot * 10) / 10, entered };
+    });
+    const histByCat = [0, 1, 2, 3, 4, 5].map((axis) => sessions.map((s) => s.stats[axis]));
 
-    const { total } = latest ? calcScoreLive(warrior, latest) : { total: -999 };
+    const { total } = effLatest ? calcScoreLive(warrior, effLatest) : { total: -999 };
     const monthRec = monthAgg[w.id];
 
     // Best raw value per test across all sessions (min for bp, max otherwise)
@@ -1796,6 +1850,8 @@ async function loadLiveWarriors() {
       prevPresent,
       hasPrev: !!prev,
       raw,
+      latestValues: effLatest || null,
+      results: sessions.slice().reverse().map((s) => ({ date: s.date, total: s.total, animal: getAnimal(s.total), stats: s.stats, entered: s.entered })),
       histByCat: histByCat.map((h) => (h.length >= 2 ? h : null)),
       habits: habitDays[w.id] ? habitDays[w.id].size : 0,
       habitPtsMonth: monthRec ? Math.round(monthRec.pts * 10) / 10 : 0,
@@ -2048,7 +2104,7 @@ Object.assign(window, {
   playColdShowerSound, playHydrationSound, playUiSound,
   fwSoundOn, fwSetSound, fwColdVariant, fwSetColdVariant, fwSndChoice, fwSetSndChoice, FW_SND_DEFAULTS,
   ANIMAL_COLORS, animalColor, loadHabitStreakLive,
-  saveBodyEntryLive, deleteBodyEntryLive, createWarriorLive,
+  saveBodyEntryLive, deleteBodyEntryLive, saveBodyProfileLive, createWarriorLive,
 });
 
 </script>
@@ -2791,6 +2847,7 @@ function FWApp({ accent, particlesOn = true }) {
   const { status, list, reload } = useAppData();
   const [tab, setTab] = React.useState('home');
   const [ficheId, setFicheId] = React.useState(null);
+  const [histId, setHistId] = React.useState(null);
   const [sub, setSub] = React.useState(null); // 'challenge' | 'saisie' | 'roster'
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [meId, setMeId] = React.useState(() => {
@@ -2815,6 +2872,7 @@ function FWApp({ accent, particlesOn = true }) {
   const meta = ready ? list._meta : null;
   const me = ready ? (warriors.find((w) => w.id === meId) || null) : null;
   const fiche = ficheId ? warriors.find((w) => w.id === ficheId) : null;
+  const histW = histId ? warriors.find((w) => w.id === histId) : null;
 
   const acc = accent || T.accent;
 
@@ -2837,7 +2895,20 @@ function FWApp({ accent, particlesOn = true }) {
     let stored = null; try { stored = localStorage.getItem(key); } catch (e) {}
     const storedIdx = stored == null ? null : parseInt(stored, 10);
     if (storedIdx == null) { try { localStorage.setItem(key, String(idx)); } catch (e) {} return; }
-    if (idx > storedIdx) setLevelUp({ animal: me.animal, prevAnimal: window.ANIMALS[storedIdx] || null });
+    if (idx > storedIdx) {
+      setLevelUp({ animal: me.animal, prevAnimal: window.ANIMALS[storedIdx] || null });
+      // Publie un message de célébration « montée de niveau » dans le feed (id déterministe = anti-doublon).
+      try {
+        if (window.writeFeedLive) {
+          const prevA = window.ANIMALS[storedIdx] || null;
+          window.writeFeedLive({
+            id: 'fd_lvl_' + me.id + '_' + me.animal.name,
+            type: 'level_up', warriorId: me.id,
+            message: me.name + ' passe au niveau ' + me.animal.emoji + ' ' + me.animal.name + (prevA ? ' (depuis ' + prevA.emoji + ' ' + prevA.name + ')' : '') + ' !',
+          });
+        }
+      } catch (e) {}
+    }
     if (idx !== storedIdx) { try { localStorage.setItem(key, String(idx)); } catch (e) {} }
   }, [me && me.id, me && me.animal && me.animal.name]);
 
@@ -2891,7 +2962,7 @@ function FWApp({ accent, particlesOn = true }) {
         <div style={{ position: 'relative', height: '100%', zIndex: 2 }}>
           {/* Screen body */}
           <div className="app-scroll" style={{ paddingTop: 'max(44px, calc(env(safe-area-inset-top) + 8px))', paddingBottom: 'calc(116px + env(safe-area-inset-bottom))', height: '100%' }}>
-            {tab === 'home' && <DashboardScreen me={me} warriors={warriors} meta={meta} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} onTab={goTab} onOpenSub={setSub} onReact={reactToFeed} />}
+            {tab === 'home' && <DashboardScreen me={me} warriors={warriors} meta={meta} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} onTab={goTab} onOpenSub={setSub} onReact={reactToFeed} onOpenHistory={() => setHistId(me && me.id)} />}
             {tab === 'rank' && <ClassementScreen warriors={warriors} meId={me && me.id} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} me={me} />}
             {tab === 'habits' && <HabitsScreen me={me} warriors={warriors} meta={meta} accent={acc} onProfile={() => setPickerOpen(true)} reload={reload} />}
             {tab === 'more' && <MoreScreen me={me} warriors={warriors} meta={meta} accent={acc} onOpenFiche={setFicheId} onProfile={() => setPickerOpen(true)} onOpenSub={setSub} />}
@@ -2949,6 +3020,7 @@ function FWApp({ accent, particlesOn = true }) {
               pulse={true}
               ghostOn={true}
               particlesOn={particlesOn}
+              onMenu={() => setHistId(ficheId)}
             />
           </div>
           <button onClick={() => setFicheId(null)} style={{
@@ -2959,6 +3031,8 @@ function FWApp({ accent, particlesOn = true }) {
           }}>‹</button>
         </div>
       )}
+
+      {histW && <ResultsHistory w={histW} accent={acc} onClose={() => setHistId(null)} />}
 
       {pickerOpen && ready && me && (
         <MyProfileSheet me={me} accent={acc} onClose={() => setPickerOpen(false)} onChangeIdentity={clearMe} />
@@ -3008,7 +3082,7 @@ function pageWrap(children) {
 // ════════════════════════════════════════════════════════════════════════
 // ACCUEIL
 // ════════════════════════════════════════════════════════════════════════
-function DashboardScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, onTab, onOpenSub, onReact }) {
+function DashboardScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, onTab, onOpenSub, onReact, onOpenHistory }) {
   const { Card, Eyebrow, SectionTitle, AnimalBadge, RankPill, ProgressBar, AppBar, relativeTime, FEED_ICONS, EncouragementBanner, FeedItem, encBadgeCount, Aurora, HudFrame, LiveDot, CountUp } = window;
   const total = warriors.length;
   const myNext = me.nextAnimal;
@@ -3060,15 +3134,20 @@ function DashboardScreen({ me, warriors, meta, accent, onOpenFiche, onProfile, o
         {/* Quick actions */}
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => onOpenSub && onOpenSub('saisie')} style={{
-            flex: 1, padding: '12px 10px', borderRadius: 14, cursor: 'pointer',
+            flex: 1, padding: '11px 6px', borderRadius: 14, cursor: 'pointer',
             border: `1px solid ${accent}33`, background: `${accent}12`, color: ST.ink,
-            fontFamily: SFT, fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}><span style={{ fontSize: 15 }}>＋</span> Saisir un résultat</button>
-          <button onClick={() => onOpenSub && onOpenSub('roster')} style={{
-            flex: 1, padding: '12px 10px', borderRadius: 14, cursor: 'pointer',
+            fontFamily: SFT, fontSize: 11, fontWeight: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+          }}><span style={{ fontSize: 17 }}>＋</span> Saisir</button>
+          <button onClick={() => onOpenHistory && onOpenHistory()} style={{
+            flex: 1, padding: '11px 6px', borderRadius: 14, cursor: 'pointer',
             border: `1px solid ${ST.inkXLow}`, background: `${ST.bg1}cc`, color: ST.ink,
-            fontFamily: SFT, fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}><span style={{ fontSize: 14 }}>🛡️</span> Guerriers</button>
+            fontFamily: SFT, fontSize: 11, fontWeight: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+          }}><span style={{ fontSize: 17 }}>📜</span> Mes résultats</button>
+          <button onClick={() => onOpenSub && onOpenSub('roster')} style={{
+            flex: 1, padding: '11px 6px', borderRadius: 14, cursor: 'pointer',
+            border: `1px solid ${ST.inkXLow}`, background: `${ST.bg1}cc`, color: ST.ink,
+            fontFamily: SFT, fontSize: 11, fontWeight: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+          }}><span style={{ fontSize: 17 }}>🛡️</span> Guerriers</button>
         </div>
 
         {/* Challenge du mois */}
@@ -3926,8 +4005,16 @@ function SaisieScreen({ me, accent, reload }) {
   const TEST_META = window.TEST_META;
   const CAT_ORDER = window.CAT_ORDER;
   const AXES = window.AXES;
-  const [vals, setVals] = React.useState({});
-  const [legMode, setLegMode] = React.useState('legext');
+  const [vals, setVals] = React.useState(() => {
+    const lv = (me && me.latestValues) || null;
+    if (!lv) return {};
+    const o = {};
+    ['grip_g', 'grip_d', 'deadhang', 'legext', 'backsquat', 'wimhof', 'vo2max', 'broadjump', 'pushups', 'plank_f', 'plank_s', 'bp'].forEach((f) => {
+      if (lv[f] != null && lv[f] !== '') o[f] = String(lv[f]);
+    });
+    return o;
+  });
+  const [legMode, setLegMode] = React.useState(() => (me && me.latestValues && me.latestValues.legext_mode) || 'legext');
   const [state, setState] = React.useState({ phase: 'idle', msg: '' });
 
   const set = (id, v) => { setVals((s) => ({ ...s, [id]: v })); setState({ phase: 'idle', msg: '' }); };
@@ -3998,6 +4085,11 @@ function SaisieScreen({ me, accent, reload }) {
           </div>
           <div style={{ fontFamily: S2FM, fontSize: 11, color: S2.inkDim, padding: '6px 10px', borderRadius: 9, background: S2.inkXLow }}>📅 aujourd'hui</div>
         </div>
+        {me && me.latestValues && (
+          <div style={{ marginTop: 9, fontFamily: S2FM, fontSize: 9.5, color: S2.inkLow, lineHeight: 1.4 }}>
+            ✓ Tes dernières valeurs sont pré-remplies — ne modifie que ce qui change, le reste est conservé.
+          </div>
+        )}
       </Card>
 
       {/* Live score preview (sticky feel) */}
@@ -4149,7 +4241,81 @@ function RosterScreen({ warriors, me, accent, onOpenFiche }) {
   );
 }
 
-Object.assign(window, { ChallengeScreen, SaisieScreen, RosterScreen });
+// ═════════════════════════════════════════════════════════════════
+// HISTORIQUE DES RÉSULTATS (sessions encodées)
+// ═════════════════════════════════════════════════════════════════
+function ResultsHistory({ w, accent, onClose, embedded }) {
+  const { AnimalBadge } = window;
+  const AXES = window.AXES;
+  const TEST_META = window.TEST_META || [];
+  const sessions = (w && w.results) || [];
+  const fmtFr = (iso) => { try { return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return iso; } }
+  const labelFor = (id) => {
+    const t = TEST_META.find((x) => x.id === id) || (id === 'backsquat' ? { label: 'Back squat', unit: 'kg' } : null);
+    return t ? { label: t.label, unit: t.unit } : { label: id, unit: '' };
+  };
+
+  const body = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {sessions.length === 0 ? (
+        <div style={{ padding: '28px 16px', textAlign: 'center', fontFamily: S2FM, fontSize: 12, color: S2.inkLow }}>
+          Aucun résultat encodé pour l'instant.<br />Saisis ton premier bilan depuis l'accueil 💪
+        </div>
+      ) : sessions.map((s, i) => {
+        const prevTot = sessions[i + 1] ? sessions[i + 1].total : null;
+        const delta = prevTot != null ? Math.round((s.total - prevTot) * 10) / 10 : null;
+        const entered = Object.entries(s.entered || {});
+        return (
+          <div key={s.date + '_' + i} style={{ borderRadius: 14, border: `1px solid ${i === 0 ? accent + '44' : S2.inkXLow}`, background: `${S2.bg1}cc`, padding: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+              <AnimalBadge animal={s.animal} size={38} ring={i === 0} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: S2FT, fontSize: 14, fontWeight: 700, color: S2.ink }}>
+                  {s.total} pts <span style={{ fontFamily: S2FM, fontSize: 11, fontWeight: 600, color: S2.inkLow }}>· {s.animal ? s.animal.name : ''}</span>
+                </div>
+                <div style={{ fontFamily: S2FM, fontSize: 9.5, color: S2.inkLow }}>{fmtFr(s.date)}{i === 0 ? ' · dernier bilan' : ''}</div>
+              </div>
+              {delta != null && delta !== 0 && (
+                <span style={{ fontFamily: S2FM, fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 99, color: delta > 0 ? '#5be0c4' : '#fb7185', background: (delta > 0 ? '#5be0c4' : '#fb7185') + '1e' }}>
+                  {delta > 0 ? '▲ +' : '▼ '}{delta}
+                </span>
+              )}
+            </div>
+            {entered.length > 0 && (
+              <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {entered.map(([id, v]) => {
+                  const lf = labelFor(id);
+                  return (
+                    <span key={id} style={{ fontFamily: S2FM, fontSize: 9.5, color: S2.inkDim, padding: '3px 8px', borderRadius: 8, background: S2.inkXLow }}>
+                      {lf.label} <strong style={{ color: S2.ink }}>{v}{lf.unit ? ' ' + lf.unit : ''}</strong>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 60, background: S2.bg0, display: 'flex', flexDirection: 'column' }} className="app-fade">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: 'max(44px, calc(env(safe-area-inset-top) + 8px)) 16px 12px', borderBottom: `1px solid ${S2.inkXLow}`, background: `${S2.bg0}f2`, backdropFilter: 'blur(8px)' }}>
+        <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 11, cursor: 'pointer', border: `1px solid ${S2.inkXLow}`, background: `${S2.bg1}cc`, color: S2.ink, fontSize: 18, display: 'grid', placeItems: 'center', flexShrink: 0 }}>‹</button>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: S2FT, fontSize: 18, fontWeight: 700, color: S2.ink }}>Historique</div>
+          <div style={{ fontFamily: S2FM, fontSize: 10, color: S2.inkLow }}>{w ? w.name : ''} · {sessions.length} bilan{sessions.length > 1 ? 's' : ''}</div>
+        </div>
+      </div>
+      <div className="app-scroll" style={{ flex: 1, padding: '14px 14px calc(40px + env(safe-area-inset-bottom))' }}>{body}</div>
+    </div>
+  );
+}
+
+Object.assign(window, { ChallengeScreen, SaisieScreen, RosterScreen, ResultsHistory });
 
 </script>
 <script type="text/babel" data-from="app-screens3.jsx">
@@ -4658,12 +4824,102 @@ function BodyEncodeForm({ b, me, accent, reload }) {
   );
 }
 
+// Formulaire d'édition des paramètres d'objectif (type, poids départ/cible, cadence, marge).
+function BodyGoalForm({ b, accent, reload, onClose }) {
+  const GOALS = [['perte', '📉 Perte'], ['prise', '📈 Prise'], ['recompo', '🔄 Recomp']];
+  const [goalType, setGoalType] = React.useState(b.goalType || 'recompo');
+  const [vals, setVals] = React.useState({
+    start: b.start != null ? String(b.start) : '',
+    target: b.target != null ? String(b.target) : '',
+    pace: b.weeklyPace != null ? String(b.weeklyPace) : '',
+    range: b.paceRange != null ? String(b.paceRange) : '',
+  });
+  const [state, setState] = React.useState({ phase: 'idle', msg: '' });
+  const set = (k, v) => { setVals((s) => ({ ...s, [k]: v })); setState({ phase: 'idle', msg: '' }); };
+
+  const doSave = async () => {
+    const target = parseFloat(vals.target);
+    const pace = parseFloat(vals.pace);
+    const range = parseFloat(vals.range);
+    if (isNaN(target) || target <= 0) { setState({ phase: 'err', msg: 'Poids cible invalide' }); return; }
+    if (isNaN(pace) || isNaN(range)) { setState({ phase: 'err', msg: 'Cadence et marge obligatoires' }); return; }
+    if (state.phase === 'saving') return;
+    setState({ phase: 'saving', msg: '' });
+    try {
+      await window.saveBodyProfileLive({
+        warriorId: b.w.id, goalType,
+        startWeight: vals.start, targetWeight: vals.target,
+        weeklyPace: vals.pace, paceRange: vals.range,
+      });
+      try { window.playHabitSound && window.playHabitSound('save'); } catch (e) {}
+      setState({ phase: 'ok', msg: 'Paramètres mis à jour ✓' });
+      if (reload) reload();
+      setTimeout(() => { if (onClose) onClose(); }, 700);
+    } catch (e) {
+      setState({ phase: 'err', msg: 'Erreur : ' + (e.message || e) });
+    }
+  };
+
+  const field = (label, k, unit, step) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <label style={{ fontFamily: S3FM, fontSize: 8.5, color: S3.inkLow, letterSpacing: 0.4 }}>{label}</label>
+      <div style={{ display: 'flex', alignItems: 'center', background: S3.inkXLow, borderRadius: 9, padding: '0 9px', border: `1px solid ${S3.inkXLow}` }}>
+        <input value={vals[k]} onChange={(ev) => set(k, ev.target.value)} type="number" step={step || 'any'} inputMode="decimal" placeholder="—"
+          style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: S3.ink, fontFamily: S3FM, fontSize: 14, fontWeight: 700, width: '100%', padding: '9px 0' }} />
+        {unit && <span style={{ fontFamily: S3FM, fontSize: 9, color: S3.inkLow }}>{unit}</span>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ borderRadius: 14, border: `1px solid ${accent}44`, background: `${S3.bg1}cc`, padding: 13, display: 'flex', flexDirection: 'column', gap: 11 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontFamily: S3FT, fontSize: 13, fontWeight: 700, color: S3.ink }}>⚙️ Mes paramètres</span>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: S3.inkLow, fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: 0 }}>✕</button>
+      </div>
+
+      {/* Goal type */}
+      <div>
+        <div style={{ fontFamily: S3FM, fontSize: 8.5, color: S3.inkLow, letterSpacing: 0.4, marginBottom: 5 }}>OBJECTIF</div>
+        <div style={{ display: 'flex', gap: 5 }}>
+          {GOALS.map(([v, lbl]) => {
+            const on = goalType === v;
+            return (
+              <button key={v} onClick={() => { setGoalType(v); setState({ phase: 'idle', msg: '' }); }} style={{
+                flex: 1, padding: '8px 0', borderRadius: 9, cursor: 'pointer',
+                border: `1px solid ${on ? accent : S3.inkXLow}`, background: on ? `${accent}1c` : 'transparent',
+                color: on ? accent : S3.inkDim, fontFamily: S3FT, fontSize: 11, fontWeight: 700,
+              }}>{lbl}</button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
+        {field('POIDS DÉPART', 'start', 'kg', '0.1')}
+        {field('POIDS CIBLE', 'target', 'kg', '0.1')}
+        {field('CADENCE CIBLE', 'pace', 'g/sem', '50')}
+        {field('MARGE ±', 'range', 'g', '50')}
+      </div>
+
+      <button onClick={doSave} disabled={state.phase === 'saving'} style={{
+        padding: '12px', borderRadius: 11, cursor: state.phase === 'saving' ? 'wait' : 'pointer', border: 'none',
+        background: `linear-gradient(135deg, ${S3.accentBright || accent}, ${accent})`, color: S3.bg0,
+        fontFamily: S3FT, fontSize: 14, fontWeight: 700, boxShadow: `0 4px 16px ${accent}44`, opacity: state.phase === 'saving' ? 0.7 : 1,
+      }}>{state.phase === 'saving' ? 'Enregistrement…' : '💾 Enregistrer mes paramètres'}</button>
+      {state.phase === 'ok' && <div style={{ fontFamily: S3FM, fontSize: 10, color: PACE_COLORS.green, textAlign: 'center' }}>✅ {state.msg}</div>}
+      {state.phase === 'err' && <div style={{ fontFamily: S3FM, fontSize: 10, color: PACE_COLORS.red, textAlign: 'center' }}>{state.msg}</div>}
+    </div>
+  );
+}
+
 function BodyDetailScreen({ b, me, accent, onBack, onOpenFiche, reload }) {
   const { AnimalBadge, ProgressBar } = window;
   const g = GOAL_META[b.goalType] || GOAL_META.recompo;
   const entries = b.entries || [];
   const has = (k) => entries.some((e) => e[k] != null);
   const canEdit = me && b.w.id === me.id;
+  const [goalOpen, setGoalOpen] = React.useState(false);
 
   const avg = window.avgPaceKg(entries);
   const weekDelta = window.lastWeekDeltaKg(entries);
@@ -4691,12 +4947,22 @@ function BodyDetailScreen({ b, me, accent, onBack, onOpenFiche, reload }) {
           <div style={{ fontFamily: S3FT, fontSize: 19, fontWeight: 700, color: S3.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.w.name}</div>
           <div style={{ fontFamily: S3FM, fontSize: 10, color: S3.inkLow }}>{g.emoji} {g.label} · {entries.length} encodage{entries.length > 1 ? 's' : ''}</div>
         </div>
-        <button onClick={() => onOpenFiche(b.w.id)} style={{
-          padding: '7px 11px', borderRadius: 10, cursor: 'pointer',
-          border: `1px solid ${accent}33`, background: `${accent}12`, color: accent,
-          fontFamily: S3FM, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
-        }}>radar ›</button>
+        {canEdit ? (
+          <button onClick={() => setGoalOpen((o) => !o)} title="Modifier mes paramètres" style={{
+            width: 38, height: 38, borderRadius: 11, cursor: 'pointer', flexShrink: 0,
+            display: 'grid', placeItems: 'center', fontSize: 16,
+            border: `1px solid ${goalOpen ? accent : accent + '44'}`, background: goalOpen ? `${accent}22` : `${accent}12`, color: accent,
+          }}>✎</button>
+        ) : (
+          <button onClick={() => onOpenFiche(b.w.id)} style={{
+            padding: '7px 11px', borderRadius: 10, cursor: 'pointer',
+            border: `1px solid ${accent}33`, background: `${accent}12`, color: accent,
+            fontFamily: S3FM, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
+          }}>radar ›</button>
+        )}
       </div>
+
+      {canEdit && goalOpen && <BodyGoalForm b={b} accent={accent} reload={reload} onClose={() => setGoalOpen(false)} />}
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)', gap: 8 }}>
@@ -5053,6 +5319,66 @@ function FeedItem({ f, me, accent, onReact }) {
   const isMine = f.warriorId && me && f.warriorId === me.id;
   const shown = local.slice(0, 6);
   const extra = local.length - shown.length;
+
+  // Types « célébration » : encadré or/jaune + pastille dorée (record perso, montée de niveau).
+  const GOLD = '#ffd23f';
+  const celebrate = f.type === 'personal_record' || f.type === 'level_up';
+  const celebLabel = f.type === 'personal_record' ? 'Record personnel' : 'Niveau supérieur';
+
+  if (celebrate) {
+    return (
+      <div style={{
+        display: 'flex', gap: 11, alignItems: 'flex-start', padding: '12px 13px', borderRadius: 14,
+        background: `linear-gradient(135deg, ${GOLD}26, ${GOLD}0d 60%, ${SOC.bg1}cc)`,
+        border: `1px solid ${GOLD}88`, boxShadow: `0 0 18px ${GOLD}22, inset 0 0 16px ${GOLD}0f`,
+      }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: 11, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 20,
+          background: `radial-gradient(circle at 38% 30%, ${GOLD}3a, ${SOC.bg0})`,
+          border: `1px solid ${GOLD}aa`, boxShadow: `0 0 12px ${GOLD}55`,
+        }}>{FEED_ICONS[f.type] || (f.type === 'level_up' ? '🐉' : '🏆')}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: SOCFM, fontSize: 8.5, letterSpacing: 1.4, textTransform: 'uppercase', color: GOLD, fontWeight: 700 }}>✦ {celebLabel}</div>
+          <div style={{ fontFamily: SOCFT, fontSize: 12.5, fontWeight: 600, color: SOC.ink, lineHeight: 1.35, marginTop: 2 }}>{f.message}</div>
+          <div style={{ fontFamily: SOCFM, fontSize: 8.5, color: SOC.inkLow, marginTop: 3 }}>
+            {relativeTime(f.createdAt)}{isMine ? ' · toi' : ''}
+          </div>
+
+          {local.length > 0 && (
+            <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, cursor: 'pointer' }}>
+              <div style={{ display: 'flex' }}>
+                {shown.map((r, i) => (
+                  <div key={r.id || i} style={{ marginLeft: i === 0 ? 0 : -7, position: 'relative' }}>
+                    <ReactorDot animal={r.animal} />
+                    <span style={{ position: 'absolute', right: -3, bottom: -3, fontSize: 9 }}>{(REACTION_BY_TYPE[r.type] || {}).emoji}</span>
+                  </div>
+                ))}
+              </div>
+              {extra > 0 && <span style={{ fontFamily: SOCFM, fontSize: 10, color: SOC.inkLow, marginLeft: 2 }}>+{extra}</span>}
+            </div>
+          )}
+
+          {open && local.length > 0 && (
+            <div style={{ marginTop: 7, display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 9px', borderRadius: 10, background: `${SOC.bg2}aa`, border: `1px solid ${SOC.inkXLow}` }}>
+              {local.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).map((r, i) => (
+                <div key={r.id || i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ReactorDot animal={r.animal} size={18} ring={SOC.bg2} />
+                  <span style={{ flex: 1, fontFamily: SOCFT, fontSize: 11, color: SOC.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {r.warriorId === (me && me.id) ? 'Toi' : r.warriorName}
+                  </span>
+                  <span style={{ fontSize: 12 }}>{(REACTION_BY_TYPE[r.type] || {}).emoji}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ marginTop: 8 }}>
+            <ReactionBar reactions={local} mine={mine} onReact={react} accent={GOLD} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
